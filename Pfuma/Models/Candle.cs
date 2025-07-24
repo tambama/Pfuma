@@ -5,7 +5,7 @@ namespace Pfuma.Models;
 
 public class Candle
 {
-    public Candle(Bar bar, int index)
+    public Candle(Bar bar, int index, TimeFrame timeFrame = null)
     {
         Index = index;
         Time = bar.OpenTime;
@@ -13,6 +13,7 @@ public class Candle
         High = bar.High;
         Low = bar.Low;
         Close = bar.Close;
+        TimeFrame = timeFrame;
     }
 
     public int? Index { get; set; }
@@ -21,6 +22,9 @@ public class Candle
     public double High { get; set; }
     public double Low { get; set; }
     public double Close { get; set; }
+    
+    // Timeframe tracking
+    public TimeFrame TimeFrame { get; set; }
     
     // High Timeframe
     public bool IsHighTimeframe { get; set; }

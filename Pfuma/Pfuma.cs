@@ -1,6 +1,9 @@
 using cAlgo.API;
 using System.Collections.Generic;
 using System;
+using System.Linq;
+using cAlgo.API.Internals;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Services;
 
@@ -48,7 +51,7 @@ namespace Pfuma
                 try
                 {
                     // Create a new candle object from the previous bar
-                    var candle = new Candle(_previousBar, _previousBarIndex);
+                    var candle = new Candle(_previousBar, _previousBarIndex, TimeFrame);
 
                     // Pass the current bar properties to the regular swing detector
                     _swingDetector.ProcessBar(_previousBarIndex, candle);
