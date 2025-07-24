@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "epUAflpvFVo=",
+  "success": true,
+  "projectFilePath": "/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/Pfuma.csproj",
+  "expectedPackageFiles": [
+    "/Users/peniel/.nuget/packages/ctrader.automate/1.0.12/ctrader.automate.1.0.12.nupkg.sha512",
+    "/Users/peniel/.nuget/packages/newtonsoft.json/13.0.1/newtonsoft.json.13.0.1.nupkg.sha512",
+    "/Users/peniel/.nuget/packages/telegram.bot/19.0.0/telegram.bot.19.0.0.nupkg.sha512",
+    "/Users/peniel/.nuget/packages/microsoft.netcore.app.ref/6.0.33/microsoft.netcore.app.ref.6.0.33.nupkg.sha512",
+    "/Users/peniel/.nuget/packages/microsoft.aspnetcore.app.ref/6.0.33/microsoft.aspnetcore.app.ref.6.0.33.nupkg.sha512"
+  ],
+  "logs": []
+}

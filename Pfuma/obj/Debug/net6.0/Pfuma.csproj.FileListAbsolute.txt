@@ -1,0 +1,12 @@
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/bin/Debug/net6.0/Pfuma.deps.json
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/bin/Debug/net6.0/Pfuma.dll
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/bin/Debug/net6.0/Pfuma.pdb
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.csproj.AssemblyReference.cache
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.GeneratedMSBuildEditorConfig.editorconfig
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.AssemblyInfoInputs.cache
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.AssemblyInfo.cs
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.csproj.CoreCompileInputs.cache
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.dll
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/refint/Pfuma.dll
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.pdb
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/ref/Pfuma.dll
