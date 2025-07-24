@@ -10,3 +10,4 @@
 /Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/refint/Pfuma.dll
 /Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.pdb
 /Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/ref/Pfuma.dll
+/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/Debug/net6.0/Pfuma.sourcelink.json
