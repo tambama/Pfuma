@@ -45,8 +45,107 @@
         "DefaultValue": true,
         "ParameterType": "Boolean",
         "PropertyName": "ShowSwingPoints",
-        "FriendlyName": "Swing Points",
-        "GroupName": null,
+        "FriendlyName": "Show Swing Points",
+        "GroupName": "Swing Points",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowFVG",
+        "FriendlyName": "Show FVG",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowOrderBlock",
+        "FriendlyName": "Show Order Blocks",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowOrderFlow",
+        "FriendlyName": "Show Order Flow",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowLiquiditySweep",
+        "FriendlyName": "Show Liquidity Sweep",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowStructure",
+        "FriendlyName": "Show Structure",
+        "GroupName": "Market Structure",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowChoch",
+        "FriendlyName": "Show CHoCH",
+        "GroupName": "Market Structure",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowMacros",
+        "FriendlyName": "Show Macros",
+        "GroupName": "Time",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "MinValue": -2147483648,
+        "MaxValue": 2147483647,
+        "Step": 1,
+        "DefaultValue": -4,
+        "ParameterType": "Integer",
+        "PropertyName": "UtcOffset",
+        "FriendlyName": "UTC Offset",
+        "GroupName": "Time",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "EnableLog",
+        "FriendlyName": "Enable Log",
+        "GroupName": "Notifications",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "EnableTelegram",
+        "FriendlyName": "Enable Telegram",
+        "GroupName": "Notifications",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": "",
+        "ParameterType": "String",
+        "PropertyName": "TelegramChatId",
+        "FriendlyName": "Telegram Chat ID",
+        "GroupName": "Notifications",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": "",
+        "ParameterType": "String",
+        "PropertyName": "TelegramToken",
+        "FriendlyName": "Telegram Token",
+        "GroupName": "Notifications",
         "IsValueVisibleInTitle": true
       }
     ],
