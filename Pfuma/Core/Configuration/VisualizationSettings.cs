@@ -22,4 +22,7 @@ public class VisualizationSettings
     
     // Notifications
     public NotificationSettings Notifications { get; set; } = new();
+    
+    public bool ShowLabels { get; set; } = true;
+    public bool ShowExtendedLines { get; set; } = false;
 }

@@ -5,18 +5,9 @@ namespace Pfuma.Core.Configuration;
 /// </summary>
 public class IndicatorSettings
 {
-    // Swing Point Detection
-    public SwingPointSettings SwingPoints { get; set; } = new();
-        
-    // Pattern Detection
-    public PatternDetectionSettings Patterns { get; set; } = new();
-        
-    // Visualization
-    public VisualizationSettings Visualization { get; set; } = new();
-        
-    // Notifications
-    public NotificationSettings Notifications { get; set; } = new();
-        
-    // Time Management
-    public TimeSettings Time { get; set; } = new();
+    public PatternDetectionSettings Patterns { get; set; } = new PatternDetectionSettings();
+    public MarketStructureSettings MarketStructure { get; set; } = new MarketStructureSettings();
+    public TimeSettings Time { get; set; } = new TimeSettings();
+    public VisualizationSettings Visualization { get; set; } = new VisualizationSettings();
+    public NotificationSettings Notifications { get; set; } = new NotificationSettings();
 }
