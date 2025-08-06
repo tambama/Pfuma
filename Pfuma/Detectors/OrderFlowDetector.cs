@@ -22,14 +22,14 @@ namespace Pfuma.Detectors
         
         public OrderFlowDetector(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IVisualization<Level> visualizer,
             SwingPointDetector swingPointDetector,
             IndicatorSettings settings,
             Action<string> logger = null)
-            : base(chart, bars, eventAggregator, repository, settings, logger)
+            : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
             _swingPointDetector = swingPointDetector;
@@ -41,7 +41,7 @@ namespace Pfuma.Detectors
             return Constants.Calculations.MinimumSwingPointsForOrderFlow;
         }
         
-        protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+        protected override List<Level> PerformDetection(int currentIndex)
         {
             var detectedOrderFlows = new List<Level>();
             
@@ -109,6 +109,9 @@ namespace Pfuma.Detectors
                     previousSwingLow.Index
                 );
                 
+                // Set TimeFrame from swing point
+                bullishOrderFlow.TimeFrame = previousSwingLow.TimeFrame;
+                
                 // Initialize quadrants
                 bullishOrderFlow.InitializeQuadrants();
                 
@@ -159,6 +162,9 @@ namespace Pfuma.Detectors
                     previousSwingHigh.Index,
                     recentSwingLow.Index
                 );
+                
+                // Set TimeFrame from swing point
+                bearishOrderFlow.TimeFrame = previousSwingHigh.TimeFrame;
                 
                 // Initialize quadrants
                 bearishOrderFlow.InitializeQuadrants();
@@ -248,14 +254,14 @@ namespace Pfuma.Detectors
             int startIndex = orderflow.Direction == Direction.Up ? orderflow.IndexLow : orderflow.IndexHigh;
             int endIndex = orderflow.Direction == Direction.Up ? orderflow.IndexHigh : orderflow.IndexLow;
             
-            if (startIndex < 0 || endIndex < 0 || startIndex >= Bars.Count || endIndex >= Bars.Count)
+            if (startIndex < 0 || endIndex < 0 || startIndex >= CandleManager.Count || endIndex >= CandleManager.Count)
                 return orderflow.Direction == Direction.Up ? orderflow.IndexHigh : orderflow.IndexLow;
             
             for (int i = startIndex; i <= endIndex; i++)
             {
-                if (orderflow.Direction == Direction.Up && Bars[i].High > sweepPrice)
+                if (orderflow.Direction == Direction.Up && CandleManager.GetCandle(i).High > sweepPrice)
                     return i;
-                else if (orderflow.Direction == Direction.Down && Bars[i].Low < sweepPrice)
+                else if (orderflow.Direction == Direction.Down && CandleManager.GetCandle(i).Low < sweepPrice)
                     return i;
             }
             

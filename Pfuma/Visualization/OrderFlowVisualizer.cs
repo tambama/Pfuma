@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
 
@@ -50,6 +51,12 @@ namespace Pfuma.Visualization
             if (Settings.Patterns.ShowQuadrants && orderFlow.Quadrants != null && orderFlow.Quadrants.Count > 0)
             {
                 DrawQuadrantLevels(orderFlow, patternId, objectIds);
+            }
+            
+            // Draw timeframe label if enabled
+            if (ShouldShowTimeframeLabel(orderFlow.TimeFrame))
+            {
+                DrawTimeframeLabel(orderFlow, patternId, objectIds);
             }
         }
         
@@ -193,6 +200,32 @@ namespace Pfuma.Visualization
             {
                 Logger($"Drew Order Flow: {patternId}");
             }
+        }
+        
+        /// <summary>
+        /// Draws a timeframe label on the Order Flow
+        /// </summary>
+        private void DrawTimeframeLabel(Level orderFlow, string patternId, List<string> objectIds)
+        {
+            string labelId = $"{patternId}-tf-label";
+            objectIds.Add(labelId);
+            
+            // Position the label at the center of the pattern
+            DateTime labelTime = orderFlow.MidTime.AddMinutes(30);
+            double labelPrice = orderFlow.Mid;
+            
+            string timeframeText = orderFlow.TimeFrame.GetShortName();
+            
+            var text = Chart.DrawText(
+                labelId,
+                timeframeText,
+                labelTime,
+                labelPrice,
+                Color.White);
+                
+            text.FontSize = 8;
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using cAlgo.API;
 using Pfuma.Models;
 using Pfuma.Services;
@@ -11,7 +12,7 @@ namespace Pfuma.Services.Time;
 /// </summary>
 public class DailyLevelManager : IDailyLevelManager
 {
-    private readonly Bars _bars;
+    private readonly CandleManager _candleManager;
     private readonly SwingPointDetector _swingPointDetector;
     private readonly Chart _chart;
     private readonly bool _showDailyLevels;
@@ -19,12 +20,12 @@ public class DailyLevelManager : IDailyLevelManager
     private bool _processingDailyLevels = false;
 
     public DailyLevelManager(
-        Bars bars,
+        CandleManager candleManager,
         SwingPointDetector swingPointDetector,
         Chart chart,
         bool showDailyLevels = true)
     {
-        _bars = bars;
+        _candleManager = candleManager;
         _swingPointDetector = swingPointDetector;
         _chart = chart;
         _showDailyLevels = showDailyLevels;
@@ -32,7 +33,7 @@ public class DailyLevelManager : IDailyLevelManager
 
     public void ProcessDailyBoundary(int currentIndex)
     {
-        if (_processingDailyLevels || currentIndex >= _bars.Count) return;
+        if (_processingDailyLevels || currentIndex >= _candleManager.Count) return;
 
         _processingDailyLevels = true;
 
@@ -43,7 +44,11 @@ public class DailyLevelManager : IDailyLevelManager
                 ProcessPreviousDayLevels(currentIndex);
             }
 
-            _lastDayStartTime = _bars[currentIndex].OpenTime;
+            var currentCandle = _candleManager.GetCandle(currentIndex);
+            if (currentCandle != null)
+            {
+                _lastDayStartTime = currentCandle.Time;
+            }
         }
         finally
         {
@@ -55,17 +60,22 @@ public class DailyLevelManager : IDailyLevelManager
     private void ProcessPreviousDayLevels(int currentIndex)
     {
         DateTime dayStart = _lastDayStartTime;
-        DateTime dayEnd = _bars[currentIndex].OpenTime;
+        var currentCandle = _candleManager.GetCandle(currentIndex);
+        if (currentCandle == null) return;
+        
+        DateTime dayEnd = currentCandle.Time;
 
-        var minMax = _bars.GetMinMax(dayStart, dayEnd);
+        // Find high and low candles between start and end times
+        var candlesInRange = _candleManager.GetCandlesBetween(dayStart, dayEnd);
+        if (candlesInRange.Count == 0) return;
 
-        var highCandle = new Candle(_bars[minMax.maxIndex], minMax.maxIndex);
-        var lowCandle = new Candle(_bars[minMax.minIndex], minMax.minIndex);
+        var highCandle = candlesInRange.OrderByDescending(c => c.High).First();
+        var lowCandle = candlesInRange.OrderBy(c => c.Low).First();
 
         CreateOrUpdateSpecialSwingPoint(
-            minMax.maxIndex,
-            minMax.max,
-            minMax.maxTime,
+            highCandle.Index ?? 0,
+            highCandle.High,
+            highCandle.Time,
             highCandle,
             SwingType.H,
             LiquidityType.PDH,
@@ -74,9 +84,9 @@ public class DailyLevelManager : IDailyLevelManager
             dayEnd);
 
         CreateOrUpdateSpecialSwingPoint(
-            minMax.minIndex,
-            minMax.min,
-            minMax.minTime,
+            lowCandle.Index ?? 0,
+            lowCandle.Low,
+            lowCandle.Time,
             lowCandle,
             SwingType.L,
             LiquidityType.PDL,

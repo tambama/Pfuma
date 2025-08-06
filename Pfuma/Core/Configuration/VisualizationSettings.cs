@@ -20,4 +20,7 @@ public class VisualizationSettings
     
     public bool ShowLabels { get; set; } = true;
     public bool ShowExtendedLines { get; set; } = false;
+    
+    // Timeframe Visualization
+    public string SeeTimeframe { get; set; } = "";
 }

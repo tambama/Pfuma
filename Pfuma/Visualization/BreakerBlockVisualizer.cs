@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
 
@@ -62,5 +63,37 @@ public class BreakerBlockVisualizer : BaseVisualizer<Level>
             LineStyle.Dots);
                 
         objectIds.Add(midLineId);
+        
+        // Draw timeframe label if enabled
+        if (ShouldShowTimeframeLabel(breakerBlock.TimeFrame))
+        {
+            DrawTimeframeLabel(breakerBlock, patternId, objectIds);
+        }
+    }
+    
+    /// <summary>
+    /// Draws a timeframe label on the Breaker Block
+    /// </summary>
+    private void DrawTimeframeLabel(Level breakerBlock, string patternId, List<string> objectIds)
+    {
+        string labelId = $"{patternId}-tf-label";
+        objectIds.Add(labelId);
+        
+        // Position the label at the center of the pattern
+        DateTime labelTime = breakerBlock.MidTime.AddMinutes(30);
+        double labelPrice = breakerBlock.Mid;
+        
+        string timeframeText = breakerBlock.TimeFrame.GetShortName();
+        
+        var text = Chart.DrawText(
+            labelId,
+            timeframeText,
+            labelTime,
+            labelPrice,
+            Color.White);
+            
+        text.FontSize = 8;
+        text.HorizontalAlignment = HorizontalAlignment.Center;
+        text.VerticalAlignment = VerticalAlignment.Center;
     }
 }

@@ -8,6 +8,7 @@ using Pfuma.Core.Interfaces;
 using Pfuma.Detectors.Base;
 using Pfuma.Extensions;
 using Pfuma.Models;
+using Pfuma.Services;
 
 namespace Pfuma.Detectors
 {
@@ -21,19 +22,19 @@ namespace Pfuma.Detectors
         
         public CisdDetector(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IVisualization<Level> visualizer,
             IndicatorSettings settings,
             Action<string> logger = null)
-            : base(chart, bars, eventAggregator, repository, settings, logger)
+            : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
             _maxCisdsPerDirection = settings.Patterns.MaxCisdsPerDirection;
         }
         
-        protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+        protected override List<Level> PerformDetection(int currentIndex)
         {
             // CISD detection is triggered by order flow events
             return new List<Level>();
@@ -50,7 +51,7 @@ namespace Pfuma.Detectors
             int startIndex = Math.Min(orderflow.IndexLow, orderflow.IndexHigh);
             int endIndex = Math.Max(orderflow.IndexLow, orderflow.IndexHigh);
             
-            if (startIndex < 0 || endIndex < 0 || startIndex >= Bars.Count || endIndex >= Bars.Count)
+            if (startIndex < 0 || endIndex < 0 || startIndex >= CandleManager.Count || endIndex >= CandleManager.Count)
                 return;
             
             Level cisdLevel = null;
@@ -86,7 +87,7 @@ namespace Pfuma.Detectors
             
             for (int i = startIndex; i <= endIndex; i++)
             {
-                var bar = Bars[i];
+                var bar = CandleManager.GetCandle(i);
                 var direction = bar.GetCandleDirection();
                 
                 if (direction == Direction.Up)
@@ -120,16 +121,19 @@ namespace Pfuma.Detectors
             // Create a BEARISH CISD level
             var cisdLevel = new Level(
                 LevelType.CISD,
-                Bars[firstBullishIndex].Open,
-                Bars[lastBullishIndex].Close,
-                Bars[firstBullishIndex].OpenTime,
-                Bars[lastBullishIndex].OpenTime,
+                CandleManager.GetCandle(firstBullishIndex).Open,
+                CandleManager.GetCandle(lastBullishIndex).Close,
+                CandleManager.GetCandle(firstBullishIndex).Time,
+                CandleManager.GetCandle(lastBullishIndex).Time,
                 null,
                 Direction.Down,
                 firstBullishIndex,
                 lastBullishIndex,
                 firstBullishIndex
             );
+            
+            // Set TimeFrame from candle
+            cisdLevel.TimeFrame = CandleManager.GetCandle(firstBullishIndex).TimeFrame;
             
             return cisdLevel;
         }
@@ -142,7 +146,7 @@ namespace Pfuma.Detectors
             
             for (int i = startIndex; i <= endIndex; i++)
             {
-                var bar = Bars[i];
+                var bar = CandleManager.GetCandle(i);
                 var direction = bar.GetCandleDirection();
                 
                 if (direction == Direction.Down)
@@ -176,16 +180,19 @@ namespace Pfuma.Detectors
             // Create a BULLISH CISD level
             var cisdLevel = new Level(
                 LevelType.CISD,
-                Bars[lastBearishIndex].Close,
-                Bars[firstBearishIndex].Open,
-                Bars[lastBearishIndex].OpenTime,
-                Bars[firstBearishIndex].OpenTime,
+                CandleManager.GetCandle(lastBearishIndex).Close,
+                CandleManager.GetCandle(firstBearishIndex).Open,
+                CandleManager.GetCandle(lastBearishIndex).Time,
+                CandleManager.GetCandle(firstBearishIndex).Time,
                 null,
                 Direction.Up,
                 firstBearishIndex,
                 firstBearishIndex,
                 lastBearishIndex
             );
+            
+            // Set TimeFrame from candle
+            cisdLevel.TimeFrame = CandleManager.GetCandle(firstBearishIndex).TimeFrame;
             
             return cisdLevel;
         }

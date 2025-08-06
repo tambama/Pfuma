@@ -25,6 +25,7 @@ namespace Pfuma.Services
         private readonly IndicatorDataSeries _swingHighs;
         private readonly IndicatorDataSeries _swingLows;
         private readonly IEventAggregator _eventAggregator;
+        private readonly CandleManager _candleManager;
 
         // Collection to store all swing points
         private readonly List<SwingPoint> _swingPoints = new();
@@ -39,10 +40,12 @@ namespace Pfuma.Services
         // Define the event
         public event SwingPointRemovedEventHandler SwingPointRemoved;
 
-        public SwingPointDetector(IndicatorDataSeries swingHighs, IndicatorDataSeries swingLows, IEventAggregator eventAggregator = null)
+        public SwingPointDetector(IndicatorDataSeries swingHighs, IndicatorDataSeries swingLows, 
+            CandleManager candleManager, IEventAggregator eventAggregator = null)
         {
             _swingHighs = swingHighs;
             _swingLows = swingLows;
+            _candleManager = candleManager;
             _eventAggregator = eventAggregator;
         }
         

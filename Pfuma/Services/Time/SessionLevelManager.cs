@@ -12,7 +12,7 @@ namespace Pfuma.Services.Time;
 /// </summary>
 public class SessionLevelManager : ISessionLevelManager
 {
-    private readonly Bars _bars;
+    private readonly CandleManager _candleManager;
     private readonly SwingPointDetector _swingPointDetector;
     private readonly Chart _chart;
     private readonly bool _showSessionLevels;
@@ -22,12 +22,12 @@ public class SessionLevelManager : ISessionLevelManager
     private readonly Dictionary<int, SessionType> _hourToSessionMap;
 
     public SessionLevelManager(
-        Bars bars,
+        CandleManager candleManager,
         SwingPointDetector swingPointDetector,
         Chart chart,
         bool showSessionLevels = true)
     {
-        _bars = bars;
+        _candleManager = candleManager;
         _swingPointDetector = swingPointDetector;
         _chart = chart;
         _showSessionLevels = showSessionLevels;
@@ -72,7 +72,7 @@ public class SessionLevelManager : ISessionLevelManager
 
     public void ProcessBar(int index, DateTime marketTime)
     {
-        if (index >= _bars.Count) return;
+        if (index >= _candleManager.Count) return;
         
         SessionType currentBarSession = GetCurrentSession(marketTime);
         
@@ -83,7 +83,11 @@ public class SessionLevelManager : ISessionLevelManager
         
         if (currentBarSession != SessionType.None)
         {
-            UpdateSessionTracker(currentBarSession, index, _bars[index].High, _bars[index].Low);
+            var candle = _candleManager.GetCandle(index);
+            if (candle != null)
+            {
+                UpdateSessionTracker(currentBarSession, index, candle.High, candle.Low);
+            }
         }
         
         _lastProcessedSession = currentBarSession;
@@ -125,23 +129,26 @@ public class SessionLevelManager : ISessionLevelManager
         
         var tracker = _sessionTrackers[session];
         
-        if (tracker.StartTime == DateTime.MinValue)
-            tracker.StartTime = _bars[index].OpenTime;
+        var candle = _candleManager.GetCandle(index);
+        if (candle == null) return;
         
-        tracker.EndTime = _bars[index].OpenTime;
+        if (tracker.StartTime == DateTime.MinValue)
+            tracker.StartTime = candle.Time;
+        
+        tracker.EndTime = candle.Time;
         
         if (high > tracker.High)
         {
             tracker.High = high;
             tracker.HighIndex = index;
-            tracker.HighTime = _bars[index].OpenTime;
+            tracker.HighTime = candle.Time;
         }
         
         if (low < tracker.Low)
         {
             tracker.Low = low;
             tracker.LowIndex = index;
-            tracker.LowTime = _bars[index].OpenTime;
+            tracker.LowTime = candle.Time;
         }
     }
     
@@ -151,8 +158,10 @@ public class SessionLevelManager : ISessionLevelManager
         
         if (tracker.HighIndex < 0 || tracker.LowIndex < 0) return;
         
-        var highCandle = new Candle(_bars[tracker.HighIndex], tracker.HighIndex);
-        var lowCandle = new Candle(_bars[tracker.LowIndex], tracker.LowIndex);
+        var highCandle = _candleManager.GetCandle(tracker.HighIndex);
+        var lowCandle = _candleManager.GetCandle(tracker.LowIndex);
+        
+        if (highCandle == null || lowCandle == null) return;
         
         LiquidityName highLiquidityName;
         LiquidityName lowLiquidityName;

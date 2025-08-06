@@ -22,14 +22,14 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         
     public OrderBlockDetector(
         Chart chart,
-        Bars bars,
+        CandleManager candleManager,
         IEventAggregator eventAggregator,
         IRepository<Level> repository,
         IVisualization<Level> visualizer,
         SwingPointDetector swingPointDetector,
         IndicatorSettings settings,
         Action<string> logger = null)
-        : base(chart, bars, eventAggregator, repository, settings, logger)
+        : base(chart, candleManager, eventAggregator, repository, settings, logger)
     {
         _visualizer = visualizer;
         _swingPointDetector = swingPointDetector;
@@ -41,7 +41,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         return Constants.Patterns.OrderBlockLookback;
     }
         
-    protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+    protected override List<Level> PerformDetection(int currentIndex)
     {
         // Order blocks are only detected through FVG events, not through regular scanning
         // This method returns empty as detection happens in OnFvgDetected event handler
@@ -65,7 +65,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         if (_processedIndices.Contains(firstCandleIndex))
             return null;
             
-        var firstCandleBar = Bars[firstCandleIndex];
+        var firstCandleBar = CandleManager.GetCandle(firstCandleIndex);
         
         // Determine order block direction based on FVG direction
         // For bullish FVG, the first candle should be a swing low (becomes bullish order block)
@@ -99,20 +99,23 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         
         
         
-    private Level CreateOrderBlock(Bar bar, int index, Direction direction)
+    private Level CreateOrderBlock(Candle candle, int index, Direction direction)
     {
         var orderBlock = new Level(
             LevelType.OrderBlock,
-            bar.Low,  // Use the full candle low
-            bar.High, // Use the full candle high
-            bar.OpenTime,
-            bar.OpenTime.AddMinutes(Constants.Time.LevelExtensionMinutes),
-            bar.OpenTime,
+            candle.Low,  // Use the full candle low
+            candle.High, // Use the full candle high
+            candle.Time,
+            candle.Time.AddMinutes(Constants.Time.LevelExtensionMinutes),
+            candle.Time,
             direction,
             index,
             index,
             index
         );
+        
+        // Set TimeFrame from candle
+        orderBlock.TimeFrame = candle.TimeFrame;
             
         // Initialize quadrants
         orderBlock.InitializeQuadrants();
@@ -166,11 +169,11 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         // An order block is valid until it's been mitigated
         // Check if price has moved through the order block
-        if (currentIndex >= orderBlock.Index && currentIndex < Bars.Count)
+        if (currentIndex >= orderBlock.Index && currentIndex < CandleManager.Count)
         {
             for (int i = orderBlock.Index + 1; i <= currentIndex; i++)
             {
-                var bar = Bars[i];
+                var bar = CandleManager.GetCandle(i);
                     
                 // For bullish order block, check if price has moved below and closed below
                 if (orderBlock.Direction == Direction.Up)

@@ -10,9 +10,9 @@ namespace Pfuma.Core.Interfaces;
 public interface IPatternDetector<T> where T : class
 {
     /// <summary>
-    /// Detects patterns in the given bar data
+    /// Detects patterns at the given index
     /// </summary>
-    void Detect(Bars bars, int currentIndex);
+    void Detect(int currentIndex);
         
     /// <summary>
     /// Gets all detected patterns

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
 using Pfuma.Core.Interfaces;
+using Pfuma.Extensions;
 using Pfuma.Models;
 
 namespace Pfuma.Visualization.Base
@@ -213,6 +214,26 @@ namespace Pfuma.Visualization.Base
         protected Color ApplyOpacity(Color color, int opacity)
         {
             return Color.FromArgb(opacity, color);
+        }
+        
+        /// <summary>
+        /// Checks if timeframe labels should be shown for the given timeframe
+        /// </summary>
+        protected bool ShouldShowTimeframeLabel(TimeFrame timeFrame)
+        {
+            if (string.IsNullOrWhiteSpace(Settings.SeeTimeframe))
+                return false;
+                
+            var shortName = timeFrame.GetShortName();
+            var timeframes = Settings.SeeTimeframe.Split(',');
+            
+            foreach (var tf in timeframes)
+            {
+                if (string.Equals(tf.Trim(), shortName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            
+            return false;
         }
     }
 }

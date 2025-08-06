@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
 
@@ -49,6 +50,12 @@ public class CisdVisualizer : BaseVisualizer<Level>
         {
             DrawConfirmationLine(cisd, patternId, objectIds, cisd.Direction == Direction.Up ? Color.Green : Color.Pink);
         }
+        
+        // Draw timeframe label if enabled
+        if (ShouldShowTimeframeLabel(cisd.TimeFrame))
+        {
+            DrawTimeframeLabel(cisd, patternId, objectIds);
+        }
     }
         
     private void DrawActivationLine(Level cisd, string patternId, List<string> objectIds, Color color)
@@ -93,5 +100,32 @@ public class CisdVisualizer : BaseVisualizer<Level>
             LineStyle.Solid);
                 
         objectIds.Add(id);
+    }
+    
+    /// <summary>
+    /// Draws a timeframe label on the CISD
+    /// </summary>
+    private void DrawTimeframeLabel(Level cisd, string patternId, List<string> objectIds)
+    {
+        string labelId = $"{patternId}-tf-label";
+        objectIds.Add(labelId);
+        
+        // Position the label at the center of the CISD
+        DateTime labelTime = cisd.Direction == Direction.Up ? cisd.HighTime : cisd.LowTime;
+        labelTime = labelTime.AddMinutes(30); // Offset slightly for visibility
+        double labelPrice = cisd.Mid;
+        
+        string timeframeText = cisd.TimeFrame.GetShortName();
+        
+        var text = Chart.DrawText(
+            labelId,
+            timeframeText,
+            labelTime,
+            labelPrice,
+            Color.White);
+            
+        text.FontSize = 8;
+        text.HorizontalAlignment = HorizontalAlignment.Center;
+        text.VerticalAlignment = VerticalAlignment.Center;
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using cAlgo.API;
 
 namespace Pfuma.Models;
 
@@ -17,6 +18,9 @@ public class SwingPoint
     public Candle Bar { get; set; }
     public Direction CandleDirection { get; set; }
     public bool Swept { get; set; }
+    
+    // TimeFrame tracking
+    public TimeFrame TimeFrame { get; set; }
     
     // Added property to track which candle swept this swing point
     public int IndexOfSweepingCandle { get; set; }
@@ -105,5 +109,6 @@ public class SwingPoint
         SwingType = swingType;
         LiquidityType = liquidityType;
         LiquidityName = liquidityName;
+        TimeFrame = bar?.TimeFrame; // Get TimeFrame from the Candle
     }
 }

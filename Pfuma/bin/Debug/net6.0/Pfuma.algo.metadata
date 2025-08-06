@@ -242,6 +242,14 @@
         "FriendlyName": "Enable Telegram",
         "GroupName": "Notifications",
         "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": "",
+        "ParameterType": "String",
+        "PropertyName": "SeeTimeframe",
+        "FriendlyName": "See Timeframe",
+        "GroupName": "Visualization",
+        "IsValueVisibleInTitle": true
       }
     ],
     "Capabilities": [],

@@ -7,6 +7,7 @@ using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
 using Pfuma.Detectors.Base;
 using Pfuma.Models;
+using Pfuma.Services;
 
 namespace Pfuma.Detectors
 {
@@ -19,18 +20,18 @@ namespace Pfuma.Detectors
         
         public RejectionBlockDetector(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IVisualization<Level> visualizer,
             IndicatorSettings settings,
             Action<string> logger = null)
-            : base(chart, bars, eventAggregator, repository, settings, logger)
+            : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
         }
         
-        protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+        protected override List<Level> PerformDetection(int currentIndex)
         {
             // Rejection block detection is triggered by swing point events
             return new List<Level>();
@@ -114,6 +115,9 @@ namespace Pfuma.Detectors
                     Zone.Premium
                 );
                 
+                // Set TimeFrame from candle
+                rejectionBlock.TimeFrame = candle.TimeFrame;
+                
                 // Initialize quadrants
                 rejectionBlock.InitializeQuadrants();
                 
@@ -159,6 +163,9 @@ namespace Pfuma.Detectors
                     swingPoint.Index,
                     Zone.Discount
                 );
+                
+                // Set TimeFrame from candle
+                rejectionBlock.TimeFrame = candle.TimeFrame;
                 
                 // Initialize quadrants
                 rejectionBlock.InitializeQuadrants();

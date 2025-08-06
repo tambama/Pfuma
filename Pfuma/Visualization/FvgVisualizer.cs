@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
 
@@ -54,6 +55,12 @@ namespace Pfuma.Visualization
             if (Settings.Patterns.ShowQuadrants && fvg.Quadrants != null && fvg.Quadrants.Count > 0)
             {
                 DrawQuadrantLevels(fvg, patternId, objectIds);
+            }
+            
+            // Draw timeframe label if enabled
+            if (ShouldShowTimeframeLabel(fvg.TimeFrame))
+            {
+                DrawTimeframeLabel(fvg, patternId, objectIds);
             }
         }
         
@@ -203,6 +210,32 @@ namespace Pfuma.Visualization
                 GetColorFromString("Gray"),
                 Constants.Drawing.DefaultLineThickness,
                 style);
+        }
+        
+        /// <summary>
+        /// Draws a timeframe label on the FVG
+        /// </summary>
+        private void DrawTimeframeLabel(Level fvg, string patternId, List<string> objectIds)
+        {
+            string labelId = $"{patternId}-tf-label";
+            objectIds.Add(labelId);
+            
+            // Position the label at the center of the FVG
+            DateTime labelTime = fvg.MidTime;
+            double labelPrice = fvg.Mid;
+            
+            string timeframeText = fvg.TimeFrame.GetShortName();
+            
+            var text = Chart.DrawText(
+                labelId,
+                timeframeText,
+                labelTime,
+                labelPrice,
+                Color.White);
+                
+            text.FontSize = 8;
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
         }
     }
 }

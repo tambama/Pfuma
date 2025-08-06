@@ -83,6 +83,10 @@ namespace Pfuma
         [Parameter("Enable Telegram", DefaultValue = false, Group = "Notifications")]
         public bool EnableTelegram { get; set; }
         
+        // Timeframe Visualization
+        [Parameter("See Timeframe", DefaultValue = "", Group = "Visualization")]
+        public string SeeTimeframe { get; set; }
+        
         #endregion
         
         #region Output Series
@@ -119,6 +123,7 @@ namespace Pfuma
         private NotificationService _notificationService;
         private TimeManager _timeManager;
         private SwingPointDetector _swingPointDetector;
+        private CandleManager _candleManager;
         
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
@@ -224,6 +229,7 @@ namespace Pfuma
             // Connect settings references
             _settings.Visualization.Patterns = _settings.Patterns;
             _settings.Visualization.Notifications = _settings.Notifications;
+            _settings.Visualization.SeeTimeframe = SeeTimeframe;
         }
         
         private void InitializeCoreServices()
@@ -258,12 +264,15 @@ namespace Pfuma
         
         private void InitializeServicesAndAnalyzers()
         {
+            // Initialize candle manager
+            _candleManager = new CandleManager(Bars, TimeFrame);
+            
             // Initialize swing point detector
-            _swingPointDetector = new SwingPointDetector(SwingHighs, SwingLows, _eventAggregator);
+            _swingPointDetector = new SwingPointDetector(SwingHighs, SwingLows, _candleManager, _eventAggregator);
             
             // Initialize time manager
             _timeManager = new TimeManager(
-                Chart, Bars, _swingPointDetector, _notificationService,
+                Chart, _candleManager, _swingPointDetector, _notificationService,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
             
             
@@ -273,25 +282,25 @@ namespace Pfuma
         {
             // Pattern detectors
             _fvgDetector = new FvgDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _fvgVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _fvgVisualizer, _settings, EnableLog ? Print : null);
             
             _orderBlockDetector = new OrderBlockDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
             _orderFlowDetector = new OrderFlowDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _orderFlowVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _orderFlowVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
             _rejectionBlockDetector = new RejectionBlockDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _settings, EnableLog ? Print : null);
             
             _breakerBlockDetector = new BreakerBlockDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
             
             _cisdDetector = new CisdDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _cisdVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _settings, EnableLog ? Print : null);
             
             _unicornDetector = new UnicornDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
             
             
             // Initialize all detectors
@@ -332,15 +341,18 @@ namespace Pfuma
                 if (index - 1 < 0 || index - 1 >= Bars.Count)
                     return;
                     
-                _previousBar = Bars[index - 1];
                 _previousBarIndex = index - 1;
                 
-                // Validate bar data
-                if (_previousBar == null)
+                // Process the previous bar and get the candle from CandleManager
+                var candle = _candleManager.ProcessBar(_previousBarIndex);
+                
+                if (candle == null)
                     return;
                 
-                // Create candle object from previous bar
-                var candle = new Candle(_previousBar, _previousBarIndex, TimeFrame);
+                // Also process the current bar for pattern detection
+                _candleManager.ProcessBar(index);
+                
+                _previousBar = Bars[_previousBarIndex];
                 
                 // 1. Process time-based features
                 if (index < Bars.Count && Bars[index] != null)
@@ -371,15 +383,15 @@ namespace Pfuma
                 }
                 
                 // 6. Detect patterns - Always detect FVGs (ShowFVG only controls visualization)
-                _fvgDetector?.Detect(Bars, index);
+                _fvgDetector?.Detect(index);
                 
                 // Order Block detector now works via FVG events, so always enable it
                 // (ShowOrderBlock only controls visualization)
-                _orderBlockDetector?.Detect(Bars, index);
+                _orderBlockDetector?.Detect(index);
                 
                 if (ShowRejectionBlock)
                 {
-                    _rejectionBlockDetector?.Detect(Bars, index);
+                    _rejectionBlockDetector?.Detect(index);
                 }
                 
                 // 7. Update market structure (handled via events)

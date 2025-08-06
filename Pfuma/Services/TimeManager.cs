@@ -18,7 +18,7 @@ namespace Pfuma.Services
 
         public TimeManager(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             SwingPointDetector swingPointDetector,
             NotificationService notificationService,
             bool showMacros = true,
@@ -36,13 +36,13 @@ namespace Pfuma.Services
                 showMacros);
             
             _dailyLevelManager = new DailyLevelManager(
-                bars,
+                candleManager,
                 swingPointDetector,
                 chart,
                 showDailyLevels);
                 
             _sessionLevelManager = new SessionLevelManager(
-                bars,
+                candleManager,
                 swingPointDetector,
                 chart,
                 showSessionLevels);

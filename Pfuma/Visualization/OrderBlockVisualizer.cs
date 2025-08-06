@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
 
@@ -47,6 +48,12 @@ namespace Pfuma.Visualization
             if (Settings.Patterns.ShowQuadrants && orderBlock.Quadrants != null && orderBlock.Quadrants.Count > 0)
             {
                 DrawQuadrantLevels(orderBlock, patternId, objectIds);
+            }
+            
+            // Draw timeframe label if enabled
+            if (ShouldShowTimeframeLabel(orderBlock.TimeFrame))
+            {
+                DrawTimeframeLabel(orderBlock, patternId, objectIds);
             }
         }
         
@@ -244,6 +251,32 @@ namespace Pfuma.Visualization
             {
                 Logger($"Removed Order Block: {patternId}");
             }
+        }
+        
+        /// <summary>
+        /// Draws a timeframe label on the Order Block
+        /// </summary>
+        private void DrawTimeframeLabel(Level orderBlock, string patternId, List<string> objectIds)
+        {
+            string labelId = $"{patternId}-tf-label";
+            objectIds.Add(labelId);
+            
+            // Position the label at the center of the Order Block
+            DateTime labelTime = orderBlock.LowTime.AddMinutes(Constants.Time.LevelExtensionMinutes / 2);
+            double labelPrice = orderBlock.Mid;
+            
+            string timeframeText = orderBlock.TimeFrame.GetShortName();
+            
+            var text = Chart.DrawText(
+                labelId,
+                timeframeText,
+                labelTime,
+                labelPrice,
+                Color.White);
+                
+            text.FontSize = 8;
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
         }
     }
 }

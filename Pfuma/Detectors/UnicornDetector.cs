@@ -7,6 +7,7 @@ using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
 using Pfuma.Detectors.Base;
 using Pfuma.Models;
+using Pfuma.Services;
 
 namespace Pfuma.Detectors
 {
@@ -20,20 +21,20 @@ namespace Pfuma.Detectors
         
         public UnicornDetector(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IRepository<Level> cisdRepository,
             IVisualization<Level> visualizer,
             IndicatorSettings settings,
             Action<string> logger = null)
-            : base(chart, bars, eventAggregator, repository, settings, logger)
+            : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
             _cisdRepository = cisdRepository;
         }
         
-        protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+        protected override List<Level> PerformDetection(int currentIndex)
         {
             // Unicorn detection is triggered by FVG detection events
             return new List<Level>();

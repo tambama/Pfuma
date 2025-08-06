@@ -4,6 +4,7 @@ using cAlgo.API;
 using Pfuma.Core.Configuration;
 using Pfuma.Core.Interfaces;
 using Pfuma.Models;
+using Pfuma.Services;
 
 namespace Pfuma.Detectors.Base;
 
@@ -13,7 +14,7 @@ namespace Pfuma.Detectors.Base;
 public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializable where T : class
 {
     protected readonly Chart Chart;
-    protected readonly Bars Bars;
+    protected readonly CandleManager CandleManager;
     protected readonly IEventAggregator EventAggregator;
     protected readonly IRepository<T> Repository;
     protected readonly IndicatorSettings Settings;
@@ -21,14 +22,14 @@ public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializab
         
     protected BasePatternDetector(
         Chart chart,
-        Bars bars,
+        CandleManager candleManager,
         IEventAggregator eventAggregator,
         IRepository<T> repository,
         IndicatorSettings settings,
         Action<string> logger = null)
     {
         Chart = chart;
-        Bars = bars;
+        CandleManager = candleManager;
         EventAggregator = eventAggregator;
         Repository = repository;
         Settings = settings;
@@ -38,16 +39,16 @@ public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializab
     /// <summary>
     /// Template method for pattern detection
     /// </summary>
-    public virtual void Detect(Bars bars, int currentIndex)
+    public virtual void Detect(int currentIndex)
     {
         try
         {
             // Pre-detection validation
-            if (!PreDetectionValidation(bars, currentIndex))
+            if (!PreDetectionValidation(currentIndex))
                 return;
                 
             // Perform the actual detection
-            var detectedPatterns = PerformDetection(bars, currentIndex);
+            var detectedPatterns = PerformDetection(currentIndex);
                 
             // Post-process detected patterns
             foreach (var pattern in detectedPatterns)
@@ -74,15 +75,15 @@ public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializab
     /// <summary>
     /// Override to implement pre-detection validation
     /// </summary>
-    protected virtual bool PreDetectionValidation(Bars bars, int currentIndex)
+    protected virtual bool PreDetectionValidation(int currentIndex)
     {
-        return currentIndex >= GetMinimumBarsRequired() && currentIndex < bars.Count;
+        return currentIndex >= GetMinimumBarsRequired() && currentIndex < CandleManager.Count;
     }
         
     /// <summary>
     /// Override to implement the actual pattern detection logic
     /// </summary>
-    protected abstract List<T> PerformDetection(Bars bars, int currentIndex);
+    protected abstract List<T> PerformDetection(int currentIndex);
         
     /// <summary>
     /// Override to implement post-detection validation
@@ -187,14 +188,14 @@ public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializab
     /// </summary>
     protected bool IsValidBarIndex(int index)
     {
-        return index >= 0 && index < Bars.Count;
+        return index >= 0 && index < CandleManager.Count;
     }
         
     /// <summary>
     /// Helper method to get a bar safely
     /// </summary>
-    protected Bar GetBarSafely(int index)
+    protected Candle GetBarSafely(int index)
     {
-        return IsValidBarIndex(index) ? Bars[index] : default;
+        return IsValidBarIndex(index) ? CandleManager.GetCandle(index) : default;
     }
 }

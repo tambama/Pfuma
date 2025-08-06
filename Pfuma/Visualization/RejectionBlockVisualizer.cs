@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
 
@@ -69,6 +70,12 @@ public class RejectionBlockVisualizer : BaseVisualizer<Level>
         {
             DrawQuadrantLevels(rejectionBlock, patternId, objectIds);
         }
+        
+        // Draw timeframe label if enabled
+        if (ShouldShowTimeframeLabel(rejectionBlock.TimeFrame))
+        {
+            DrawTimeframeLabel(rejectionBlock, patternId, objectIds);
+        }
     }
         
     private void DrawQuadrantLevels(Level rejectionBlock, string patternId, List<string> objectIds)
@@ -102,5 +109,31 @@ public class RejectionBlockVisualizer : BaseVisualizer<Level>
                     
             objectIds.Add(quadId);
         }
+    }
+    
+    /// <summary>
+    /// Draws a timeframe label on the Rejection Block
+    /// </summary>
+    private void DrawTimeframeLabel(Level rejectionBlock, string patternId, List<string> objectIds)
+    {
+        string labelId = $"{patternId}-tf-label";
+        objectIds.Add(labelId);
+        
+        // Position the label at the center of the pattern
+        DateTime labelTime = rejectionBlock.MidTime.AddMinutes(30);
+        double labelPrice = rejectionBlock.Mid;
+        
+        string timeframeText = rejectionBlock.TimeFrame.GetShortName();
+        
+        var text = Chart.DrawText(
+            labelId,
+            timeframeText,
+            labelTime,
+            labelPrice,
+            Color.White);
+            
+        text.FontSize = 8;
+        text.HorizontalAlignment = HorizontalAlignment.Center;
+        text.VerticalAlignment = VerticalAlignment.Center;
     }
 }

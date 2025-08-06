@@ -6,6 +6,7 @@ using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
 using Pfuma.Detectors.Base;
 using Pfuma.Models;
+using Pfuma.Services;
 
 namespace Pfuma.Detectors
 {
@@ -18,13 +19,13 @@ namespace Pfuma.Detectors
         
         public FvgDetector(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IVisualization<Level> visualizer,
             IndicatorSettings settings,
             Action<string> logger = null)
-            : base(chart, bars, eventAggregator, repository, settings, logger)
+            : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
         }
@@ -34,29 +35,32 @@ namespace Pfuma.Detectors
             return Constants.Patterns.FvgRequiredBars;
         }
         
-        protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+        protected override List<Level> PerformDetection(int currentIndex)
         {
             var detectedFvgs = new List<Level>();
             
-            // Need at least 3 bars to detect a FVG
+            // Need at least 3 candles to detect a FVG
             if (currentIndex < 2)
                 return detectedFvgs;
             
-            // Get the three consecutive bars
-            var bar1 = bars[currentIndex - 2]; // First candle
-            var bar2 = bars[currentIndex - 1]; // Middle candle
-            var bar3 = bars[currentIndex];     // Last candle
+            // Get the three consecutive candles
+            var candle1 = CandleManager.GetCandle(currentIndex - 2); // First candle
+            var candle2 = CandleManager.GetCandle(currentIndex - 1); // Middle candle
+            var candle3 = CandleManager.GetCandle(currentIndex);     // Last candle
+            
+            if (candle1 == null || candle2 == null || candle3 == null)
+                return detectedFvgs;
             
             
             // Check for bullish FVG
-            var bullishFvg = DetectBullishFvg(bar1, bar2, bar3, currentIndex);
+            var bullishFvg = DetectBullishFvg(candle1, candle2, candle3, currentIndex);
             if (bullishFvg != null)
             {
                 detectedFvgs.Add(bullishFvg);
             }
             
             // Check for bearish FVG
-            var bearishFvg = DetectBearishFvg(bar1, bar2, bar3, currentIndex);
+            var bearishFvg = DetectBearishFvg(candle1, candle2, candle3, currentIndex);
             if (bearishFvg != null)
             {
                 detectedFvgs.Add(bearishFvg);
@@ -65,21 +69,21 @@ namespace Pfuma.Detectors
             return detectedFvgs;
         }
         
-        private Level DetectBullishFvg(Bar bar1, Bar bar2, Bar bar3, int currentIndex)
+        private Level DetectBullishFvg(Candle candle1, Candle candle2, Candle candle3, int currentIndex)
         {
-            // Bullish FVG: bar1's high must be lower than bar3's low (primary gap condition)
-            if (bar1.High >= bar3.Low)
+            // Bullish FVG: candle1's high must be lower than candle3's low (primary gap condition)
+            if (candle1.High >= candle3.Low)
                 return null;
             
             // Volume imbalance analysis for boundary refinement per documentation
-            bool hasVolumeImbalance1 = bar1.Close < bar2.Open;
-            bool hasVolumeImbalance2 = bar2.Close < bar3.Open;
+            bool hasVolumeImbalance1 = candle1.Close < candle2.Open;
+            bool hasVolumeImbalance2 = candle2.Close < candle3.Open;
             
             // Determine boundaries based on volume imbalance presence (per documentation table)
-            // Low boundary: Use bar1.Close if imbalance1 present, otherwise bar1.High
-            // High boundary: Use bar3.Open if imbalance2 present, otherwise bar3.Low
-            double low = hasVolumeImbalance1 ? bar1.Close : bar1.High;
-            double high = hasVolumeImbalance2 ? bar3.Open : bar3.Low;
+            // Low boundary: Use candle1.Close if imbalance1 present, otherwise candle1.High
+            // High boundary: Use candle3.Open if imbalance2 present, otherwise candle3.Low
+            double low = hasVolumeImbalance1 ? candle1.Close : candle1.High;
+            double high = hasVolumeImbalance2 ? candle3.Open : candle3.Low;
             
             // Validate boundaries to ensure valid FVG  
             if (low >= high)
@@ -92,16 +96,19 @@ namespace Pfuma.Detectors
                 LevelType.FairValueGap,
                 low,                    // Refined low boundary
                 high,                   // Refined high boundary
-                bar1.OpenTime,          // Start time reference
-                bar3.OpenTime,          // End time reference
-                bar2.OpenTime,          // Middle candle time
+                candle1.Time,           // Start time reference
+                candle3.Time,           // End time reference
+                candle2.Time,           // Middle candle time
                 Direction.Up,           // Bullish direction
-                currentIndex - 2,       // Primary index reference (bar1)
-                currentIndex,           // High index (bar3 for bullish)
-                currentIndex - 2,       // Low index (bar1 for bullish)
+                currentIndex - 2,       // Primary index reference (candle1)
+                currentIndex,           // High index (candle3 for bullish)
+                currentIndex - 2,       // Low index (candle1 for bullish)
                 currentIndex - 1,       // Middle index
                 Zone.Premium            // Premium zone classification
             );
+            
+            // Set TimeFrame from candle
+            bullishFVG.TimeFrame = candle1.TimeFrame;
             
             // Initialize quadrants for the bullish FVG
             bullishFVG.InitializeQuadrants();
@@ -109,21 +116,21 @@ namespace Pfuma.Detectors
             return bullishFVG;
         }
         
-        private Level DetectBearishFvg(Bar bar1, Bar bar2, Bar bar3, int currentIndex)
+        private Level DetectBearishFvg(Candle candle1, Candle candle2, Candle candle3, int currentIndex)
         {
-            // Bearish FVG: bar1's low must be higher than bar3's high (primary gap condition)
-            if (bar1.Low <= bar3.High)
+            // Bearish FVG: candle1's low must be higher than candle3's high (primary gap condition)
+            if (candle1.Low <= candle3.High)
                 return null;
             
             // Volume imbalance analysis for boundary refinement per documentation
-            bool hasVolumeImbalance1 = bar1.Close > bar2.Open;
-            bool hasVolumeImbalance2 = bar2.Close > bar3.Open;
+            bool hasVolumeImbalance1 = candle1.Close > candle2.Open;
+            bool hasVolumeImbalance2 = candle2.Close > candle3.Open;
             
             // Determine boundaries based on volume imbalance presence (per documentation table)
-            // High boundary: Use bar1.Close if imbalance1 present, otherwise bar1.Low
-            // Low boundary: Use bar3.Open if imbalance2 present, otherwise bar3.High
-            double high = hasVolumeImbalance1 ? bar1.Close : bar1.Low;
-            double low = hasVolumeImbalance2 ? bar3.Open : bar3.High;
+            // High boundary: Use candle1.Close if imbalance1 present, otherwise candle1.Low
+            // Low boundary: Use candle3.Open if imbalance2 present, otherwise candle3.High
+            double high = hasVolumeImbalance1 ? candle1.Close : candle1.Low;
+            double low = hasVolumeImbalance2 ? candle3.Open : candle3.High;
             
             // Validate boundaries to ensure valid FVG  
             if (low >= high)
@@ -136,16 +143,19 @@ namespace Pfuma.Detectors
                 LevelType.FairValueGap,
                 low,                    // Refined low boundary
                 high,                   // Refined high boundary
-                bar3.OpenTime,          // Start time reference (reversed for bearish)
-                bar1.OpenTime,          // End time reference (reversed for bearish)
-                bar2.OpenTime,          // Middle candle time
+                candle3.Time,           // Start time reference (reversed for bearish)
+                candle1.Time,           // End time reference (reversed for bearish)
+                candle2.Time,           // Middle candle time
                 Direction.Down,         // Bearish direction
-                currentIndex - 2,       // Primary index reference (bar1)
-                currentIndex - 2,       // High index (bar1 for bearish)
-                currentIndex,           // Low index (bar3 for bearish)
+                currentIndex - 2,       // Primary index reference (candle1)
+                currentIndex - 2,       // High index (candle1 for bearish)
+                currentIndex,           // Low index (candle3 for bearish)
                 currentIndex - 1,       // Middle index
                 Zone.Discount           // Discount zone classification
             );
+            
+            // Set TimeFrame from candle
+            bearishFVG.TimeFrame = candle1.TimeFrame;
             
             // Initialize quadrants for the bearish FVG
             bearishFVG.InitializeQuadrants();
@@ -199,11 +209,11 @@ namespace Pfuma.Detectors
         {
             // An FVG is valid until it's been filled
             // Check if price has moved through the entire FVG range
-            if (currentIndex >= fvg.Index && currentIndex < Bars.Count)
+            if (currentIndex >= fvg.Index && currentIndex < CandleManager.Count)
             {
                 for (int i = fvg.Index; i <= currentIndex; i++)
                 {
-                    var bar = Bars[i];
+                    var bar = CandleManager.GetCandle(i);
                     
                     // For bullish FVG, check if a bar has filled the gap from above
                     if (fvg.Direction == Direction.Up && bar.Low <= fvg.Low)

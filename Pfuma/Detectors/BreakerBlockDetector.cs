@@ -8,6 +8,7 @@ using Pfuma.Core.Interfaces;
 using Pfuma.Detectors.Base;
 using Pfuma.Extensions;
 using Pfuma.Models;
+using Pfuma.Services;
 
 namespace Pfuma.Detectors
 {
@@ -21,20 +22,20 @@ namespace Pfuma.Detectors
         
         public BreakerBlockDetector(
             Chart chart,
-            Bars bars,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IRepository<Level> orderFlowRepository,
             IVisualization<Level> visualizer,
             IndicatorSettings settings,
             Action<string> logger = null)
-            : base(chart, bars, eventAggregator, repository, settings, logger)
+            : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
             _orderFlowRepository = orderFlowRepository;
         }
         
-        protected override List<Level> PerformDetection(Bars bars, int currentIndex)
+        protected override List<Level> PerformDetection(int currentIndex)
         {
             // Breaker block detection is triggered by CISD confirmation events
             return new List<Level>();
@@ -92,22 +93,27 @@ namespace Pfuma.Detectors
             int firstBullishCandleIndex = lastConsecutiveBullishCandles.First();
             int lastBullishCandleIndex = lastConsecutiveBullishCandles.Last();
             
-            Bar firstBullishCandle = Bars[firstBullishCandleIndex];
-            Bar lastBullishCandle = Bars[lastBullishCandleIndex];
+            Candle firstBullishCandle = CandleManager.GetCandle(firstBullishCandleIndex);
+            Candle lastBullishCandle = CandleManager.GetCandle(lastBullishCandleIndex);
             
             // Create a bullish breaker block
-            return new Level(
+            var breakerBlock = new Level(
                 LevelType.BreakerBlock,
                 firstBullishCandle.Low,
                 lastBullishCandle.High,
-                firstBullishCandle.OpenTime,
-                lastBullishCandle.OpenTime,
+                firstBullishCandle.Time,
+                lastBullishCandle.Time,
                 null,
                 Direction.Up,
                 firstBullishCandleIndex,
                 lastBullishCandleIndex,
                 firstBullishCandleIndex
             );
+            
+            // Set TimeFrame from candle
+            breakerBlock.TimeFrame = firstBullishCandle.TimeFrame;
+            
+            return breakerBlock;
         }
         
         private Level FindBearishBreakerBlock(Level cisd)
@@ -133,22 +139,27 @@ namespace Pfuma.Detectors
             int firstBearishCandleIndex = lastConsecutiveBearishCandles.First();
             int lastBearishCandleIndex = lastConsecutiveBearishCandles.Last();
             
-            Bar firstBearishCandle = Bars[firstBearishCandleIndex];
-            Bar lastBearishCandle = Bars[lastBearishCandleIndex];
+            Candle firstBearishCandle = CandleManager.GetCandle(firstBearishCandleIndex);
+            Candle lastBearishCandle = CandleManager.GetCandle(lastBearishCandleIndex);
             
             // Create a bearish breaker block
-            return new Level(
+            var breakerBlock = new Level(
                 LevelType.BreakerBlock,
                 lastBearishCandle.Low,
                 firstBearishCandle.High,
-                lastBearishCandle.OpenTime,
-                firstBearishCandle.OpenTime,
+                lastBearishCandle.Time,
+                firstBearishCandle.Time,
                 null,
                 Direction.Down,
                 firstBearishCandleIndex,
                 firstBearishCandleIndex,
                 lastBearishCandleIndex
             );
+            
+            // Set TimeFrame from candle
+            breakerBlock.TimeFrame = firstBearishCandle.TimeFrame;
+            
+            return breakerBlock;
         }
         
         private List<int> FindLastConsecutiveCandlesInOrderflow(Level orderflow, Direction direction)
@@ -165,7 +176,7 @@ namespace Pfuma.Detectors
             // Start from the end and work backward
             for (int i = endIndex; i >= startIndex; i--)
             {
-                var bar = Bars[i];
+                var bar = CandleManager.GetCandle(i);
                 var barDirection = bar.GetCandleDirection();
                 
                 if (barDirection == direction)

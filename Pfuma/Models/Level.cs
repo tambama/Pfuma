@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using cAlgo.API;
 
 namespace Pfuma.Models
 {
@@ -34,6 +35,7 @@ namespace Pfuma.Models
         public DateTime LowTime { get; set; }
         public double High { get; set; }
         public DateTime HighTime { get; set; }
+        public TimeFrame TimeFrame { get; set; }
         public double Mid => (High + Low) / 2;
         public DateTime MidTime { get; set; }
         public int Index { get; set; }

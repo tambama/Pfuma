@@ -35,6 +35,33 @@ public static class TimeFrameExtensions
     }
 
     /// <summary>
+    /// Converts a TimeFrame enum value to its shortname string representation
+    /// </summary>
+    public static string GetShortName(this TimeFrame timeFrame)
+    {
+        if (timeFrame == TimeFrame.Minute)
+            return "M1";
+        else if (timeFrame == TimeFrame.Minute5)
+            return "M5";
+        else if (timeFrame == TimeFrame.Minute15)
+            return "M15";
+        else if (timeFrame == TimeFrame.Minute30)
+            return "M30";
+        else if (timeFrame == TimeFrame.Hour)
+            return "H1";
+        else if (timeFrame == TimeFrame.Hour4)
+            return "H4";
+        else if (timeFrame == TimeFrame.Daily)
+            return "D1";
+        else if (timeFrame == TimeFrame.Weekly)
+            return "W1";
+        else if (timeFrame == TimeFrame.Monthly)
+            return "MN1";
+        else
+            return "Unknown";
+    }
+
+    /// <summary>
     /// Gets the number of current timeframe bars that make up a single higher timeframe bar
     /// </summary>
     /// <param name="currentTimeframe">The current timeframe</param>
