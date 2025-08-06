@@ -43,135 +43,61 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         
     protected override List<Level> PerformDetection(Bars bars, int currentIndex)
     {
-        var detectedOrderBlocks = new List<Level>();
-            
-        // Need swing point detector and sufficient bars
-        if (_swingPointDetector == null || currentIndex < Constants.Patterns.OrderBlockLookback)
-            return detectedOrderBlocks;
-            
-        // Check if there's an FVG at the current position (would come from event)
-        // For now, we'll check the previous bars for order block candidates
-            
-        // Look for potential order blocks in the last few bars
-        for (int i = Math.Max(0, currentIndex - Constants.Patterns.OrderBlockLookback); i < currentIndex; i++)
-        {
-            // Skip if we've already processed this index
-            if (_processedIndices.Contains(i))
-                continue;
-                
-            var orderBlock = CheckForOrderBlock(bars, i, currentIndex);
-            if (orderBlock != null)
-            {
-                detectedOrderBlocks.Add(orderBlock);
-                _processedIndices.Add(i);
-            }
-        }
-            
-        return detectedOrderBlocks;
+        // Order blocks are only detected through FVG events, not through regular scanning
+        // This method returns empty as detection happens in OnFvgDetected event handler
+        return new List<Level>();
     }
         
-    private Level CheckForOrderBlock(Bars bars, int candidateIndex, int currentIndex)
+    private Level CheckForOrderBlockFromFvg(Level fvg, int currentIndex)
     {
-        // Get swing point at the candidate index
-        var swingPoint = _swingPointDetector.GetSwingPointAtIndex(candidateIndex);
+        if (fvg == null || _swingPointDetector == null)
+            return null;
+            
+        // Get the first candle index of the FVG (bar1 in the 3-candle pattern)
+        int firstCandleIndex = fvg.Index; // This should be the index of bar1
+        
+        // Check if the first candle is a swing point
+        var swingPoint = _swingPointDetector.GetSwingPointAtIndex(firstCandleIndex);
         if (swingPoint == null)
             return null;
             
-        var candidateBar = bars[candidateIndex];
+        // Skip if we've already processed this index
+        if (_processedIndices.Contains(firstCandleIndex))
+            return null;
             
-        // For bullish order block, we need a swing low
-        if (swingPoint.Direction == Direction.Down)
+        var firstCandleBar = Bars[firstCandleIndex];
+        
+        // Determine order block direction based on FVG direction
+        // For bullish FVG, the first candle should be a swing low (becomes bullish order block)
+        // For bearish FVG, the first candle should be a swing high (becomes bearish order block)
+        Direction orderBlockDirection;
+        
+        if (fvg.Direction == Direction.Up && swingPoint.Direction == Direction.Down)
         {
-            // Check if this swing low meets order block criteria
-            if (IsValidBullishOrderBlock(swingPoint, candidateIndex, currentIndex))
-            {
-                return CreateOrderBlock(candidateBar, candidateIndex, Direction.Up);
-            }
+            // Bullish FVG with swing low at first candle = Bullish Order Block
+            orderBlockDirection = Direction.Up;
         }
-        // For bearish order block, we need a swing high
-        else if (swingPoint.Direction == Direction.Up)
+        else if (fvg.Direction == Direction.Down && swingPoint.Direction == Direction.Up)
         {
-            // Check if this swing high meets order block criteria
-            if (IsValidBearishOrderBlock(swingPoint, candidateIndex, currentIndex))
-            {
-                return CreateOrderBlock(candidateBar, candidateIndex, Direction.Down);
-            }
+            // Bearish FVG with swing high at first candle = Bearish Order Block
+            orderBlockDirection = Direction.Down;
+        }
+        else
+        {
+            // Direction mismatch - not a valid order block
+            return null;
         }
             
-        return null;
+        // Create the order block from the first candle
+        var orderBlock = CreateOrderBlock(firstCandleBar, firstCandleIndex, orderBlockDirection);
+        
+        // Mark this index as processed
+        _processedIndices.Add(firstCandleIndex);
+        
+        return orderBlock;
     }
         
-    private bool IsValidBullishOrderBlock(SwingPoint swingLow, int candidateIndex, int currentIndex)
-    {
-        // Get previous swing points
-        var previousSwingPoints = _swingPointDetector.GetAllSwingPoints()
-            .Where(sp => sp.Index < candidateIndex)
-            .OrderByDescending(sp => sp.Index)
-            .ToList();
-            
-        if (previousSwingPoints.Count == 0)
-            return false;
-            
-        // Find the most recent swing high before this low
-        var lastSwingHigh = previousSwingPoints
-            .FirstOrDefault(sp => sp.Direction == Direction.Up);
-            
-        if (lastSwingHigh == null)
-            return false;
-            
-        // Check if we've swept a previous swing low
-        var previousSwingLow = previousSwingPoints
-            .FirstOrDefault(sp => sp.Direction == Direction.Down);
-            
-        if (previousSwingLow != null)
-        {
-            var candidateBar = Bars[candidateIndex];
-            bool sweptPreviousLow = candidateBar.Low <= previousSwingLow.Price &&
-                                    candidateBar.Close > previousSwingLow.Price;
-                
-            // Valid if we swept a previous low OR came after a swing high
-            return sweptPreviousLow || lastSwingHigh.Index < swingLow.Index;
-        }
-            
-        // If no previous low, just check if we're after a high
-        return lastSwingHigh.Index < swingLow.Index;
-    }
         
-    private bool IsValidBearishOrderBlock(SwingPoint swingHigh, int candidateIndex, int currentIndex)
-    {
-        // Get previous swing points
-        var previousSwingPoints = _swingPointDetector.GetAllSwingPoints()
-            .Where(sp => sp.Index < candidateIndex)
-            .OrderByDescending(sp => sp.Index)
-            .ToList();
-            
-        if (previousSwingPoints.Count == 0)
-            return false;
-            
-        // Find the most recent swing low before this high
-        var lastSwingLow = previousSwingPoints
-            .FirstOrDefault(sp => sp.Direction == Direction.Down);
-            
-        if (lastSwingLow == null)
-            return false;
-            
-        // Check if we've swept a previous swing high
-        var previousSwingHigh = previousSwingPoints
-            .FirstOrDefault(sp => sp.Direction == Direction.Up);
-            
-        if (previousSwingHigh != null)
-        {
-            var candidateBar = Bars[candidateIndex];
-            bool sweptPreviousHigh = candidateBar.High >= previousSwingHigh.Price &&
-                                     candidateBar.Close < previousSwingHigh.Price;
-                
-            // Valid if we swept a previous high OR came after a swing low
-            return sweptPreviousHigh || lastSwingLow.Index < swingHigh.Index;
-        }
-            
-        // If no previous high, just check if we're after a low
-        return lastSwingLow.Index < swingHigh.Index;
-    }
         
     private Level CreateOrderBlock(Bar bar, int index, Direction direction)
     {
@@ -287,15 +213,16 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         
     private void OnFvgDetected(FvgDetectedEvent evt)
     {
-        // When an FVG is detected, check if the first candle is an order block
-        // This would trigger additional order block detection logic
+        // When an FVG is detected, check if the first candle is a swing point
+        // If it is, create an order block from that candle
         if (evt.FvgLevel != null && IsValidBarIndex(evt.FvgLevel.Index))
         {
-            var orderBlock = CheckForOrderBlock(Bars, evt.FvgLevel.Index, evt.Index);
+            var orderBlock = CheckForOrderBlockFromFvg(evt.FvgLevel, evt.Index);
             if (orderBlock != null && PostDetectionValidation(orderBlock, evt.Index))
             {
                 Repository.Add(orderBlock);
                 PublishDetectionEvent(orderBlock, evt.Index);
+                LogDetection(orderBlock, evt.Index);
             }
         }
     }

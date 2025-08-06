@@ -8,6 +8,5 @@ public enum LineType
     CISD,
     Unicorn,
     OF,
-    Session,
     Daily
 }

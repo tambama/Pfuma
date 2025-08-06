@@ -2,14 +2,9 @@ namespace Pfuma.Core.Configuration;
 
 public class VisualizationSettings
 {
-    // Market Structure
-    public bool ShowStructure { get; set; } = false;
-    public bool ShowChoch { get; set; } = false;
-    public bool ShowStdv { get; set; } = false;
         
     // Time-based
     public bool ShowMacros { get; set; } = true;
-    public bool ShowFibLevels { get; set; } = false;
         
     // Colors
     public ColorSettings Colors { get; set; } = new();

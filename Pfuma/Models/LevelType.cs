@@ -22,8 +22,6 @@ public enum LevelType
     Unicorn,
     [Description("CISD")]
     CISD,
-    [Description("Gauntlet")]
-    Gauntlet,
     [Description("Rejection Block")]
     RejectionBlock,
 }

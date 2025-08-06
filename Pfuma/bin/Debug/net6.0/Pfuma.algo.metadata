@@ -17,23 +17,67 @@
     "Video": null,
     "Lines": [
       {
-        "Name": "Swing High",
+        "Name": "Swing Highs",
         "Style": "Solid",
         "PlotType": "Points",
         "Thickness": 1.0,
-        "Color": "#FFFFFFFF",
+        "Color": "#00FF00FF",
         "PropertyName": "SwingHighs",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
         "IsLastValueVisibleInTitle": true
       },
       {
-        "Name": "Swing Low",
+        "Name": "Swing Lows",
         "Style": "Solid",
         "PlotType": "Points",
         "Thickness": 1.0,
-        "Color": "#FFFFFFFF",
+        "Color": "#FF0000FF",
         "PropertyName": "SwingLows",
+        "IsUsedInAutoScale": true,
+        "IsColorCustomizable": true,
+        "IsLastValueVisibleInTitle": true
+      },
+      {
+        "Name": "Higher Highs",
+        "Style": "Solid",
+        "PlotType": "Points",
+        "Thickness": 1.0,
+        "Color": "#008000FF",
+        "PropertyName": "HigherHighs",
+        "IsUsedInAutoScale": true,
+        "IsColorCustomizable": true,
+        "IsLastValueVisibleInTitle": true
+      },
+      {
+        "Name": "Lower Highs",
+        "Style": "Solid",
+        "PlotType": "Points",
+        "Thickness": 1.0,
+        "Color": "#FFA500FF",
+        "PropertyName": "LowerHighs",
+        "IsUsedInAutoScale": true,
+        "IsColorCustomizable": true,
+        "IsLastValueVisibleInTitle": true
+      },
+      {
+        "Name": "Lower Lows",
+        "Style": "Solid",
+        "PlotType": "Points",
+        "Thickness": 1.0,
+        "Color": "#FF0000FF",
+        "PropertyName": "LowerLows",
+        "IsUsedInAutoScale": true,
+        "IsColorCustomizable": true,
+        "IsLastValueVisibleInTitle": true
+      },
+      {
+        "Name": "Higher Lows",
+        "Style": "Solid",
+        "PlotType": "Points",
+        "Thickness": 1.0,
+        "Color": "#0000FFFF",
+        "PropertyName": "HigherLows",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
         "IsLastValueVisibleInTitle": true
@@ -84,17 +128,60 @@
       {
         "DefaultValue": false,
         "ParameterType": "Boolean",
-        "PropertyName": "ShowStructure",
-        "FriendlyName": "Show Structure",
-        "GroupName": "Market Structure",
+        "PropertyName": "ShowRejectionBlock",
+        "FriendlyName": "Show Rejection Blocks",
+        "GroupName": "Patterns",
         "IsValueVisibleInTitle": true
       },
       {
         "DefaultValue": false,
         "ParameterType": "Boolean",
-        "PropertyName": "ShowChoch",
-        "FriendlyName": "Show CHoCH",
-        "GroupName": "Market Structure",
+        "PropertyName": "ShowBreakerBlock",
+        "FriendlyName": "Show Breaker Blocks",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowCISD",
+        "FriendlyName": "Show CISD",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "MinValue": -2147483648,
+        "MaxValue": 2147483647,
+        "Step": 1,
+        "DefaultValue": 2,
+        "ParameterType": "Integer",
+        "PropertyName": "MaxCisdsPerDirection",
+        "FriendlyName": "Max CISD",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowUnicorn",
+        "FriendlyName": "Show Unicorn",
+        "GroupName": "Patterns",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowQuadrants",
+        "FriendlyName": "Show Quadrants",
+        "GroupName": "Visualization",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowInsideKeyLevel",
+        "FriendlyName": "Show Inside Key Level",
+        "GroupName": "Visualization",
         "IsValueVisibleInTitle": true
       },
       {
@@ -102,6 +189,30 @@
         "ParameterType": "Boolean",
         "PropertyName": "ShowMacros",
         "FriendlyName": "Show Macros",
+        "GroupName": "Time",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "MacroFilter",
+        "FriendlyName": "Macro Filter",
+        "GroupName": "Time",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": true,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowDailyLevels",
+        "FriendlyName": "Show Daily Levels",
+        "GroupName": "Time",
+        "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": true,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowSessionLevels",
+        "FriendlyName": "Show Session Levels",
         "GroupName": "Time",
         "IsValueVisibleInTitle": true
       },
@@ -129,22 +240,6 @@
         "ParameterType": "Boolean",
         "PropertyName": "EnableTelegram",
         "FriendlyName": "Enable Telegram",
-        "GroupName": "Notifications",
-        "IsValueVisibleInTitle": true
-      },
-      {
-        "DefaultValue": "",
-        "ParameterType": "String",
-        "PropertyName": "TelegramChatId",
-        "FriendlyName": "Telegram Chat ID",
-        "GroupName": "Notifications",
-        "IsValueVisibleInTitle": true
-      },
-      {
-        "DefaultValue": "",
-        "ParameterType": "String",
-        "PropertyName": "TelegramToken",
-        "FriendlyName": "Telegram Token",
         "GroupName": "Notifications",
         "IsValueVisibleInTitle": true
       }

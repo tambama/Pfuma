@@ -15,7 +15,6 @@ public class PatternDetectionSettings
     public int MaxCisdsPerDirection { get; set; } = 2;
         
     // Special Patterns
-    public bool ShowGauntlet { get; set; } = false;
     public bool ShowUnicorn { get; set; } = false;
     public bool ShowBreakerBlock { get; set; } = false;
     public bool ShowRejectionBlock { get; set; } = false;
@@ -24,7 +23,4 @@ public class PatternDetectionSettings
     public bool ShowQuadrants { get; set; } = false;
     public bool ShowInsideKeyLevel { get; set; } = false;
         
-    // SMT
-    public bool ShowSMT { get; set; } = false;
-    public string SmtPair { get; set; } = "";
 }

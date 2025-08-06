@@ -20,7 +20,6 @@ namespace Pfuma.Core.Configuration
         {
             public const int MacroStartMinutesBefore = 10;
             public const int MacroEndMinutesAfter = 10;
-            public const int FibExtensionHours = 8;
             public const int LevelExtensionMinutes = 5;
             public const int SweptLineExtensionMinutes = 1;
             public const int MacroNotificationCooldownSeconds = 10;
@@ -46,34 +45,9 @@ namespace Pfuma.Core.Configuration
             public const int ConsecutiveCandlesMin = 1;
         }
         
-        // Fibonacci Levels
-        public static readonly double[] FibonacciRatios = 
-        { 
-            -2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.114, 0.236, 
-            0.382, 0.5, 0.618, 0.786, 0.886, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0 
-        };
-        
-        public static readonly double[] TrackedFibonacciRatios = 
-        { 
-            -2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.114, 0.886, 
-            1.0, 1.25, 1.5, 2.0, 2.5, 3.0 
-        };
         
         // Quadrant Percentages
         public static readonly int[] QuadrantPercentages = { 0, 25, 50, 75, 100 };
         
-        // Session Times (in hours)
-        public static class SessionHours
-        {
-            public const int AsiaStart = 18;
-            public const int AsiaEnd = 23;
-            public const int LondonPreStart = 0;
-            public const int LondonStart = 1;
-            public const int LondonEnd = 4;
-            public const int NewYorkPreStart = 7;
-            public const int NewYorkAMStart = 9;
-            public const int NewYorkAMStartMinute = 30;
-            public const int DailyBoundaryHour = 18;
-        }
     }
 }

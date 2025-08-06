@@ -274,64 +274,6 @@ namespace Pfuma.Extensions
             chart.DrawTrendLine(highLineId, startTime, highPrice, startTime.AddMinutes(1), highPrice, color, 1, LineStyle.Solid);
         }
         
-        /// <summary>
-        /// Draws a Fibonacci retracement/extension on the chart
-        /// </summary>
-        public static void DrawFibonacci(this Chart chart, string id, DateTime startTime, double startPrice, 
-            DateTime endTime, double endPrice, Color color, int opacity = 5)
-        {
-            // First, remove any existing Fibonacci with the same ID
-            chart.RemoveObject(id);
-            
-            // Draw the main trend line from start to end
-            var mainLine = chart.DrawTrendLine($"{id}-main", startTime, startPrice, endTime, endPrice, color);
-            
-            // Calculate distances
-            double range = Math.Abs(endPrice - startPrice);
-            bool isUp = endPrice > startPrice;
-            
-            // Draw level lines for common Fibonacci ratios
-            double[] levels = { -2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.114, 0.236, 0.382, 0.5, 0.618, 0.786, 0.886, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0 };
-            
-            foreach (double level in levels)
-            {
-                // Calculate price at this ratio
-                double levelPrice;
-                if (isUp)
-                {
-                    levelPrice = startPrice + (range * level);
-                }
-                else
-                {
-                    levelPrice = startPrice - (range * level);
-                }
-                
-                // Draw the line
-                var line = chart.DrawTrendLine(
-                    $"{id}-level-{level}",
-                    startTime,
-                    levelPrice,
-                    endTime.AddHours(8), // Extend to the right
-                    levelPrice,
-                    color
-                );
-                
-                // Make it semi-transparent
-                line.Color = Color.FromArgb(opacity, line.Color);
-                
-                // Make all lines editable
-                line.IsInteractive = true;
-                
-                // Add level labels
-                chart.DrawText(
-                    $"{id}-label-{level}", 
-                    $"{level:0.###}", 
-                    startTime, 
-                    levelPrice, 
-                    color
-                );
-            }
-        }
         
         public static void DrawLineFromLevelToPoint(this Chart chart, Level pdArray, SwingPoint swingPoint)
         {

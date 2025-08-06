@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Indicators;
-using Pfuma.Analyzers;
 using Pfuma.Core.Configuration;
 using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
@@ -49,24 +48,10 @@ namespace Pfuma
         [Parameter("Max CISD", DefaultValue = 2, Group = "Patterns")]
         public int MaxCisdsPerDirection { get; set; }
         
-        [Parameter("Show Gauntlet", DefaultValue = false, Group = "Patterns")]
-        public bool ShowGauntlet { get; set; }
         
         [Parameter("Show Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
         
-        // Market Structure
-        [Parameter("Show Market Structure", DefaultValue = false, Group = "Market Structure")]
-        public bool ShowMarketStructure { get; set; }
-        
-        [Parameter("Show Structure", DefaultValue = false, Group = "Market Structure")]
-        public bool ShowStructure { get; set; }
-        
-        [Parameter("Show CHoCH", DefaultValue = false, Group = "Market Structure")]
-        public bool ShowChoch { get; set; }
-        
-        [Parameter("Show Standard Deviation", DefaultValue = false, Group = "Market Structure")]
-        public bool ShowStandardDeviation { get; set; }
         
         // Visualization
         [Parameter("Show Quadrants", DefaultValue = false, Group = "Visualization")]
@@ -82,18 +67,14 @@ namespace Pfuma
         [Parameter("Macro Filter", DefaultValue = false, Group = "Time")]
         public bool MacroFilter { get; set; }
         
-        [Parameter("Show Fibonacci Levels", DefaultValue = false, Group = "Time")]
-        public bool ShowFibonacciLevels { get; set; }
+        [Parameter("Show Daily Levels", DefaultValue = true, Group = "Time")]
+        public bool ShowDailyLevels { get; set; }
+        
+        [Parameter("Show Session Levels", DefaultValue = true, Group = "Time")]
+        public bool ShowSessionLevels { get; set; }
         
         [Parameter("UTC Offset", DefaultValue = -4, Group = "Time")]
         public int UtcOffset { get; set; }
-        
-        // SMT
-        [Parameter("Show SMT", DefaultValue = false, Group = "SMT")]
-        public bool ShowSMT { get; set; }
-        
-        [Parameter("SMT Pair", DefaultValue = "", Group = "SMT")]
-        public string SMTPair { get; set; }
         
         // Notifications
         [Parameter("Enable Log", DefaultValue = false, Group = "Notifications")]
@@ -138,8 +119,6 @@ namespace Pfuma
         private NotificationService _notificationService;
         private TimeManager _timeManager;
         private SwingPointDetector _swingPointDetector;
-        private MarketStructureAnalyzer _marketStructureAnalyzer;
-        private PdArrayAnalyzer _pdArrayAnalyzer;
         
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
@@ -153,7 +132,6 @@ namespace Pfuma
         private BreakerBlockDetector _breakerBlockDetector;
         private CisdDetector _cisdDetector;
         private UnicornDetector _unicornDetector;
-        private GauntletDetector _gauntletDetector;
         
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
@@ -163,7 +141,6 @@ namespace Pfuma
         private IVisualization<Level> _breakerBlockVisualizer;
         private IVisualization<Level> _cisdVisualizer;
         private IVisualization<Level> _unicornVisualizer;
-        private IVisualization<Level> _gauntletVisualizer;
         
         // Bar tracking
         private Bar _previousBar;
@@ -224,25 +201,16 @@ namespace Pfuma
                     ShowBreakerBlock = ShowBreakerBlock,
                     ShowCISD = ShowCISD,
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
-                    ShowGauntlet = ShowGauntlet,
                     ShowUnicorn = ShowUnicorn,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
-                    ShowSMT = ShowSMT,
-                    SmtPair = SMTPair
-                },
-                MarketStructure = new MarketStructureSettings
-                {
-                    ShowMarketStructure = ShowMarketStructure,
-                    ShowStructure = ShowStructure,
-                    ShowChoch = ShowChoch,
-                    ShowStandardDeviation = ShowStandardDeviation
                 },
                 Time = new TimeSettings
                 {
                     ShowMacros = ShowMacros,
                     MacroFilter = MacroFilter,
-                    ShowFibonacciLevels = ShowFibonacciLevels,
+                    ShowDailyLevels = ShowDailyLevels,
+                    ShowSessionLevels = ShowSessionLevels,
                     UtcOffset = UtcOffset
                 },
                 Notifications = new NotificationSettings
@@ -261,7 +229,14 @@ namespace Pfuma
         private void InitializeCoreServices()
         {
             _eventAggregator = new EventAggregator();
-            _notificationService = new NotificationService(Symbol.Name, _settings.Time.UtcOffset, EnableLog ? Print : null);
+            _notificationService = new NotificationService(
+                EnableLog, 
+                EnableTelegram, 
+                "", // chatId - empty for now
+                "", // token - empty for now  
+                Symbol.Name, 
+                _settings.Time.UtcOffset, 
+                EnableLog ? Print : null);
         }
         
         private void InitializeRepositories()
@@ -279,35 +254,19 @@ namespace Pfuma
             _breakerBlockVisualizer = new BreakerBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
-            _gauntletVisualizer = new GauntletVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
         }
         
         private void InitializeServicesAndAnalyzers()
         {
             // Initialize swing point detector
-            _swingPointDetector = new SwingPointDetector(SwingHighs, SwingLows);
+            _swingPointDetector = new SwingPointDetector(SwingHighs, SwingLows, _eventAggregator);
             
             // Initialize time manager
             _timeManager = new TimeManager(
                 Chart, Bars, _swingPointDetector, _notificationService,
-                ShowMacros, ShowFibonacciLevels, UtcOffset);
+                ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
             
-            // Initialize market structure analyzer
-            if (ShowMarketStructure)
-            {
-                _marketStructureAnalyzer = new MarketStructureAnalyzer(
-                    Chart, _eventAggregator, HigherHighs, LowerHighs, 
-                    LowerLows, HigherLows, _settings, EnableLog ? Print : null);
-                _marketStructureAnalyzer.Initialize();
-            }
             
-            // Initialize PD Array Analyzer for SMT coordination
-            if (ShowSMT)
-            {
-                _pdArrayAnalyzer = new PdArrayAnalyzer(
-                    Chart, _eventAggregator, _settings, EnableLog ? Print : null);
-                _pdArrayAnalyzer.Initialize();
-            }
         }
         
         private void InitializeDetectors()
@@ -334,10 +293,6 @@ namespace Pfuma
             _unicornDetector = new UnicornDetector(
                 Chart, Bars, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
             
-            // Gauntlet detector needs time manager
-            _gauntletDetector = new GauntletDetector(
-                Chart, Bars, _eventAggregator, _levelRepository, _levelRepository, 
-                _gauntletVisualizer, _timeManager, _settings, EnableLog ? Print : null);
             
             // Initialize all detectors
             _fvgDetector.Initialize();
@@ -347,7 +302,6 @@ namespace Pfuma
             _breakerBlockDetector.Initialize();
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
-            _gauntletDetector.Initialize();
         }
         
         private void SubscribeToEvents()
@@ -369,19 +323,31 @@ namespace Pfuma
         
         public override void Calculate(int index)
         {
-            if (!_isInitialized || index <= 1)
+            if (!_isInitialized || index <= 1 || index >= Bars.Count)
                 return;
             
             try
             {
+                // Validate array bounds
+                if (index - 1 < 0 || index - 1 >= Bars.Count)
+                    return;
+                    
                 _previousBar = Bars[index - 1];
                 _previousBarIndex = index - 1;
+                
+                // Validate bar data
+                if (_previousBar == null)
+                    return;
                 
                 // Create candle object from previous bar
                 var candle = new Candle(_previousBar, _previousBarIndex, TimeFrame);
                 
                 // 1. Process time-based features
-                _timeManager?.ProcessBar(index, Bars[index].OpenTime);
+                if (index < Bars.Count && Bars[index] != null)
+                {
+                    _timeManager?.ProcessBar(index, Bars[index].OpenTime);
+                }
+                
                 
                 // 2. Check CISD activation on previous bar
                 if (ShowCISD && _cisdDetector != null && index > 1)
@@ -395,11 +361,6 @@ namespace Pfuma
                     _swingPointDetector?.ProcessBar(_previousBarIndex, candle);
                 }
                 
-                // 4. Check Fibonacci level sweeps
-                if (ShowFibonacciLevels && _timeManager != null)
-                {
-                    _timeManager.CheckFibonacciSweeps(_previousBar, _previousBarIndex);
-                }
                 
                 // 5. Check for special liquidity sweeps (PDH, PDL, PSH, PSL)
                 // Note: Regular swing point liquidity sweeps are handled by OrderFlowDetector
@@ -409,16 +370,12 @@ namespace Pfuma
                     // For now, liquidity sweep detection for special points is handled via events
                 }
                 
-                // 6. Detect patterns
-                if (ShowFVG)
-                {
-                    _fvgDetector?.Detect(Bars, index);
-                }
+                // 6. Detect patterns - Always detect FVGs (ShowFVG only controls visualization)
+                _fvgDetector?.Detect(Bars, index);
                 
-                if (ShowOrderBlock)
-                {
-                    _orderBlockDetector?.Detect(Bars, index);
-                }
+                // Order Block detector now works via FVG events, so always enable it
+                // (ShowOrderBlock only controls visualization)
+                _orderBlockDetector?.Detect(Bars, index);
                 
                 if (ShowRejectionBlock)
                 {
@@ -428,7 +385,7 @@ namespace Pfuma
                 // 7. Update market structure (handled via events)
                 
                 // 8. Initialize detectors with swing points when ready
-                if (!_detectorsInitialized && _swingPointRepository.Count() >= 3)
+                if (!_detectorsInitialized && _swingPointRepository.Count >= 3)
                 {
                     InitializeDetectorsWithSwingPoints();
                     _detectorsInitialized = true;
@@ -478,7 +435,7 @@ namespace Pfuma
                     cisd.ActivationIndex = previousBarIndex;
                     
                     // Publish activation event
-                    _eventAggregator.Publish(new CisdActivatedEvent(cisd));
+                    _eventAggregator.Publish(new CisdActivatedEvent(cisd, previousBarIndex));
                     
                     if (EnableLog)
                         Print($"CISD activated: {cisd.Direction} at index {previousBarIndex}");
@@ -563,20 +520,6 @@ namespace Pfuma
             {
                 _swingPointRepository.Add(evt.SwingPoint);
                 
-                // Check for SMT divergence if enabled
-                if (ShowSMT && _pdArrayAnalyzer != null && _swingPointRepository.Count() > 1)
-                {
-                    var previousPoint = _swingPointRepository
-                        .Find(sp => sp.Direction == evt.SwingPoint.Direction && 
-                                   sp.Index < evt.SwingPoint.Index)
-                        .OrderByDescending(sp => sp.Index)
-                        .FirstOrDefault();
-                    
-                    if (previousPoint != null)
-                    {
-                        _pdArrayAnalyzer.CheckForSmtDivergence(previousPoint, evt.SwingPoint);
-                    }
-                }
             }
         }
         
@@ -597,7 +540,7 @@ namespace Pfuma
         /// </summary>
         public List<Level> GetAllFVGs()
         {
-            return _levelRepository?.GetByType(LevelType.FairValueGap) ?? new List<Level>();
+            return (_levelRepository as LevelRepository)?.GetByType(LevelType.FairValueGap) ?? new List<Level>();
         }
         
         /// <summary>
@@ -605,7 +548,7 @@ namespace Pfuma
         /// </summary>
         public List<Level> GetAllOrderBlocks()
         {
-            return _levelRepository?.GetByType(LevelType.OrderBlock) ?? new List<Level>();
+            return (_levelRepository as LevelRepository)?.GetByType(LevelType.OrderBlock) ?? new List<Level>();
         }
         
         /// <summary>
@@ -613,7 +556,7 @@ namespace Pfuma
         /// </summary>
         public List<Level> GetAllOrderFlows()
         {
-            return _levelRepository?.GetByType(LevelType.Orderflow) ?? new List<Level>();
+            return (_levelRepository as LevelRepository)?.GetByType(LevelType.Orderflow) ?? new List<Level>();
         }
         
         /// <summary>
@@ -629,10 +572,6 @@ namespace Pfuma
         /// <summary>
         /// Gets market bias
         /// </summary>
-        public Direction GetMarketBias()
-        {
-            return _marketStructureAnalyzer?.GetBias() ?? Direction.Up;
-        }
         
         #endregion
         
@@ -650,11 +589,8 @@ namespace Pfuma
                 _breakerBlockDetector?.Dispose();
                 _cisdDetector?.Dispose();
                 _unicornDetector?.Dispose();
-                _gauntletDetector?.Dispose();
                 
                 // Dispose analyzers
-                _marketStructureAnalyzer?.Dispose();
-                _pdArrayAnalyzer?.Dispose();
                 
                 // Clear visualizers
                 _fvgVisualizer?.Clear();
@@ -664,7 +600,6 @@ namespace Pfuma
                 _breakerBlockVisualizer?.Clear();
                 _cisdVisualizer?.Clear();
                 _unicornVisualizer?.Clear();
-                _gauntletVisualizer?.Clear();
                 
                 // Clear repositories
                 _swingPointRepository?.Clear();

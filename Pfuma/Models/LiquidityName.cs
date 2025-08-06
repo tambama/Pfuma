@@ -24,5 +24,5 @@ public enum LiquidityName
     [Description("PM High")] NYPMH,
     [Description("PM Low")] NYPML,
     [Description("Daily High")] PDH,
-    [Description("Daily Low")] PDL
+    [Description("Daily Low")] PDL,
 }

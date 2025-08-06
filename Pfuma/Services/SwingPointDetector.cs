@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
 using Pfuma.Models;
+using Pfuma.Core.Interfaces;
+using Pfuma.Core.Events;
 
 namespace Pfuma.Services
 {
@@ -22,6 +24,7 @@ namespace Pfuma.Services
 
         private readonly IndicatorDataSeries _swingHighs;
         private readonly IndicatorDataSeries _swingLows;
+        private readonly IEventAggregator _eventAggregator;
 
         // Collection to store all swing points
         private readonly List<SwingPoint> _swingPoints = new();
@@ -36,16 +39,37 @@ namespace Pfuma.Services
         // Define the event
         public event SwingPointRemovedEventHandler SwingPointRemoved;
 
-        public SwingPointDetector(IndicatorDataSeries swingHighs, IndicatorDataSeries swingLows)
+        public SwingPointDetector(IndicatorDataSeries swingHighs, IndicatorDataSeries swingLows, IEventAggregator eventAggregator = null)
         {
             _swingHighs = swingHighs;
             _swingLows = swingLows;
+            _eventAggregator = eventAggregator;
+        }
+        
+        /// <summary>
+        /// Publishes swing point detected event
+        /// </summary>
+        private void PublishSwingPointDetected(SwingPoint swingPoint)
+        {
+            _eventAggregator?.Publish(new SwingPointDetectedEvent(swingPoint));
+        }
+        
+        /// <summary>
+        /// Adds swing point to collection and publishes event
+        /// </summary>
+        private void AddSwingPointAndPublish(SwingPoint swingPoint)
+        {
+            if (swingPoint == null)
+                return;
+                
+            _swingPoints.Add(swingPoint);
+            PublishSwingPointDetected(swingPoint);
         }
 
         public void ProcessBar(int index, Candle bar)
         {
             // Need at least 1 bar to calculate
-            if (index <= 0)
+            if (index <= 0 || bar == null)
                 return;
 
             var close = bar.Close;
@@ -85,7 +109,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
 
                         // Then set current low as swing low
@@ -106,7 +130,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
 
                         return; // Finished processing this candle
@@ -136,7 +160,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
 
                         // Then set current high as swing high
@@ -157,7 +181,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
 
                         return; // Finished processing this candle
@@ -193,7 +217,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
 
                         // Then set current high as swing high
@@ -214,7 +238,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
 
                         return; // Finished processing this candle
@@ -244,7 +268,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
 
                         // Then set current low as swing low
@@ -265,7 +289,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
 
                         return; // Finished processing this candle
@@ -297,7 +321,7 @@ namespace Pfuma.Services
                         Direction.Up
                     );
                     highSwingPoint.Number = ++_currentSwingPointNumber;
-                    _swingPoints.Add(highSwingPoint);
+                    AddSwingPointAndPublish(highSwingPoint);
                     _lastHighSwingPoint = highSwingPoint;
 
                     return; // Finished processing this candle
@@ -331,7 +355,7 @@ namespace Pfuma.Services
                         Direction.Up
                     );
                     highSwingPoint.Number = ++_currentSwingPointNumber;
-                    _swingPoints.Add(highSwingPoint);
+                    AddSwingPointAndPublish(highSwingPoint);
                     _lastHighSwingPoint = highSwingPoint;
 
                     return; // Finished processing this candle
@@ -358,7 +382,7 @@ namespace Pfuma.Services
                         Direction.Down
                     );
                     lowSwingPoint.Number = ++_currentSwingPointNumber;
-                    _swingPoints.Add(lowSwingPoint);
+                    AddSwingPointAndPublish(lowSwingPoint);
                     _lastLowSwingPoint = lowSwingPoint;
 
                     return; // Finished processing this candle
@@ -389,7 +413,7 @@ namespace Pfuma.Services
                         Direction.Down
                     );
                     lowSwingPoint.Number = ++_currentSwingPointNumber;
-                    _swingPoints.Add(lowSwingPoint);
+                    AddSwingPointAndPublish(lowSwingPoint);
                     _lastLowSwingPoint = lowSwingPoint;
 
                     return; // Finished processing this candle
@@ -423,7 +447,7 @@ namespace Pfuma.Services
                         Direction.Down
                     );
                     lowSwingPoint.Number = ++_currentSwingPointNumber;
-                    _swingPoints.Add(lowSwingPoint);
+                    AddSwingPointAndPublish(lowSwingPoint);
                     _lastLowSwingPoint = lowSwingPoint;
 
                     return; // Finished processing this candle
@@ -450,7 +474,7 @@ namespace Pfuma.Services
                         Direction.Up
                     );
                     highSwingPoint.Number = ++_currentSwingPointNumber;
-                    _swingPoints.Add(highSwingPoint);
+                    AddSwingPointAndPublish(highSwingPoint);
                     _lastHighSwingPoint = highSwingPoint;
 
                     return; // Finished processing this candle
@@ -463,23 +487,37 @@ namespace Pfuma.Services
             if (swingPoint == null)
                 return;
 
-            // Assign a number to the swing point
-            swingPoint.Number = ++_currentSwingPointNumber;
-
-            // Add to collection
-            _swingPoints.Add(swingPoint);
-
-            // Set indicator data series value
-            if (swingPoint.SwingType == SwingType.H)
+            // Check if a swing point already exists at the same index
+            var existingPoint = _swingPoints.Find(sp => sp.Index == swingPoint.Index);
+            
+            if (existingPoint != null)
             {
-                _swingHighs[swingPoint.Index] = swingPoint.Price;
-                _lastHighSwingPoint = swingPoint;
+                // Preserve the Number from the existing swing point
+                swingPoint.Number = existingPoint.Number;
+                
+                // Remove the existing swing point from the collection
+                _swingPoints.Remove(existingPoint);
             }
             else
             {
-                _swingLows[swingPoint.Index] = swingPoint.Price;
-                _lastLowSwingPoint = swingPoint;
+                // Assign a new number only if there's no existing swing point
+                swingPoint.Number = ++_currentSwingPointNumber;
             }
+
+            // Add to collection
+            AddSwingPointAndPublish(swingPoint);
+
+            // Set indicator data series value
+            // if (swingPoint.SwingType == SwingType.H)
+            // {
+            //     _swingHighs[swingPoint.Index] = swingPoint.Price;
+            //     _lastHighSwingPoint = swingPoint;
+            // }
+            // else
+            // {
+            //     _swingLows[swingPoint.Index] = swingPoint.Price;
+            //     _lastLowSwingPoint = swingPoint;
+            // }
         }
 
         public void ProcessHighTimeframeBar(Candle htfCandle)
@@ -532,7 +570,7 @@ namespace Pfuma.Services
                                 Direction.Up
                             );
                             highSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(highSwingPoint);
+                            AddSwingPointAndPublish(highSwingPoint);
                             _lastHighSwingPoint = highSwingPoint;
                         }
 
@@ -556,7 +594,7 @@ namespace Pfuma.Services
                                 Direction.Down
                             );
                             lowSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(lowSwingPoint);
+                            AddSwingPointAndPublish(lowSwingPoint);
                             _lastLowSwingPoint = lowSwingPoint;
                         }
 
@@ -589,7 +627,7 @@ namespace Pfuma.Services
                                 Direction.Down
                             );
                             lowSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(lowSwingPoint);
+                            AddSwingPointAndPublish(lowSwingPoint);
                             _lastLowSwingPoint = lowSwingPoint;
                         }
 
@@ -613,7 +651,7 @@ namespace Pfuma.Services
                                 Direction.Up
                             );
                             highSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(highSwingPoint);
+                            AddSwingPointAndPublish(highSwingPoint);
                             _lastHighSwingPoint = highSwingPoint;
                         }
 
@@ -652,7 +690,7 @@ namespace Pfuma.Services
                                 Direction.Down
                             );
                             lowSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(lowSwingPoint);
+                            AddSwingPointAndPublish(lowSwingPoint);
                             _lastLowSwingPoint = lowSwingPoint;
                         }
 
@@ -676,7 +714,7 @@ namespace Pfuma.Services
                                 Direction.Up
                             );
                             highSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(highSwingPoint);
+                            AddSwingPointAndPublish(highSwingPoint);
                             _lastHighSwingPoint = highSwingPoint;
                         }
 
@@ -709,7 +747,7 @@ namespace Pfuma.Services
                                 Direction.Up
                             );
                             highSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(highSwingPoint);
+                            AddSwingPointAndPublish(highSwingPoint);
                             _lastHighSwingPoint = highSwingPoint;
                         }
 
@@ -733,7 +771,7 @@ namespace Pfuma.Services
                                 Direction.Down
                             );
                             lowSwingPoint.Number = ++_currentSwingPointNumber;
-                            _swingPoints.Add(lowSwingPoint);
+                            AddSwingPointAndPublish(lowSwingPoint);
                             _lastLowSwingPoint = lowSwingPoint;
                         }
 
@@ -768,7 +806,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
                     }
 
@@ -805,7 +843,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
                     }
 
@@ -835,7 +873,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
                     }
 
@@ -869,7 +907,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
                     }
 
@@ -906,7 +944,7 @@ namespace Pfuma.Services
                             Direction.Down
                         );
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(lowSwingPoint);
+                        AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
                     }
 
@@ -936,7 +974,7 @@ namespace Pfuma.Services
                             Direction.Up
                         );
                         highSwingPoint.Number = ++_currentSwingPointNumber;
-                        _swingPoints.Add(highSwingPoint);
+                        AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
                     }
 
@@ -946,16 +984,14 @@ namespace Pfuma.Services
         }
 
         /// <summary>
-        /// Checks if the new bar sweeps any important liquidity points (PDH, PDL, PSH, PSL)
+        /// Checks if the new bar sweeps any important liquidity points (PDH, PDL)
         /// </summary>
         public void CheckForSweptLiquidity(Candle currentBar, int currentIndex)
         {
             // Get all swing points that could be swept
             var liquidityPoints = _swingPoints.Where(sp =>
                 (sp.LiquidityType == LiquidityType.PDH ||
-                sp.LiquidityType == LiquidityType.PDL ||
-                sp.LiquidityType == LiquidityType.PSH ||
-                sp.LiquidityType == LiquidityType.PSL) && !sp.Swept).ToList();
+                sp.LiquidityType == LiquidityType.PDL) && !sp.Swept).ToList();
 
             foreach (var point in liquidityPoints)
             {
@@ -965,14 +1001,14 @@ namespace Pfuma.Services
 
                 bool wasSwept = false;
 
-                // Check for swept highs (PDH/PSH)
-                if ((point.LiquidityType == LiquidityType.PDH || point.LiquidityType == LiquidityType.PSH) &&
+                // Check for swept highs (PDH)
+                if (point.LiquidityType == LiquidityType.PDH &&
                     currentBar.High >= point.Price && point.Index < currentIndex)
                 {
                     wasSwept = true;
                 }
-                // Check for swept lows (PDL/PSL)
-                else if ((point.LiquidityType == LiquidityType.PDL || point.LiquidityType == LiquidityType.PSL) &&
+                // Check for swept lows (PDL)
+                else if (point.LiquidityType == LiquidityType.PDL &&
                          currentBar.Low <= point.Price && point.Index < currentIndex)
                 {
                     wasSwept = true;

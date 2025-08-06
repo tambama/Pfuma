@@ -8,5 +8,4 @@ public class Permissions
     public bool ShowUnicorn { get; set; }
     public bool ShowCISD { get; set; }
     public bool ShowLiquiditySweep { get; set; }
-    public bool ShowGauntlet { get; set; } // Added property for gauntlet visibility
 }

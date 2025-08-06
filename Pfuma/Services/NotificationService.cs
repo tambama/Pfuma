@@ -65,28 +65,6 @@ namespace Pfuma.Services
             SendNotification(message);
         }
 
-        /// <summary>
-        /// Send a notification about a Gauntlet detection
-        /// </summary>
-        public void NotifyGauntletDetected(Direction direction)
-        {
-            string key = $"Gauntlet_{direction}_{_symbol}";
-
-            // Only send notification if we haven't sent one for this direction and symbol in the last 10 seconds
-            if (_lastNotifications.TryGetValue(key, out var lastTime) &&
-                (DateTime.UtcNow.AddHours(_utcOffset) - lastTime).TotalSeconds < 10)
-            {
-                return; // Skip duplicate notification
-            }
-
-            _lastNotifications[key] = DateTime.UtcNow.AddHours(_utcOffset);
-
-            string directionText = direction == Direction.Up ? "Bullish" : "Bearish";
-            string message =
-                $"{directionText} Gauntlet detected for {_symbol} at {DateTime.UtcNow.AddHours(_utcOffset)}";
-
-            SendNotification(message);
-        }
 
         /// <summary>
         /// Send a notification about liquidity being swept

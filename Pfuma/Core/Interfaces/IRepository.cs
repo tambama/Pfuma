@@ -36,4 +36,9 @@ public interface IRepository<T> where T : class
     /// Clears the repository
     /// </summary>
     void Clear();
+    
+    /// <summary>
+    /// Gets the count of items in the repository
+    /// </summary>
+    int Count { get; }
 }

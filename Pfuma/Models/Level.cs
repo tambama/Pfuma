@@ -42,6 +42,7 @@ namespace Pfuma.Models
         public int IndexMid { get; set; } // Added to track the middle candle
         public int Score { get; set; }
         public bool Activated { get; set; }
+        public int ActivationIndex { get; set; }
         public bool IsInverted { get; set; }
         public int PassCount { get; set; }
         public bool IsConfirmed { get; set; }
@@ -58,9 +59,6 @@ namespace Pfuma.Models
         public int IndexOfSweepingCandle { get; set; }
         public int SweptCount => SweptSwingPoints?.Count ?? 0;
     
-        // Properties for Gauntlet tracking
-        public bool IsGauntlet { get; set; }
-        public Level GauntletFVG { get; set; }
     
         // CISD
         public Level CISDLevel { get; set; }
