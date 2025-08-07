@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
-using Pfuma.Models;
-using Pfuma.Core.Interfaces;
 using Pfuma.Core.Events;
+using Pfuma.Core.Interfaces;
+using Pfuma.Models;
+using Pfuma.Services;
 
-namespace Pfuma.Services
+namespace Pfuma.Detectors
 {
     /// <summary>
     /// Handles the detection of swing points based on ICT methodology

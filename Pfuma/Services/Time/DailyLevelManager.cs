@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using cAlgo.API;
+using Pfuma.Detectors;
 using Pfuma.Models;
 using Pfuma.Services;
 using Pfuma.Extensions;

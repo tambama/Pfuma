@@ -1,5 +1,6 @@
 using System;
 using cAlgo.API;
+using Pfuma.Detectors;
 using Pfuma.Services.Time;
 
 namespace Pfuma.Services
