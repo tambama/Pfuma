@@ -9,6 +9,22 @@ using Pfuma.Models;
 namespace Pfuma.Services
 {
     /// <summary>
+    /// Tracks swing point state for HTF timeframes
+    /// </summary>
+    public class SwingPointState
+    {
+        public int LastSwingHighIndex { get; set; } = -1;
+        public int LastSwingLowIndex { get; set; } = -1;
+        public double LastSwingHighValue { get; set; } = double.MinValue;
+        public double LastSwingLowValue { get; set; } = double.MaxValue;
+        public bool LastSwingWasHigh { get; set; } = false;
+        public bool LastSwingWasLow { get; set; } = false;
+        public int CurrentSwingPointNumber { get; set; } = 0;
+        public SwingPoint LastHighSwingPoint { get; set; }
+        public SwingPoint LastLowSwingPoint { get; set; }
+    }
+
+    /// <summary>
     /// Manages the collection of custom Candle objects for the indicator
     /// </summary>
     public class CandleManager
@@ -25,8 +41,13 @@ namespace Pfuma.Services
         private readonly Dictionary<TimeFrame, List<Candle>> _htfCandles;
         private readonly List<TimeFrame> _higherTimeframes;
         private readonly bool _showHighTimeframeCandle;
+        private readonly bool _showHtfSwingPoints;
+        
+        // HTF Swing Point Collections
+        private readonly Dictionary<TimeFrame, List<SwingPoint>> _htfSwingPoints;
+        private readonly Dictionary<TimeFrame, SwingPointState> _htfSwingStates;
 
-        public CandleManager(Bars bars, TimeFrame timeFrame, Chart chart = null, int utcOffset = -4, Action<string> logger = null, string timeframes = "H1", bool showHighTimeframeCandle = false)
+        public CandleManager(Bars bars, TimeFrame timeFrame, Chart chart = null, int utcOffset = -4, Action<string> logger = null, string timeframes = "H1", bool showHighTimeframeCandle = false, bool showHtfSwingPoints = false)
         {
             _bars = bars;
             _timeFrame = timeFrame;
@@ -34,8 +55,11 @@ namespace Pfuma.Services
             _utcOffset = utcOffset;
             _logger = logger;
             _showHighTimeframeCandle = showHighTimeframeCandle;
+            _showHtfSwingPoints = showHtfSwingPoints;
             _candles = new List<Candle>();
             _htfCandles = new Dictionary<TimeFrame, List<Candle>>();
+            _htfSwingPoints = new Dictionary<TimeFrame, List<SwingPoint>>();
+            _htfSwingStates = new Dictionary<TimeFrame, SwingPointState>();
             _higherTimeframes = new List<TimeFrame>();
             
             InitializeHigherTimeframes(timeframes);
@@ -60,6 +84,8 @@ namespace Pfuma.Services
                 {
                     _higherTimeframes.Add(tf);
                     _htfCandles[tf] = new List<Candle>();
+                    _htfSwingPoints[tf] = new List<SwingPoint>();
+                    _htfSwingStates[tf] = new SwingPointState();
                     
                     _logger?.Invoke($"Added higher timeframe: {tf.GetShortName()}");
                 }
@@ -189,6 +215,9 @@ namespace Pfuma.Services
             {
                 _htfCandles[htf].Add(htfCandle);
                 
+                // Process swing point detection for HTF candle
+                ProcessHtfSwingPointDetection(htf, htfCandle);
+                
                 // Draw visualization if enabled
                 if (_showHighTimeframeCandle && _chart != null)
                 {
@@ -257,6 +286,272 @@ namespace Pfuma.Services
                 var highIconName = $"htf_high_{htfCandle.TimeFrame.GetShortName()}_{maxCandle.Index}_{htfCandle.Time:yyyyMMddHHmm}";
                 _chart.DrawIcon(highIconName, ChartIconType.Circle, maxTime, maxCandle.High, Color.Green);
             }
+        }
+        
+        /// <summary>
+        /// Process swing point detection for HTF candles using similar logic to SwingPointDetector
+        /// </summary>
+        private void ProcessHtfSwingPointDetection(TimeFrame timeframe, Candle htfCandle)
+        {
+            if (!_htfSwingStates.ContainsKey(timeframe) || !_htfSwingPoints.ContainsKey(timeframe))
+                return;
+                
+            var state = _htfSwingStates[timeframe];
+            var swingPoints = _htfSwingPoints[timeframe];
+            
+            var index = htfCandle.Index ?? -1;
+            var close = htfCandle.Close;
+            var open = htfCandle.Open;
+            var low = htfCandle.Low;
+            var high = htfCandle.High;
+            var time = htfCandle.Time;
+
+            bool isDownCandle = close < open;
+            bool isUpCandle = close > open;
+
+            // Normal swing high detection logic
+            if (state.LastSwingWasLow || (!state.LastSwingWasHigh && !state.LastSwingWasLow))
+            {
+                if (high > state.LastSwingHighValue)
+                {
+                    var highSwingPoint = new SwingPoint(
+                        index,
+                        high,
+                        time,
+                        htfCandle,
+                        SwingType.H,
+                        LiquidityType.Normal,
+                        Direction.Up
+                    );
+                    highSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                    
+                    swingPoints.Add(highSwingPoint);
+                    state.LastHighSwingPoint = highSwingPoint;
+                    state.LastSwingHighIndex = index;
+                    state.LastSwingHighValue = high;
+                    state.LastSwingWasHigh = true;
+                    state.LastSwingWasLow = false;
+                    
+                    // Draw visualization if enabled
+                    if (_showHtfSwingPoints && _chart != null)
+                    {
+                        DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                    }
+                    
+                    _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
+                    return;
+                }
+            }
+            else if (state.LastSwingWasHigh && state.LastSwingHighIndex >= 0 && state.LastHighSwingPoint != null)
+            {
+                if (high > state.LastSwingHighValue)
+                {
+                    // Remove old swing point
+                    if (swingPoints.Contains(state.LastHighSwingPoint))
+                    {
+                        swingPoints.Remove(state.LastHighSwingPoint);
+                        
+                        // Remove old visualization
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            RemoveHtfSwingPointVisualization(timeframe, state.LastHighSwingPoint);
+                        }
+                    }
+                    
+                    // Create new high swing point
+                    var highSwingPoint = new SwingPoint(
+                        index,
+                        high,
+                        time,
+                        htfCandle,
+                        SwingType.H,
+                        LiquidityType.Normal,
+                        Direction.Up
+                    );
+                    highSwingPoint.Number = state.LastHighSwingPoint.Number; // Keep same number
+                    
+                    swingPoints.Add(highSwingPoint);
+                    state.LastHighSwingPoint = highSwingPoint;
+                    state.LastSwingHighIndex = index;
+                    state.LastSwingHighValue = high;
+                    
+                    // Draw new visualization
+                    if (_showHtfSwingPoints && _chart != null)
+                    {
+                        DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                    }
+                    
+                    _logger?.Invoke($"{timeframe.GetShortName()} Swing High updated at index {index}, price {high:F5}");
+                    return;
+                }
+                
+                // Check for new swing low
+                if (state.LastHighSwingPoint != null && low < state.LastHighSwingPoint.Bar.Low)
+                {
+                    var lowSwingPoint = new SwingPoint(
+                        index,
+                        low,
+                        time,
+                        htfCandle,
+                        SwingType.L,
+                        LiquidityType.Normal,
+                        Direction.Down
+                    );
+                    lowSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                    
+                    swingPoints.Add(lowSwingPoint);
+                    state.LastLowSwingPoint = lowSwingPoint;
+                    state.LastSwingLowIndex = index;
+                    state.LastSwingLowValue = low;
+                    state.LastSwingWasLow = true;
+                    state.LastSwingWasHigh = false;
+                    
+                    // Draw visualization if enabled
+                    if (_showHtfSwingPoints && _chart != null)
+                    {
+                        DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                    }
+                    
+                    _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
+                    return;
+                }
+            }
+
+            // Normal swing low detection logic
+            if (state.LastSwingWasHigh || (!state.LastSwingWasHigh && !state.LastSwingWasLow))
+            {
+                if (low < state.LastSwingLowValue)
+                {
+                    var lowSwingPoint = new SwingPoint(
+                        index,
+                        low,
+                        time,
+                        htfCandle,
+                        SwingType.L,
+                        LiquidityType.Normal,
+                        Direction.Down
+                    );
+                    lowSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                    
+                    swingPoints.Add(lowSwingPoint);
+                    state.LastLowSwingPoint = lowSwingPoint;
+                    state.LastSwingLowIndex = index;
+                    state.LastSwingLowValue = low;
+                    state.LastSwingWasLow = true;
+                    state.LastSwingWasHigh = false;
+                    
+                    // Draw visualization if enabled
+                    if (_showHtfSwingPoints && _chart != null)
+                    {
+                        DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                    }
+                    
+                    _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
+                    return;
+                }
+            }
+            else if (state.LastSwingWasLow && state.LastSwingLowIndex >= 0 && state.LastLowSwingPoint != null)
+            {
+                if (low < state.LastSwingLowValue)
+                {
+                    // Remove old swing point
+                    if (swingPoints.Contains(state.LastLowSwingPoint))
+                    {
+                        swingPoints.Remove(state.LastLowSwingPoint);
+                        
+                        // Remove old visualization
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            RemoveHtfSwingPointVisualization(timeframe, state.LastLowSwingPoint);
+                        }
+                    }
+                    
+                    // Create new low swing point
+                    var lowSwingPoint = new SwingPoint(
+                        index,
+                        low,
+                        time,
+                        htfCandle,
+                        SwingType.L,
+                        LiquidityType.Normal,
+                        Direction.Down
+                    );
+                    lowSwingPoint.Number = state.LastLowSwingPoint.Number; // Keep same number
+                    
+                    swingPoints.Add(lowSwingPoint);
+                    state.LastLowSwingPoint = lowSwingPoint;
+                    state.LastSwingLowIndex = index;
+                    state.LastSwingLowValue = low;
+                    
+                    // Draw new visualization
+                    if (_showHtfSwingPoints && _chart != null)
+                    {
+                        DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                    }
+                    
+                    _logger?.Invoke($"{timeframe.GetShortName()} Swing Low updated at index {index}, price {low:F5}");
+                    return;
+                }
+                
+                // Check for new swing high
+                if (state.LastLowSwingPoint != null && high > state.LastLowSwingPoint.Bar.High)
+                {
+                    var highSwingPoint = new SwingPoint(
+                        index,
+                        high,
+                        time,
+                        htfCandle,
+                        SwingType.H,
+                        LiquidityType.Normal,
+                        Direction.Up
+                    );
+                    highSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                    
+                    swingPoints.Add(highSwingPoint);
+                    state.LastHighSwingPoint = highSwingPoint;
+                    state.LastSwingHighIndex = index;
+                    state.LastSwingHighValue = high;
+                    state.LastSwingWasHigh = true;
+                    state.LastSwingWasLow = false;
+                    
+                    // Draw visualization if enabled
+                    if (_showHtfSwingPoints && _chart != null)
+                    {
+                        DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                    }
+                    
+                    _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
+                    return;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Draw HTF swing point visualization (green for highs, red for lows)
+        /// </summary>
+        private void DrawHtfSwingPoint(TimeFrame timeframe, SwingPoint swingPoint, bool isHigh)
+        {
+            if (_chart == null || swingPoint == null)
+                return;
+                
+            var color = isHigh ? Color.Green : Color.Red;
+            var iconName = $"htf_swing_{timeframe.GetShortName()}_{(isHigh ? "high" : "low")}_{swingPoint.Index}_{swingPoint.Time:yyyyMMddHHmm}";
+            
+            _chart.DrawIcon(iconName, ChartIconType.Circle, swingPoint.Time, swingPoint.Price, color);
+        }
+        
+        /// <summary>
+        /// Remove HTF swing point visualization
+        /// </summary>
+        private void RemoveHtfSwingPointVisualization(TimeFrame timeframe, SwingPoint swingPoint)
+        {
+            if (_chart == null || swingPoint == null)
+                return;
+                
+            var isHigh = swingPoint.SwingType == SwingType.H;
+            var iconName = $"htf_swing_{timeframe.GetShortName()}_{(isHigh ? "high" : "low")}_{swingPoint.Index}_{swingPoint.Time:yyyyMMddHHmm}";
+            
+            _chart.RemoveObject(iconName);
         }
 
         /// <summary>
@@ -408,6 +703,72 @@ namespace Pfuma.Services
         {
             if (_htfCandles.ContainsKey(timeframe))
                 return _htfCandles[timeframe].Count;
+                
+            return 0;
+        }
+        
+        /// <summary>
+        /// Get HTF swing points for a specific timeframe
+        /// </summary>
+        public List<SwingPoint> GetHtfSwingPoints(TimeFrame timeframe)
+        {
+            if (_htfSwingPoints.ContainsKey(timeframe))
+                return new List<SwingPoint>(_htfSwingPoints[timeframe]);
+                
+            return new List<SwingPoint>();
+        }
+        
+        /// <summary>
+        /// Get HTF swing highs for a specific timeframe
+        /// </summary>
+        public List<SwingPoint> GetHtfSwingHighs(TimeFrame timeframe)
+        {
+            if (_htfSwingPoints.ContainsKey(timeframe))
+                return _htfSwingPoints[timeframe].Where(sp => sp.SwingType == SwingType.H).ToList();
+                
+            return new List<SwingPoint>();
+        }
+        
+        /// <summary>
+        /// Get HTF swing lows for a specific timeframe
+        /// </summary>
+        public List<SwingPoint> GetHtfSwingLows(TimeFrame timeframe)
+        {
+            if (_htfSwingPoints.ContainsKey(timeframe))
+                return _htfSwingPoints[timeframe].Where(sp => sp.SwingType == SwingType.L).ToList();
+                
+            return new List<SwingPoint>();
+        }
+        
+        /// <summary>
+        /// Get the last HTF swing high for a specific timeframe
+        /// </summary>
+        public SwingPoint GetLastHtfSwingHigh(TimeFrame timeframe)
+        {
+            if (_htfSwingStates.ContainsKey(timeframe))
+                return _htfSwingStates[timeframe].LastHighSwingPoint;
+                
+            return null;
+        }
+        
+        /// <summary>
+        /// Get the last HTF swing low for a specific timeframe
+        /// </summary>
+        public SwingPoint GetLastHtfSwingLow(TimeFrame timeframe)
+        {
+            if (_htfSwingStates.ContainsKey(timeframe))
+                return _htfSwingStates[timeframe].LastLowSwingPoint;
+                
+            return null;
+        }
+        
+        /// <summary>
+        /// Get count of HTF swing points for a specific timeframe
+        /// </summary>
+        public int GetHtfSwingPointCount(TimeFrame timeframe)
+        {
+            if (_htfSwingPoints.ContainsKey(timeframe))
+                return _htfSwingPoints[timeframe].Count;
                 
             return 0;
         }

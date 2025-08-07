@@ -266,6 +266,14 @@
         "FriendlyName": "Show High Timeframe Candle",
         "GroupName": "Multi-Timeframe",
         "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowHtfSwingPoints",
+        "FriendlyName": "Show HTF Swing Points",
+        "GroupName": "Multi-Timeframe",
+        "IsValueVisibleInTitle": true
       }
     ],
     "Capabilities": [],

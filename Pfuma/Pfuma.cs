@@ -94,6 +94,9 @@ namespace Pfuma
         [Parameter("Show High Timeframe Candle", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHighTimeframeCandle { get; set; }
         
+        [Parameter("Show HTF Swing Points", DefaultValue = false, Group = "Multi-Timeframe")]
+        public bool ShowHtfSwingPoints { get; set; }
+        
         
         #endregion
         
@@ -274,7 +277,7 @@ namespace Pfuma
         private void InitializeServicesAndAnalyzers()
         {
             // Initialize candle manager
-            _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle);
+            _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle, ShowHtfSwingPoints);
             
             // Initialize swing point manager
             _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);
@@ -622,6 +625,46 @@ namespace Pfuma
         public Candle GetLastHigherTimeframeCandle(TimeFrame timeframe)
         {
             return _candleManager?.GetLastHigherTimeframeCandle(timeframe);
+        }
+        
+        /// <summary>
+        /// Gets HTF swing points for a specific timeframe
+        /// </summary>
+        public List<SwingPoint> GetHtfSwingPoints(TimeFrame timeframe)
+        {
+            return _candleManager?.GetHtfSwingPoints(timeframe) ?? new List<SwingPoint>();
+        }
+        
+        /// <summary>
+        /// Gets HTF swing highs for a specific timeframe
+        /// </summary>
+        public List<SwingPoint> GetHtfSwingHighs(TimeFrame timeframe)
+        {
+            return _candleManager?.GetHtfSwingHighs(timeframe) ?? new List<SwingPoint>();
+        }
+        
+        /// <summary>
+        /// Gets HTF swing lows for a specific timeframe
+        /// </summary>
+        public List<SwingPoint> GetHtfSwingLows(TimeFrame timeframe)
+        {
+            return _candleManager?.GetHtfSwingLows(timeframe) ?? new List<SwingPoint>();
+        }
+        
+        /// <summary>
+        /// Gets the last HTF swing high for a specific timeframe
+        /// </summary>
+        public SwingPoint GetLastHtfSwingHigh(TimeFrame timeframe)
+        {
+            return _candleManager?.GetLastHtfSwingHigh(timeframe);
+        }
+        
+        /// <summary>
+        /// Gets the last HTF swing low for a specific timeframe
+        /// </summary>
+        public SwingPoint GetLastHtfSwingLow(TimeFrame timeframe)
+        {
+            return _candleManager?.GetLastHtfSwingLow(timeframe);
         }
         
         
