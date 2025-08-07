@@ -1,3 +1,4 @@
+using System;
 using cAlgo.API;
 
 namespace Pfuma.Extensions;
@@ -109,4 +110,34 @@ public static class TimeFrameExtensions
         else
             return 0;
     }
+    
+    /// <summary>
+    /// Check if a datetime is the start of a specific timeframe bar
+    /// </summary>
+    public static bool IsStartOfTimeframeBar(this DateTime time, TimeFrame timeframe)
+    {
+        var minutes = timeframe.TimeFrameToMinutes();
+        
+        if (minutes <= 0)
+            return false;
+
+        if (minutes < 1440) // Less than daily
+        {
+            var totalMinutes = (int)time.TimeOfDay.TotalMinutes;
+            return totalMinutes % minutes == 0;
+        }
+        else if (minutes == 1440) // Daily
+        {
+            return time.TimeOfDay.TotalMinutes == 0;
+        }
+        else if (minutes == 10080) // Weekly
+        {
+            return time.DayOfWeek == DayOfWeek.Monday && time.TimeOfDay.TotalMinutes == 0;
+        }
+        else // Monthly
+        {
+            return time.Day == 1 && time.TimeOfDay.TotalMinutes == 0;
+        }
+    }
+    
 }

@@ -160,24 +160,18 @@ namespace Pfuma.Extensions
             // Use the last bar's close
             double close = bars[endIndex].Close;
     
-            // Create and return the HTF candle
+            // Create and return the candle
             var candle = new Candle(bars[startIndex], startIndex)
             {
                 Open = open,
                 High = high,
                 Low = low,
                 Close = close,
-                Time = time,
-                // Mark this as a high timeframe candle
-                IsHighTimeframe = true,
-                // Store indices of price extremes for reference
-                IndexOfHigh = indexOfHigh,
-                IndexOfLow = indexOfLow,
-                TimeOfLow = bars[indexOfLow].OpenTime,
-                TimeOfHigh = bars[indexOfHigh].OpenTime
+                Time = time
             };
     
             return candle;
         }
+        
     }
 }

@@ -235,7 +235,6 @@ namespace Pfuma.Detectors
             {
                 Repository.Remove(rejectionBlock);
                 _visualizer?.Remove(rejectionBlock);
-                
                 Logger($"Removed rejection block at index {index} (replaced by order block)");
             }
         }

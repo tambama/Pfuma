@@ -5,6 +5,11 @@ namespace Pfuma.Models;
 
 public class Candle
 {
+    public Candle()
+    {
+        // Parameterless constructor
+    }
+    
     public Candle(Bar bar, int index, TimeFrame timeFrame = null)
     {
         Index = index;
@@ -25,12 +30,4 @@ public class Candle
     
     // Timeframe tracking
     public TimeFrame TimeFrame { get; set; }
-    
-    // High Timeframe
-    public bool IsHighTimeframe { get; set; }
-    public int? IndexOfHigh { get; set; }
-    public int? IndexOfLow { get; set; }
-    public DateTime? TimeOfHigh { get; set; }
-    public DateTime? TimeOfLow { get; set; }
-    public DateTime? TimeOfClose { get; set; }
 }

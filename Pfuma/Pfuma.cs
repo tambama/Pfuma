@@ -7,6 +7,7 @@ using Pfuma.Core.Configuration;
 using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
 using Pfuma.Detectors;
+using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Repositories;
 using Pfuma.Services;
@@ -87,6 +88,13 @@ namespace Pfuma
         [Parameter("See Timeframe", DefaultValue = "", Group = "Visualization")]
         public string SeeTimeframe { get; set; }
         
+        [Parameter("Timeframes", DefaultValue = "H1", Group = "Multi-Timeframe")]
+        public string Timeframes { get; set; }
+        
+        [Parameter("Show High Timeframe Candle", DefaultValue = false, Group = "Multi-Timeframe")]
+        public bool ShowHighTimeframeCandle { get; set; }
+        
+        
         #endregion
         
         #region Output Series
@@ -123,6 +131,7 @@ namespace Pfuma
         private NotificationService _notificationService;
         private TimeManager _timeManager;
         private SwingPointDetector _swingPointDetector;
+        private SwingPointManager _swingPointManager;
         private CandleManager _candleManager;
         
         // Repositories
@@ -265,10 +274,13 @@ namespace Pfuma
         private void InitializeServicesAndAnalyzers()
         {
             // Initialize candle manager
-            _candleManager = new CandleManager(Bars, TimeFrame);
+            _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle);
+            
+            // Initialize swing point manager
+            _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);
             
             // Initialize swing point detector
-            _swingPointDetector = new SwingPointDetector(SwingHighs, SwingLows, _candleManager, _eventAggregator);
+            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator);
             
             // Initialize time manager
             _timeManager = new TimeManager(
@@ -401,6 +413,7 @@ namespace Pfuma
                 {
                     InitializeDetectorsWithSwingPoints();
                     _detectorsInitialized = true;
+                    
                 }
                 
                 // 9. Check for inside key levels on swing points
@@ -408,6 +421,7 @@ namespace Pfuma
                 {
                     CheckInsideKeyLevels();
                 }
+                
             }
             catch (Exception ex)
             {
@@ -512,6 +526,7 @@ namespace Pfuma
                           swingPoint.Time, swingPoint.Price, color);
         }
         
+        
         #endregion
         
         #region Event Handlers
@@ -584,6 +599,31 @@ namespace Pfuma
         /// <summary>
         /// Gets market bias
         /// </summary>
+        
+        /// <summary>
+        /// Gets all higher timeframe candles for a specific timeframe
+        /// </summary>
+        public List<Candle> GetHigherTimeframeCandles(TimeFrame timeframe)
+        {
+            return _candleManager?.GetHigherTimeframeCandles(timeframe) ?? new List<Candle>();
+        }
+        
+        /// <summary>
+        /// Gets all configured higher timeframes
+        /// </summary>
+        public List<TimeFrame> GetHigherTimeframes()
+        {
+            return _candleManager?.GetHigherTimeframes() ?? new List<TimeFrame>();
+        }
+        
+        /// <summary>
+        /// Gets the last HTF candle for a specific timeframe
+        /// </summary>
+        public Candle GetLastHigherTimeframeCandle(TimeFrame timeframe)
+        {
+            return _candleManager?.GetLastHigherTimeframeCandle(timeframe);
+        }
+        
         
         #endregion
         
