@@ -274,6 +274,14 @@
         "FriendlyName": "Show HTF Swing Points",
         "GroupName": "Multi-Timeframe",
         "IsValueVisibleInTitle": true
+      },
+      {
+        "DefaultValue": false,
+        "ParameterType": "Boolean",
+        "PropertyName": "ShowHtfFvg",
+        "FriendlyName": "Show HTF FVG",
+        "GroupName": "Multi-Timeframe",
+        "IsValueVisibleInTitle": true
       }
     ],
     "Capabilities": [],

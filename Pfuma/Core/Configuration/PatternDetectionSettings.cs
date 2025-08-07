@@ -8,6 +8,7 @@ public class PatternDetectionSettings
         
     // FVG and Order Blocks
     public bool ShowFVG { get; set; } = false;
+    public bool ShowHtfFvg { get; set; } = false;
     public bool ShowOrderBlock { get; set; } = false;
         
     // CISD

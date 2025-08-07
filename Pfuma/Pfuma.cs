@@ -97,6 +97,9 @@ namespace Pfuma
         [Parameter("Show HTF Swing Points", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHtfSwingPoints { get; set; }
         
+        [Parameter("Show HTF FVG", DefaultValue = false, Group = "Multi-Timeframe")]
+        public bool ShowHtfFvg { get; set; }
+        
         
         #endregion
         
@@ -143,6 +146,7 @@ namespace Pfuma
         
         // Detectors
         private FvgDetector _fvgDetector;
+        private HtfFvgDetector _htfFvgDetector;
         private OrderBlockDetector _orderBlockDetector;
         private OrderFlowDetector _orderFlowDetector;
         private RejectionBlockDetector _rejectionBlockDetector;
@@ -152,6 +156,7 @@ namespace Pfuma
         
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
+        private IVisualization<Level> _htfFvgVisualizer;
         private IVisualization<Level> _orderBlockVisualizer;
         private IVisualization<Level> _orderFlowVisualizer;
         private IVisualization<Level> _rejectionBlockVisualizer;
@@ -210,7 +215,8 @@ namespace Pfuma
             {
                 Patterns = new PatternDetectionSettings
                 {
-                    ShowFVG = ShowFVG,
+                    ShowFVG = ShowFVG,  // Only for LTF FVG visualization
+                    ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
                     ShowOrderBlock = ShowOrderBlock,
                     ShowOrderFlow = ShowOrderFlow,
                     ShowLiquiditySweep = ShowLiquiditySweep,
@@ -266,6 +272,7 @@ namespace Pfuma
         private void InitializeVisualizers()
         {
             _fvgVisualizer = new FvgVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _htfFvgVisualizer = new HtfFvgVisualizer(Chart, _settings);
             _orderBlockVisualizer = new OrderBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _orderFlowVisualizer = new OrderFlowVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _rejectionBlockVisualizer = new RejectionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
@@ -317,9 +324,13 @@ namespace Pfuma
             _unicornDetector = new UnicornDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
             
+            // HTF FVG detector (uses specialized HTF FVG visualizer)
+            _htfFvgDetector = new HtfFvgDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _htfFvgVisualizer, _settings, EnableLog ? Print : null);
             
             // Initialize all detectors
             _fvgDetector.Initialize();
+            _htfFvgDetector.Initialize();
             _orderBlockDetector.Initialize();
             _orderFlowDetector.Initialize();
             _rejectionBlockDetector.Initialize();
@@ -399,6 +410,12 @@ namespace Pfuma
                 
                 // 6. Detect patterns - Always detect FVGs (ShowFVG only controls visualization)
                 _fvgDetector?.Detect(index);
+                
+                // Detect HTF FVGs (only if enabled and timeframes configured)
+                if (ShowHtfFvg && !string.IsNullOrEmpty(Timeframes))
+                {
+                    _htfFvgDetector?.Detect(index);
+                }
                 
                 // Order Block detector now works via FVG events, so always enable it
                 // (ShowOrderBlock only controls visualization)
@@ -678,6 +695,7 @@ namespace Pfuma
             {
                 // Dispose detectors
                 _fvgDetector?.Dispose();
+                _htfFvgDetector?.Dispose();
                 _orderBlockDetector?.Dispose();
                 _orderFlowDetector?.Dispose();
                 _rejectionBlockDetector?.Dispose();
