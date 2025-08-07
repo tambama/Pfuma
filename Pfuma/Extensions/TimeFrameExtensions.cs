@@ -14,6 +14,10 @@ public static class TimeFrameExtensions
         {
             case "M1":
                 return TimeFrame.Minute;
+            case "M2":
+                return TimeFrame.Minute2;
+            case "M3":
+                return TimeFrame.Minute3;
             case "M5":
                 return TimeFrame.Minute5;
             case "M15":
@@ -42,6 +46,10 @@ public static class TimeFrameExtensions
     {
         if (timeFrame == TimeFrame.Minute)
             return "M1";
+        else if (timeFrame == TimeFrame.Minute2)
+            return "M2";
+        else if (timeFrame == TimeFrame.Minute3)
+            return "M3";
         else if (timeFrame == TimeFrame.Minute5)
             return "M5";
         else if (timeFrame == TimeFrame.Minute15)
@@ -91,6 +99,10 @@ public static class TimeFrameExtensions
         // Map timeframes to their equivalent in minutes
         if (timeFrame == TimeFrame.Minute)
             return 1;
+        else if (timeFrame == TimeFrame.Minute2)
+            return 2;
+        else if (timeFrame == TimeFrame.Minute3)
+            return 3;
         else if (timeFrame == TimeFrame.Minute5)
             return 5;
         else if (timeFrame == TimeFrame.Minute15)
