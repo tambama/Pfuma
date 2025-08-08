@@ -149,6 +149,7 @@ namespace Pfuma
         private HtfFvgDetector _htfFvgDetector;
         private OrderBlockDetector _orderBlockDetector;
         private OrderFlowDetector _orderFlowDetector;
+        private HtfOrderFlowDetector _htfOrderFlowDetector;
         private RejectionBlockDetector _rejectionBlockDetector;
         private BreakerBlockDetector _breakerBlockDetector;
         private CisdDetector _cisdDetector;
@@ -312,6 +313,9 @@ namespace Pfuma
             _orderFlowDetector = new OrderFlowDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _orderFlowVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
+            _htfOrderFlowDetector = new HtfOrderFlowDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _orderFlowVisualizer, _settings, EnableLog ? Print : null);
+            
             _rejectionBlockDetector = new RejectionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _settings, EnableLog ? Print : null);
             
@@ -333,6 +337,7 @@ namespace Pfuma
             _htfFvgDetector.Initialize();
             _orderBlockDetector.Initialize();
             _orderFlowDetector.Initialize();
+            _htfOrderFlowDetector.Initialize();
             _rejectionBlockDetector.Initialize();
             _breakerBlockDetector.Initialize();
             _cisdDetector.Initialize();

@@ -33,8 +33,8 @@ namespace Pfuma.Services
         private readonly Dictionary<TimeFrame, List<SwingPoint>> _htfSwingPoints;
         private readonly Dictionary<TimeFrame, SwingPointState> _htfSwingStates;
         
-        // HTF Order Flow Processor
-        private readonly HtfOrderFlowProcessor _htfOrderFlowProcessor;
+        // Event aggregator for publishing events
+        private readonly IEventAggregator _eventAggregator;
 
         public CandleManager(Bars bars, TimeFrame timeFrame, Chart chart = null, int utcOffset = -4, Action<string> logger = null, string timeframes = "H1", bool showHighTimeframeCandle = false, bool showHtfSwingPoints = false, IEventAggregator eventAggregator = null)
         {
@@ -45,14 +45,12 @@ namespace Pfuma.Services
             _logger = logger;
             _showHighTimeframeCandle = showHighTimeframeCandle;
             _showHtfSwingPoints = showHtfSwingPoints;
+            _eventAggregator = eventAggregator;
             _candles = new List<Candle>();
             _htfCandles = new Dictionary<TimeFrame, List<Candle>>();
             _htfSwingPoints = new Dictionary<TimeFrame, List<SwingPoint>>();
             _htfSwingStates = new Dictionary<TimeFrame, SwingPointState>();
             _higherTimeframes = new List<TimeFrame>();
-            
-            // Initialize HTF Order Flow Processor
-            _htfOrderFlowProcessor = new HtfOrderFlowProcessor(chart, eventAggregator, showHtfSwingPoints, logger);
             
             InitializeHigherTimeframes(timeframes);
         }
@@ -78,9 +76,6 @@ namespace Pfuma.Services
                     _htfCandles[tf] = new List<Candle>();
                     _htfSwingPoints[tf] = new List<SwingPoint>();
                     _htfSwingStates[tf] = new SwingPointState();
-                    
-                    // Initialize order flow processor for this timeframe
-                    _htfOrderFlowProcessor.InitializeTimeframe(tf);
                     
                     _logger?.Invoke($"Added higher timeframe: {tf.GetShortName()}");
                 }
@@ -332,8 +327,8 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, highSwingPoint, true);
                     }
                     
-                    // Process HTF order flow
-                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, highSwingPoint, swingPoints);
+                    // Publish HTF swing point event for order flow detection
+                    _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
                     return;
@@ -378,8 +373,8 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, highSwingPoint, true);
                     }
                     
-                    // Process HTF order flow
-                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, highSwingPoint, swingPoints);
+                    // Publish HTF swing point event for order flow detection
+                    _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing High updated at index {index}, price {high:F5}");
                     return;
@@ -412,8 +407,8 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
                     }
                     
-                    // Process HTF order flow
-                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, lowSwingPoint, swingPoints);
+                    // Publish HTF swing point event for order flow detection
+                    _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
                     return;
@@ -449,8 +444,8 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
                     }
                     
-                    // Process HTF order flow
-                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, lowSwingPoint, swingPoints);
+                    // Publish HTF swing point event for order flow detection
+                    _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
                     return;
@@ -495,8 +490,8 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
                     }
                     
-                    // Process HTF order flow
-                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, lowSwingPoint, swingPoints);
+                    // Publish HTF swing point event for order flow detection
+                    _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing Low updated at index {index}, price {low:F5}");
                     return;
@@ -529,8 +524,8 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, highSwingPoint, true);
                     }
                     
-                    // Process HTF order flow
-                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, highSwingPoint, swingPoints);
+                    // Publish HTF swing point event for order flow detection
+                    _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
                     return;
@@ -786,20 +781,5 @@ namespace Pfuma.Services
             return 0;
         }
         
-        /// <summary>
-        /// Get HTF order flows for a specific timeframe
-        /// </summary>
-        public List<Level> GetHtfOrderFlows(TimeFrame timeframe)
-        {
-            return _htfOrderFlowProcessor.GetOrderFlows(timeframe);
-        }
-        
-        /// <summary>
-        /// Get count of HTF order flows for a specific timeframe
-        /// </summary>
-        public int GetHtfOrderFlowCount(TimeFrame timeframe)
-        {
-            return _htfOrderFlowProcessor.GetOrderFlowCount(timeframe);
-        }
     }
 }
