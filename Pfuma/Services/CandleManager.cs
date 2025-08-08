@@ -449,6 +449,268 @@ namespace Pfuma.Services
             bool isDownCandle = close < open;
             bool isUpCandle = close > open;
 
+            // SPECIAL CASE 1: Handle when previous candle has a swing low and current candle 
+            // has both lower low and higher high than previous swing low candle
+            if (state.LastSwingWasLow && state.LastSwingLowIndex >= 0 && state.LastLowSwingPoint != null)
+            {
+                double prevSwingLowValue = state.LastSwingLowValue;
+                double prevSwingLowCandleHigh = state.LastLowSwingPoint.Bar.High;
+
+                if (low < prevSwingLowValue && high > prevSwingLowCandleHigh)
+                {
+                    if (isDownCandle)
+                    {
+                        // For bearish candle: Set high as swing high first, then low as swing low
+                        var highSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfHigh ?? index,
+                            high,
+                            time,
+                            htfCandle,
+                            SwingType.H,
+                            LiquidityType.Normal,
+                            Direction.Up
+                        );
+                        highSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(highSwingPoint);
+                        state.LastHighSwingPoint = highSwingPoint;
+                        state.LastSwingHighIndex = index;
+                        state.LastSwingHighValue = high;
+                        state.LastSwingWasHigh = true;
+                        state.LastSwingWasLow = false;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
+
+                        // Then set low as swing low
+                        var lowSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfLow ?? index,
+                            low,
+                            time,
+                            htfCandle,
+                            SwingType.L,
+                            LiquidityType.Normal,
+                            Direction.Down
+                        );
+                        lowSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(lowSwingPoint);
+                        state.LastLowSwingPoint = lowSwingPoint;
+                        state.LastSwingLowIndex = index;
+                        state.LastSwingLowValue = low;
+                        state.LastSwingWasLow = true;
+                        state.LastSwingWasHigh = false;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
+                        
+                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bearish candle created both High {high:F5} and Low {low:F5} at index {index}");
+                        return;
+                    }
+                    else if (isUpCandle)
+                    {
+                        // For bullish candle: Move swing low to current candle, then create swing high
+                        // Remove old swing point
+                        if (swingPoints.Contains(state.LastLowSwingPoint))
+                        {
+                            swingPoints.Remove(state.LastLowSwingPoint);
+                            if (_showHtfSwingPoints && _chart != null)
+                            {
+                                RemoveHtfSwingPointVisualization(timeframe, state.LastLowSwingPoint);
+                            }
+                        }
+                        
+                        // Create new low swing point at current candle
+                        var lowSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfLow ?? index,
+                            low,
+                            time,
+                            htfCandle,
+                            SwingType.L,
+                            LiquidityType.Normal,
+                            Direction.Down
+                        );
+                        lowSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(lowSwingPoint);
+                        state.LastLowSwingPoint = lowSwingPoint;
+                        state.LastSwingLowIndex = index;
+                        state.LastSwingLowValue = low;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
+
+                        // Then set high as swing high
+                        var highSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfHigh ?? index,
+                            high,
+                            time,
+                            htfCandle,
+                            SwingType.H,
+                            LiquidityType.Normal,
+                            Direction.Up
+                        );
+                        highSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(highSwingPoint);
+                        state.LastHighSwingPoint = highSwingPoint;
+                        state.LastSwingHighIndex = index;
+                        state.LastSwingHighValue = high;
+                        state.LastSwingWasHigh = true;
+                        state.LastSwingWasLow = false;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
+                        
+                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bullish candle moved Low to {low:F5} and created High {high:F5} at index {index}");
+                        return;
+                    }
+                }
+            }
+
+            // SPECIAL CASE 2: Handle when previous candle has a swing high and current candle
+            // has both higher high and lower low than previous swing high candle
+            if (state.LastSwingWasHigh && state.LastSwingHighIndex >= 0 && state.LastHighSwingPoint != null)
+            {
+                double prevSwingHighValue = state.LastSwingHighValue;
+                double prevSwingHighCandleLow = state.LastHighSwingPoint.Bar.Low;
+
+                if (high > prevSwingHighValue && low < prevSwingHighCandleLow)
+                {
+                    if (isUpCandle)
+                    {
+                        // For bullish candle: Set low as swing low first, then high as swing high
+                        var lowSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfLow ?? index,
+                            low,
+                            time,
+                            htfCandle,
+                            SwingType.L,
+                            LiquidityType.Normal,
+                            Direction.Down
+                        );
+                        lowSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(lowSwingPoint);
+                        state.LastLowSwingPoint = lowSwingPoint;
+                        state.LastSwingLowIndex = index;
+                        state.LastSwingLowValue = low;
+                        state.LastSwingWasLow = true;
+                        state.LastSwingWasHigh = false;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
+
+                        // Then set high as swing high
+                        var highSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfHigh ?? index,
+                            high,
+                            time,
+                            htfCandle,
+                            SwingType.H,
+                            LiquidityType.Normal,
+                            Direction.Up
+                        );
+                        highSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(highSwingPoint);
+                        state.LastHighSwingPoint = highSwingPoint;
+                        state.LastSwingHighIndex = index;
+                        state.LastSwingHighValue = high;
+                        state.LastSwingWasHigh = true;
+                        state.LastSwingWasLow = false;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
+                        
+                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bullish candle created both Low {low:F5} and High {high:F5} at index {index}");
+                        return;
+                    }
+                    else if (isDownCandle)
+                    {
+                        // For bearish candle: Move swing high to current candle, then create swing low
+                        // Remove old swing point
+                        if (swingPoints.Contains(state.LastHighSwingPoint))
+                        {
+                            swingPoints.Remove(state.LastHighSwingPoint);
+                            if (_showHtfSwingPoints && _chart != null)
+                            {
+                                RemoveHtfSwingPointVisualization(timeframe, state.LastHighSwingPoint);
+                            }
+                        }
+                        
+                        // Create new high swing point at current candle
+                        var highSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfHigh ?? index,
+                            high,
+                            time,
+                            htfCandle,
+                            SwingType.H,
+                            LiquidityType.Normal,
+                            Direction.Up
+                        );
+                        highSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(highSwingPoint);
+                        state.LastHighSwingPoint = highSwingPoint;
+                        state.LastSwingHighIndex = index;
+                        state.LastSwingHighValue = high;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, highSwingPoint, true);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
+
+                        // Then set low as swing low
+                        var lowSwingPoint = new SwingPoint(
+                            htfCandle.IndexOfLow ?? index,
+                            low,
+                            time,
+                            htfCandle,
+                            SwingType.L,
+                            LiquidityType.Normal,
+                            Direction.Down
+                        );
+                        lowSwingPoint.Number = ++state.CurrentSwingPointNumber;
+                        
+                        swingPoints.Add(lowSwingPoint);
+                        state.LastLowSwingPoint = lowSwingPoint;
+                        state.LastSwingLowIndex = index;
+                        state.LastSwingLowValue = low;
+                        state.LastSwingWasLow = true;
+                        state.LastSwingWasHigh = false;
+                        
+                        if (_showHtfSwingPoints && _chart != null)
+                        {
+                            DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
+                        }
+                        _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
+                        
+                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bearish candle moved High to {high:F5} and created Low {low:F5} at index {index}");
+                        return;
+                    }
+                }
+            }
+
             // Normal swing high detection logic
             if (state.LastSwingWasLow || (!state.LastSwingWasHigh && !state.LastSwingWasLow))
             {
