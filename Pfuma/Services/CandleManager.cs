@@ -237,11 +237,10 @@ namespace Pfuma.Services
                 High = maxCandle.High,
                 Low = minCandle.Low,
                 Close = lastCandle.Close,
+                IndexOfHigh = maxCandle.Index,
+                IndexOfLow = minCandle.Index,
                 TimeFrame = htf
             };
-            
-            // Store additional metadata about the high/low points
-            // We could extend the Candle model to include these if needed
             
             return htfCandle;
         }
@@ -299,7 +298,7 @@ namespace Pfuma.Services
                 if (high > state.LastSwingHighValue)
                 {
                     var highSwingPoint = new SwingPoint(
-                        index,
+                        htfCandle.IndexOfHigh ?? index,
                         high,
                         time,
                         htfCandle,
@@ -344,7 +343,7 @@ namespace Pfuma.Services
                     
                     // Create new high swing point
                     var highSwingPoint = new SwingPoint(
-                        index,
+                        htfCandle.IndexOfHigh ?? index,
                         high,
                         time,
                         htfCandle,
@@ -373,7 +372,7 @@ namespace Pfuma.Services
                 if (state.LastHighSwingPoint != null && low < state.LastHighSwingPoint.Bar.Low)
                 {
                     var lowSwingPoint = new SwingPoint(
-                        index,
+                        htfCandle.IndexOfLow ?? index,
                         low,
                         time,
                         htfCandle,
@@ -407,7 +406,7 @@ namespace Pfuma.Services
                 if (low < state.LastSwingLowValue)
                 {
                     var lowSwingPoint = new SwingPoint(
-                        index,
+                        htfCandle.IndexOfLow ?? index,
                         low,
                         time,
                         htfCandle,
@@ -452,7 +451,7 @@ namespace Pfuma.Services
                     
                     // Create new low swing point
                     var lowSwingPoint = new SwingPoint(
-                        index,
+                        htfCandle.IndexOfLow ?? index,
                         low,
                         time,
                         htfCandle,
@@ -481,7 +480,7 @@ namespace Pfuma.Services
                 if (state.LastLowSwingPoint != null && high > state.LastLowSwingPoint.Bar.High)
                 {
                     var highSwingPoint = new SwingPoint(
-                        index,
+                        htfCandle.IndexOfHigh ?? index,
                         high,
                         time,
                         htfCandle,
@@ -521,7 +520,8 @@ namespace Pfuma.Services
             var color = isHigh ? Color.Green : Color.Red;
             var iconName = $"htf_swing_{timeframe.GetShortName()}_{(isHigh ? "high" : "low")}_{swingPoint.Index}_{swingPoint.Time:yyyyMMddHHmm}";
             
-            _chart.DrawIcon(iconName, ChartIconType.Circle, swingPoint.Time, swingPoint.Price, color);
+            // Draw at exact LTF index instead of HTF time for precise positioning
+            _chart.DrawIcon(iconName, ChartIconType.Circle, swingPoint.Index, swingPoint.Price, color);
         }
         
         /// <summary>

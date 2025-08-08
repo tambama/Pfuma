@@ -28,6 +28,10 @@ public class Candle
     public double Low { get; set; }
     public double Close { get; set; }
     
+    // Indices for tracking exact high/low positions in HTF candles
+    public int? IndexOfHigh { get; set; }
+    public int? IndexOfLow { get; set; }
+    
     // Timeframe tracking
     public TimeFrame TimeFrame { get; set; }
 }
