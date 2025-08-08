@@ -21,22 +21,24 @@
         "Style": "Solid",
         "PlotType": "Points",
         "Thickness": 1.0,
-        "Color": "#00FF00FF",
+        "Color": "#FFFFFFFF",
         "PropertyName": "SwingHighs",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
-        "IsLastValueVisibleInTitle": true
+        "IsLastValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "Name": "Swing Lows",
         "Style": "Solid",
         "PlotType": "Points",
         "Thickness": 1.0,
-        "Color": "#FF0000FF",
+        "Color": "#FFFFFFFF",
         "PropertyName": "SwingLows",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
-        "IsLastValueVisibleInTitle": true
+        "IsLastValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "Name": "Higher Highs",
@@ -47,7 +49,8 @@
         "PropertyName": "HigherHighs",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
-        "IsLastValueVisibleInTitle": true
+        "IsLastValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "Name": "Lower Highs",
@@ -58,7 +61,8 @@
         "PropertyName": "LowerHighs",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
-        "IsLastValueVisibleInTitle": true
+        "IsLastValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "Name": "Lower Lows",
@@ -69,7 +73,8 @@
         "PropertyName": "LowerLows",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
-        "IsLastValueVisibleInTitle": true
+        "IsLastValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "Name": "Higher Lows",
@@ -80,7 +85,8 @@
         "PropertyName": "HigherLows",
         "IsUsedInAutoScale": true,
         "IsColorCustomizable": true,
-        "IsLastValueVisibleInTitle": true
+        "IsLastValueVisibleInTitle": true,
+        "Description": ""
       }
     ],
     "Clouds": [],
@@ -91,7 +97,8 @@
         "PropertyName": "ShowSwingPoints",
         "FriendlyName": "Show Swing Points",
         "GroupName": "Swing Points",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -99,7 +106,8 @@
         "PropertyName": "ShowFVG",
         "FriendlyName": "Show FVG",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -107,7 +115,8 @@
         "PropertyName": "ShowOrderBlock",
         "FriendlyName": "Show Order Blocks",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -115,7 +124,8 @@
         "PropertyName": "ShowOrderFlow",
         "FriendlyName": "Show Order Flow",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -123,7 +133,8 @@
         "PropertyName": "ShowLiquiditySweep",
         "FriendlyName": "Show Liquidity Sweep",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -131,7 +142,8 @@
         "PropertyName": "ShowRejectionBlock",
         "FriendlyName": "Show Rejection Blocks",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -139,7 +151,8 @@
         "PropertyName": "ShowBreakerBlock",
         "FriendlyName": "Show Breaker Blocks",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -147,7 +160,8 @@
         "PropertyName": "ShowCISD",
         "FriendlyName": "Show CISD",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "MinValue": -2147483648,
@@ -158,7 +172,8 @@
         "PropertyName": "MaxCisdsPerDirection",
         "FriendlyName": "Max CISD",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -166,7 +181,8 @@
         "PropertyName": "ShowUnicorn",
         "FriendlyName": "Show Unicorn",
         "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -174,7 +190,8 @@
         "PropertyName": "ShowQuadrants",
         "FriendlyName": "Show Quadrants",
         "GroupName": "Visualization",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -182,7 +199,8 @@
         "PropertyName": "ShowInsideKeyLevel",
         "FriendlyName": "Show Inside Key Level",
         "GroupName": "Visualization",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -190,7 +208,8 @@
         "PropertyName": "ShowMacros",
         "FriendlyName": "Show Macros",
         "GroupName": "Time",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -198,7 +217,8 @@
         "PropertyName": "MacroFilter",
         "FriendlyName": "Macro Filter",
         "GroupName": "Time",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": true,
@@ -206,7 +226,8 @@
         "PropertyName": "ShowDailyLevels",
         "FriendlyName": "Show Daily Levels",
         "GroupName": "Time",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": true,
@@ -214,7 +235,8 @@
         "PropertyName": "ShowSessionLevels",
         "FriendlyName": "Show Session Levels",
         "GroupName": "Time",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "MinValue": -2147483648,
@@ -225,7 +247,8 @@
         "PropertyName": "UtcOffset",
         "FriendlyName": "UTC Offset",
         "GroupName": "Time",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -233,7 +256,8 @@
         "PropertyName": "EnableLog",
         "FriendlyName": "Enable Log",
         "GroupName": "Notifications",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -241,7 +265,8 @@
         "PropertyName": "EnableTelegram",
         "FriendlyName": "Enable Telegram",
         "GroupName": "Notifications",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": "",
@@ -249,7 +274,8 @@
         "PropertyName": "SeeTimeframe",
         "FriendlyName": "See Timeframe",
         "GroupName": "Visualization",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": "H1",
@@ -257,7 +283,8 @@
         "PropertyName": "Timeframes",
         "FriendlyName": "Timeframes",
         "GroupName": "Multi-Timeframe",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -265,7 +292,8 @@
         "PropertyName": "ShowHighTimeframeCandle",
         "FriendlyName": "Show High Timeframe Candle",
         "GroupName": "Multi-Timeframe",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -273,7 +301,8 @@
         "PropertyName": "ShowHtfSwingPoints",
         "FriendlyName": "Show HTF Swing Points",
         "GroupName": "Multi-Timeframe",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       },
       {
         "DefaultValue": false,
@@ -281,13 +310,15 @@
         "PropertyName": "ShowHtfFvg",
         "FriendlyName": "Show HTF FVG",
         "GroupName": "Multi-Timeframe",
-        "IsValueVisibleInTitle": true
+        "IsValueVisibleInTitle": true,
+        "Description": ""
       }
     ],
     "Capabilities": [],
     "CustomAttributes": [],
     "Sets": [],
     "AddIndicatorsToChart": false,
-    "AdditionalInfoUrl": null
+    "AdditionalInfoUrl": null,
+    "Bars": []
   }
 ]

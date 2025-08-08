@@ -105,10 +105,10 @@ namespace Pfuma
         
         #region Output Series
         
-        [Output("Swing Highs", LineColor = "Lime", PlotType = PlotType.Points)]
+        [Output("Swing Highs", LineColor = "White", PlotType = PlotType.Points)]
         public IndicatorDataSeries SwingHighs { get; set; }
         
-        [Output("Swing Lows", LineColor = "Red", PlotType = PlotType.Points)]
+        [Output("Swing Lows", LineColor = "White", PlotType = PlotType.Points)]
         public IndicatorDataSeries SwingLows { get; set; }
         
         [Output("Higher Highs", LineColor = "Green", PlotType = PlotType.Points)]
@@ -284,7 +284,7 @@ namespace Pfuma
         private void InitializeServicesAndAnalyzers()
         {
             // Initialize candle manager
-            _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle, ShowHtfSwingPoints);
+            _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle, ShowHtfSwingPoints, _eventAggregator);
             
             // Initialize swing point manager
             _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);

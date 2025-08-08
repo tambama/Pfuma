@@ -5,6 +5,8 @@ using cAlgo.API;
 using Pfuma.Extensions;
 using Pfuma.Helpers;
 using Pfuma.Models;
+using Pfuma.Core.Events;
+using Pfuma.Core.Interfaces;
 
 namespace Pfuma.Services
 {
@@ -30,8 +32,11 @@ namespace Pfuma.Services
         // HTF Swing Point Collections
         private readonly Dictionary<TimeFrame, List<SwingPoint>> _htfSwingPoints;
         private readonly Dictionary<TimeFrame, SwingPointState> _htfSwingStates;
+        
+        // HTF Order Flow Processor
+        private readonly HtfOrderFlowProcessor _htfOrderFlowProcessor;
 
-        public CandleManager(Bars bars, TimeFrame timeFrame, Chart chart = null, int utcOffset = -4, Action<string> logger = null, string timeframes = "H1", bool showHighTimeframeCandle = false, bool showHtfSwingPoints = false)
+        public CandleManager(Bars bars, TimeFrame timeFrame, Chart chart = null, int utcOffset = -4, Action<string> logger = null, string timeframes = "H1", bool showHighTimeframeCandle = false, bool showHtfSwingPoints = false, IEventAggregator eventAggregator = null)
         {
             _bars = bars;
             _timeFrame = timeFrame;
@@ -45,6 +50,9 @@ namespace Pfuma.Services
             _htfSwingPoints = new Dictionary<TimeFrame, List<SwingPoint>>();
             _htfSwingStates = new Dictionary<TimeFrame, SwingPointState>();
             _higherTimeframes = new List<TimeFrame>();
+            
+            // Initialize HTF Order Flow Processor
+            _htfOrderFlowProcessor = new HtfOrderFlowProcessor(chart, eventAggregator, showHtfSwingPoints, logger);
             
             InitializeHigherTimeframes(timeframes);
         }
@@ -70,6 +78,9 @@ namespace Pfuma.Services
                     _htfCandles[tf] = new List<Candle>();
                     _htfSwingPoints[tf] = new List<SwingPoint>();
                     _htfSwingStates[tf] = new SwingPointState();
+                    
+                    // Initialize order flow processor for this timeframe
+                    _htfOrderFlowProcessor.InitializeTimeframe(tf);
                     
                     _logger?.Invoke($"Added higher timeframe: {tf.GetShortName()}");
                 }
@@ -321,6 +332,9 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, highSwingPoint, true);
                     }
                     
+                    // Process HTF order flow
+                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, highSwingPoint, swingPoints);
+                    
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
                     return;
                 }
@@ -364,6 +378,9 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, highSwingPoint, true);
                     }
                     
+                    // Process HTF order flow
+                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, highSwingPoint, swingPoints);
+                    
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing High updated at index {index}, price {high:F5}");
                     return;
                 }
@@ -394,6 +411,9 @@ namespace Pfuma.Services
                     {
                         DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
                     }
+                    
+                    // Process HTF order flow
+                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, lowSwingPoint, swingPoints);
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
                     return;
@@ -428,6 +448,9 @@ namespace Pfuma.Services
                     {
                         DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
                     }
+                    
+                    // Process HTF order flow
+                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, lowSwingPoint, swingPoints);
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
                     return;
@@ -472,6 +495,9 @@ namespace Pfuma.Services
                         DrawHtfSwingPoint(timeframe, lowSwingPoint, false);
                     }
                     
+                    // Process HTF order flow
+                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, lowSwingPoint, swingPoints);
+                    
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing Low updated at index {index}, price {low:F5}");
                     return;
                 }
@@ -502,6 +528,9 @@ namespace Pfuma.Services
                     {
                         DrawHtfSwingPoint(timeframe, highSwingPoint, true);
                     }
+                    
+                    // Process HTF order flow
+                    _htfOrderFlowProcessor.ProcessSwingPoint(timeframe, highSwingPoint, swingPoints);
                     
                     _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
                     return;
@@ -537,7 +566,7 @@ namespace Pfuma.Services
             
             _chart.RemoveObject(iconName);
         }
-
+        
         /// <summary>
         /// Get a candle at a specific index
         /// </summary>
@@ -755,6 +784,22 @@ namespace Pfuma.Services
                 return _htfSwingPoints[timeframe].Count;
                 
             return 0;
+        }
+        
+        /// <summary>
+        /// Get HTF order flows for a specific timeframe
+        /// </summary>
+        public List<Level> GetHtfOrderFlows(TimeFrame timeframe)
+        {
+            return _htfOrderFlowProcessor.GetOrderFlows(timeframe);
+        }
+        
+        /// <summary>
+        /// Get count of HTF order flows for a specific timeframe
+        /// </summary>
+        public int GetHtfOrderFlowCount(TimeFrame timeframe)
+        {
+            return _htfOrderFlowProcessor.GetOrderFlowCount(timeframe);
         }
     }
 }

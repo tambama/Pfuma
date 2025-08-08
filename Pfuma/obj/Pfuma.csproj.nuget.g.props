@@ -13,9 +13,9 @@
     <SourceRoot Include="/Users/peniel/.nuget/packages/" />
   </ItemGroup>
   <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <Import Project="$(NuGetPackageRoot)ctrader.automate/1.0.12/build/cTrader.Automate.props" Condition="Exists('$(NuGetPackageRoot)ctrader.automate/1.0.12/build/cTrader.Automate.props')" />
+    <Import Project="$(NuGetPackageRoot)ctrader.automate/1.0.13/build/cTrader.Automate.props" Condition="Exists('$(NuGetPackageRoot)ctrader.automate/1.0.13/build/cTrader.Automate.props')" />
   </ImportGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgcTrader_Automate Condition=" '$(PkgcTrader_Automate)' == '' ">/Users/peniel/.nuget/packages/ctrader.automate/1.0.12</PkgcTrader_Automate>
+    <PkgcTrader_Automate Condition=" '$(PkgcTrader_Automate)' == '' ">/Users/peniel/.nuget/packages/ctrader.automate/1.0.13</PkgcTrader_Automate>
   </PropertyGroup>
 </Project>
