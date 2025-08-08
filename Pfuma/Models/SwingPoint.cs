@@ -32,16 +32,16 @@ public class SwingPoint
     public int PassCount { get; set; }
     public int BrokenCount { get; set; }
 
-    public bool IsOrderBlock { get; set; }
+    public bool IsRejectionBlock { get; set; }
     public bool IsInversion { get; set; }
 
     public bool IsPotentialChoCh { get; set; }
     
     // Track activated FVGs and Order Blocks
     public bool ActivatedFVG { get; set; }
-    public bool ActivatedOrderBlock { get; set; }
+    public bool ActivatedRejectionBlock { get; set; }
     public bool IsInFVG { get; set; }
-    public bool IsInOrderBlock { get; set; }
+    public bool IsInRejectionBlock { get; set; }
     public bool ActivatedStdv { get; set; }
     public bool SweptLiquidity { get; set; }
     public bool ActivatedUnicorn { get; set; }
@@ -52,7 +52,7 @@ public class SwingPoint
     
     // References to the activated levels
     public Level ActivatedFVGLevel { get; set; }
-    public Level ActivatedOrderBlockLevel { get; set; }
+    public Level ActivatedRejectionBlockLevel { get; set; }
     public bool ActivatedCISD { get; set; }
     public Level ActivatedCISDLevel { get; set; }
     
@@ -75,7 +75,7 @@ public class SwingPoint
             if (ActivatedFVG)
                 score += 1;
             
-            if (ActivatedOrderBlock)
+            if (ActivatedRejectionBlock)
                 score += 1;
             
             if (ActivatedStdv)

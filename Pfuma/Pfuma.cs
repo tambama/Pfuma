@@ -28,8 +28,6 @@ namespace Pfuma
         [Parameter("Show FVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowFVG { get; set; }
         
-        [Parameter("Show Order Blocks", DefaultValue = false, Group = "Patterns")]
-        public bool ShowOrderBlock { get; set; }
         
         [Parameter("Show Order Flow", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderFlow { get; set; }
@@ -147,7 +145,6 @@ namespace Pfuma
         // Detectors
         private FvgDetector _fvgDetector;
         private HtfFvgDetector _htfFvgDetector;
-        private OrderBlockDetector _orderBlockDetector;
         private OrderFlowDetector _orderFlowDetector;
         private HtfOrderFlowDetector _htfOrderFlowDetector;
         private RejectionBlockDetector _rejectionBlockDetector;
@@ -158,7 +155,6 @@ namespace Pfuma
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
         private IVisualization<Level> _htfFvgVisualizer;
-        private IVisualization<Level> _orderBlockVisualizer;
         private IVisualization<Level> _orderFlowVisualizer;
         private IVisualization<Level> _rejectionBlockVisualizer;
         private IVisualization<Level> _breakerBlockVisualizer;
@@ -218,7 +214,6 @@ namespace Pfuma
                 {
                     ShowFVG = ShowFVG,  // Only for LTF FVG visualization
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
-                    ShowOrderBlock = ShowOrderBlock,
                     ShowOrderFlow = ShowOrderFlow,
                     ShowLiquiditySweep = ShowLiquiditySweep,
                     ShowRejectionBlock = ShowRejectionBlock,
@@ -274,7 +269,6 @@ namespace Pfuma
         {
             _fvgVisualizer = new FvgVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _htfFvgVisualizer = new HtfFvgVisualizer(Chart, _settings);
-            _orderBlockVisualizer = new OrderBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _orderFlowVisualizer = new OrderFlowVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _rejectionBlockVisualizer = new RejectionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _breakerBlockVisualizer = new BreakerBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
@@ -307,8 +301,6 @@ namespace Pfuma
             _fvgDetector = new FvgDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _fvgVisualizer, _settings, EnableLog ? Print : null);
             
-            _orderBlockDetector = new OrderBlockDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
             _orderFlowDetector = new OrderFlowDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _orderFlowVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
@@ -317,7 +309,7 @@ namespace Pfuma
                 Chart, _candleManager, _eventAggregator, _levelRepository, _orderFlowVisualizer, _settings, EnableLog ? Print : null);
             
             _rejectionBlockDetector = new RejectionBlockDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
             _breakerBlockDetector = new BreakerBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
@@ -335,7 +327,6 @@ namespace Pfuma
             // Initialize all detectors
             _fvgDetector.Initialize();
             _htfFvgDetector.Initialize();
-            _orderBlockDetector.Initialize();
             _orderFlowDetector.Initialize();
             _htfOrderFlowDetector.Initialize();
             _rejectionBlockDetector.Initialize();
@@ -422,10 +413,6 @@ namespace Pfuma
                     _htfFvgDetector?.Detect(index);
                 }
                 
-                if (ShowOrderBlock)
-                {
-                    _orderBlockDetector?.Detect(index);
-                }
                 
                 if (ShowRejectionBlock)
                 {
@@ -519,8 +506,7 @@ namespace Pfuma
         {
             var swingPoints = _swingPointRepository.GetAll();
             var pdArrays = _levelRepository.Find(l => 
-                (l.LevelType == LevelType.OrderBlock || 
-                 l.LevelType == LevelType.RejectionBlock) && 
+                l.LevelType == LevelType.RejectionBlock && 
                 l.IsActive);
             
             foreach (var swingPoint in swingPoints)
@@ -597,11 +583,11 @@ namespace Pfuma
         }
         
         /// <summary>
-        /// Gets all detected Order Blocks
+        /// Gets all detected Rejection Blocks
         /// </summary>
-        public List<Level> GetAllOrderBlocks()
+        public List<Level> GetAllRejectionBlocks()
         {
-            return (_levelRepository as LevelRepository)?.GetByType(LevelType.OrderBlock) ?? new List<Level>();
+            return (_levelRepository as LevelRepository)?.GetByType(LevelType.RejectionBlock) ?? new List<Level>();
         }
         
         /// <summary>
@@ -702,7 +688,6 @@ namespace Pfuma
                 // Dispose detectors
                 _fvgDetector?.Dispose();
                 _htfFvgDetector?.Dispose();
-                _orderBlockDetector?.Dispose();
                 _orderFlowDetector?.Dispose();
                 _rejectionBlockDetector?.Dispose();
                 _breakerBlockDetector?.Dispose();
@@ -713,7 +698,6 @@ namespace Pfuma
                 
                 // Clear visualizers
                 _fvgVisualizer?.Clear();
-                _orderBlockVisualizer?.Clear();
                 _orderFlowVisualizer?.Clear();
                 _rejectionBlockVisualizer?.Clear();
                 _breakerBlockVisualizer?.Clear();

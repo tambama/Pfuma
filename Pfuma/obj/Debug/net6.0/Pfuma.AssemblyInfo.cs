@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Pfuma")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f768326697ed2239d139a5a16fed3dda6024c10b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+45ce4150a9c5d276dac26b18b8948c7d600a5cd8")]
 [assembly: System.Reflection.AssemblyProductAttribute("Pfuma")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Pfuma")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -6,10 +6,9 @@ public class PatternDetectionSettings
     public bool ShowOrderFlow { get; set; } = false;
     public bool ShowLiquiditySweep { get; set; } = false;
         
-    // FVG and Order Blocks
+    // FVG
     public bool ShowFVG { get; set; } = false;
     public bool ShowHtfFvg { get; set; } = false;
-    public bool ShowOrderBlock { get; set; } = false;
         
     // CISD
     public bool ShowCISD { get; set; } = false;

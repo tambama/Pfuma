@@ -12,8 +12,6 @@ public enum LevelType
     Equilibrium,
     [Description("Orderflow")]
     Orderflow,
-    [Description("Order Block")]
-    OrderBlock,
     [Description("FVG")]
     FairValueGap,
     [Description("Breaker Block")]

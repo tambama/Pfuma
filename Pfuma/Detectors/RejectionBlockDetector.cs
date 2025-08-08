@@ -9,260 +9,247 @@ using Pfuma.Detectors.Base;
 using Pfuma.Models;
 using Pfuma.Services;
 
-namespace Pfuma.Detectors
+namespace Pfuma.Detectors;
+
+/// <summary>
+/// Detects Rejection Blocks based on swing point analysis
+/// </summary>
+public class RejectionBlockDetector : BasePatternDetector<Level>
 {
-    /// <summary>
-    /// Detects Rejection Blocks from swing points with significant wicks
-    /// </summary>
-    public class RejectionBlockDetector : BasePatternDetector<Level>
+    private readonly IVisualization<Level> _visualizer;
+    private readonly SwingPointDetector _swingPointDetector;
+    private readonly HashSet<int> _processedIndices;
+        
+    public RejectionBlockDetector(
+        Chart chart,
+        CandleManager candleManager,
+        IEventAggregator eventAggregator,
+        IRepository<Level> repository,
+        IVisualization<Level> visualizer,
+        SwingPointDetector swingPointDetector,
+        IndicatorSettings settings,
+        Action<string> logger = null)
+        : base(chart, candleManager, eventAggregator, repository, settings, logger)
     {
-        private readonly IVisualization<Level> _visualizer;
+        _visualizer = visualizer;
+        _swingPointDetector = swingPointDetector;
+        _processedIndices = new HashSet<int>();
+    }
         
-        public RejectionBlockDetector(
-            Chart chart,
-            CandleManager candleManager,
-            IEventAggregator eventAggregator,
-            IRepository<Level> repository,
-            IVisualization<Level> visualizer,
-            IndicatorSettings settings,
-            Action<string> logger = null)
-            : base(chart, candleManager, eventAggregator, repository, settings, logger)
+    protected override int GetMinimumBarsRequired()
+    {
+        return Constants.Patterns.RejectionBlockLookback;
+    }
+        
+    protected override List<Level> PerformDetection(int currentIndex)
+    {
+        // Rejection blocks are only detected through FVG events, not through regular scanning
+        // This method returns empty as detection happens in OnFvgDetected event handler
+        return new List<Level>();
+    }
+        
+    private Level CheckForRejectionBlockFromFvg(Level fvg, int currentIndex)
+    {
+        if (fvg == null || _swingPointDetector == null)
+            return null;
+            
+        // Get the first candle index of the FVG (bar1 in the 3-candle pattern)
+        int firstCandleIndex = fvg.Index; // This should be the index of bar1
+        
+        // Check if the first candle is a swing point
+        var swingPoint = _swingPointDetector.GetSwingPointAtIndex(firstCandleIndex);
+        if (swingPoint == null)
+            return null;
+            
+        // Skip if we've already processed this index
+        if (_processedIndices.Contains(firstCandleIndex))
+            return null;
+            
+        var firstCandleBar = CandleManager.GetCandle(firstCandleIndex);
+        
+        // Determine order block direction based on FVG direction
+        // For bullish FVG, the first candle should be a swing low (becomes bullish rejection block)
+        // For bearish FVG, the first candle should be a swing high (becomes bearish rejection block)
+        Direction rejectionBlockDirection;
+        
+        if (fvg.Direction == Direction.Up && swingPoint.Direction == Direction.Down)
         {
-            _visualizer = visualizer;
+            // Bullish FVG with swing low at first candle = Bullish Rejection Block
+            rejectionBlockDirection = Direction.Up;
         }
-        
-        protected override List<Level> PerformDetection(int currentIndex)
+        else if (fvg.Direction == Direction.Down && swingPoint.Direction == Direction.Up)
         {
-            // Rejection block detection is triggered by swing point events
-            return new List<Level>();
+            // Bearish FVG with swing high at first candle = Bearish Rejection Block
+            rejectionBlockDirection = Direction.Down;
         }
-        
-        /// <summary>
-        /// Checks a swing point for rejection block patterns
-        /// </summary>
-        public void CheckForRejectionBlock(SwingPoint swingPoint)
+        else
         {
-            if (swingPoint == null || swingPoint.Bar == null)
-                return;
+            // Direction mismatch - not a valid rejection block
+            return null;
+        }
             
-            var candle = swingPoint.Bar;
-            bool isBullishCandle = candle.Close > candle.Open;
-            double bodySize = Math.Abs(candle.Close - candle.Open);
+        // Create the rejection block from the first candle
+        var rejectionBlock = CreateRejectionBlock(firstCandleBar, firstCandleIndex, rejectionBlockDirection);
+        
+        // Mark this index as processed
+        _processedIndices.Add(firstCandleIndex);
+        
+        return rejectionBlock;
+    }
+        
+    private Level CreateRejectionBlock(Candle candle, int index, Direction direction)
+    {
+        var rejectionBlock = new Level(
+            LevelType.RejectionBlock,
+            candle.Low,  // Use the full candle low
+            candle.High, // Use the full candle high
+            candle.Time,
+            candle.Time.AddMinutes(Constants.Time.LevelExtensionMinutes),
+            candle.Time,
+            direction,
+            index,
+            index,
+            index
+        );
+        
+        // Set TimeFrame from candle
+        rejectionBlock.TimeFrame = candle.TimeFrame;
             
-            // Skip if body size is very small
-            if (bodySize < Constants.Calculations.PriceTolerance)
-                return;
+        // Initialize quadrants
+        rejectionBlock.InitializeQuadrants();
             
-            Level rejectionBlock = null;
+        return rejectionBlock;
+    }
+        
+    protected override bool PostDetectionValidation(Level rejectionBlock, int currentIndex)
+    {
+        if (!base.PostDetectionValidation(rejectionBlock, currentIndex))
+            return false;
             
-            // For Bullish Swing Points (creating Bearish Rejection Blocks)
-            if (swingPoint.Direction == Direction.Up)
+        // Check if we already have this rejection block
+        bool isDuplicate = Repository.Any(existing =>
+            existing.Index == rejectionBlock.Index &&
+            existing.Direction == rejectionBlock.Direction &&
+            existing.LevelType == LevelType.RejectionBlock);
+            
+        return !isDuplicate;
+    }
+        
+    protected override void PublishDetectionEvent(Level rejectionBlock, int currentIndex)
+    {
+        // Publish rejection block detected event
+        EventAggregator.Publish(new RejectionBlockDetectedEvent(rejectionBlock));
+            
+        // Draw the rejection block if visualization is enabled
+        if (Settings.Patterns.ShowRejectionBlock && _visualizer != null)
+        {
+            _visualizer.Draw(rejectionBlock);
+        }
+    }
+        
+    protected override void LogDetection(Level rejectionBlock, int currentIndex)
+    {
+        if (Settings.Notifications.EnableLog)
+        {
+            Logger($"Rejection Block detected: {rejectionBlock.Direction} at index {currentIndex}, " +
+                   $"Range: {rejectionBlock.Low:F5} - {rejectionBlock.High:F5}");
+        }
+    }
+        
+    public override List<Level> GetByDirection(Direction direction)
+    {
+        return Repository.Find(ob => 
+            ob.Direction == direction && 
+            ob.LevelType == LevelType.RejectionBlock);
+    }
+        
+    public override bool IsValid(Level rejectionBlock, int currentIndex)
+    {
+        // A rejection block is valid until it's been mitigated
+        // Check if price has moved through the rejection block
+        if (currentIndex >= rejectionBlock.Index && currentIndex < CandleManager.Count)
+        {
+            for (int i = rejectionBlock.Index + 1; i <= currentIndex; i++)
             {
-                rejectionBlock = CheckBearishRejectionBlock(swingPoint, candle, isBullishCandle, bodySize);
+                var bar = CandleManager.GetCandle(i);
+                    
+                // For bullish rejection block, check if price has moved below and closed below
+                if (rejectionBlock.Direction == Direction.Up)
+                {
+                    if (bar.Close < rejectionBlock.Low)
+                    {
+                        return false; // Rejection block has been mitigated
+                    }
+                }
+                // For bearish rejection block, check if price has moved above and closed above
+                else if (rejectionBlock.Direction == Direction.Down)
+                {
+                    if (bar.Close > rejectionBlock.High)
+                    {
+                        return false; // Rejection block has been mitigated
+                    }
+                }
             }
-            // For Bearish Swing Points (creating Bullish Rejection Blocks)
-            else if (swingPoint.Direction == Direction.Down)
-            {
-                rejectionBlock = CheckBullishRejectionBlock(swingPoint, candle, isBullishCandle, bodySize);
-            }
+        }
             
-            if (rejectionBlock != null)
+        return true;
+    }
+        
+    protected override void SubscribeToEvents()
+    {
+        // Subscribe to FVG events as rejection blocks often form with FVGs
+        EventAggregator.Subscribe<FvgDetectedEvent>(OnFvgDetected);
+            
+        // Subscribe to swing point events
+        EventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
+        EventAggregator.Subscribe<SwingPointRemovedEvent>(OnSwingPointRemoved);
+    }
+        
+    protected override void UnsubscribeFromEvents()
+    {
+        EventAggregator.Unsubscribe<FvgDetectedEvent>(OnFvgDetected);
+        EventAggregator.Unsubscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
+        EventAggregator.Unsubscribe<SwingPointRemovedEvent>(OnSwingPointRemoved);
+    }
+        
+    private void OnFvgDetected(FvgDetectedEvent evt)
+    {
+        // When an FVG is detected, check if the first candle is a swing point
+        // If it is, create a rejection block from that candle
+        if (evt.FvgLevel != null && IsValidBarIndex(evt.FvgLevel.Index))
+        {
+            var rejectionBlock = CheckForRejectionBlockFromFvg(evt.FvgLevel, evt.Index);
+            if (rejectionBlock != null && PostDetectionValidation(rejectionBlock, evt.Index))
             {
-                // Check if we already have this rejection block
-                if (!PostDetectionValidation(rejectionBlock, swingPoint.Index))
-                    return;
-                
-                // Store and publish
                 Repository.Add(rejectionBlock);
-                PublishDetectionEvent(rejectionBlock, swingPoint.Index);
+                PublishDetectionEvent(rejectionBlock, evt.Index);
+                LogDetection(rejectionBlock, evt.Index);
             }
         }
+    }
         
-        private Level CheckBearishRejectionBlock(SwingPoint swingPoint, Candle candle, bool isBullishCandle, double bodySize)
-        {
-            double upperWick;
-            double lowerBoundary;
+    private void OnSwingPointDetected(SwingPointDetectedEvent evt)
+    {
+        // Could trigger rejection block detection around new swing points
+    }
+        
+    private void OnSwingPointRemoved(SwingPointRemovedEvent evt)
+    {
+        // If a swing point is removed, we might need to invalidate related rejection blocks
+        var affectedRejectionBlocks = Repository.Find(ob => 
+            ob.Index == evt.SwingPoint.Index);
             
-            if (isBullishCandle)
-            {
-                // For bullish candles: upper wick = High - Close
-                upperWick = candle.High - candle.Close;
-                lowerBoundary = candle.Close;
-            }
-            else
-            {
-                // For bearish candles: upper wick = High - Open
-                upperWick = candle.High - candle.Open;
-                lowerBoundary = candle.Open;
-            }
-            
-            // Check if upper wick is significantly larger than body
-            if (upperWick > bodySize * Constants.Calculations.RejectionWickMultiplier)
-            {
-                // Create a bearish rejection block
-                var rejectionBlock = new Level(
-                    LevelType.RejectionBlock,
-                    lowerBoundary,
-                    candle.High,
-                    candle.Time,
-                    candle.Time.AddMinutes(Constants.Time.LevelExtensionMinutes),
-                    candle.Time,
-                    Direction.Down,
-                    swingPoint.Index,
-                    swingPoint.Index,
-                    swingPoint.Index,
-                    swingPoint.Index,
-                    Zone.Premium
-                );
-                
-                // Set TimeFrame from candle
-                rejectionBlock.TimeFrame = candle.TimeFrame;
-                
-                // Initialize quadrants
-                rejectionBlock.InitializeQuadrants();
-                
-                return rejectionBlock;
-            }
-            
-            return null;
-        }
-        
-        private Level CheckBullishRejectionBlock(SwingPoint swingPoint, Candle candle, bool isBullishCandle, double bodySize)
+        foreach (var rejectionBlock in affectedRejectionBlocks)
         {
-            double lowerWick;
-            double upperBoundary;
-            
-            if (isBullishCandle)
-            {
-                // For bullish candles: lower wick = Open - Low
-                lowerWick = candle.Open - candle.Low;
-                upperBoundary = candle.Open;
-            }
-            else
-            {
-                // For bearish candles: lower wick = Close - Low
-                lowerWick = candle.Close - candle.Low;
-                upperBoundary = candle.Close;
-            }
-            
-            // Check if lower wick is significantly larger than body
-            if (lowerWick > bodySize * Constants.Calculations.RejectionWickMultiplier)
-            {
-                // Create a bullish rejection block
-                var rejectionBlock = new Level(
-                    LevelType.RejectionBlock,
-                    candle.Low,
-                    upperBoundary,
-                    candle.Time,
-                    candle.Time.AddMinutes(Constants.Time.LevelExtensionMinutes),
-                    candle.Time,
-                    Direction.Up,
-                    swingPoint.Index,
-                    swingPoint.Index,
-                    swingPoint.Index,
-                    swingPoint.Index,
-                    Zone.Discount
-                );
-                
-                // Set TimeFrame from candle
-                rejectionBlock.TimeFrame = candle.TimeFrame;
-                
-                // Initialize quadrants
-                rejectionBlock.InitializeQuadrants();
-                
-                return rejectionBlock;
-            }
-            
-            return null;
+            Repository.Remove(rejectionBlock);
+            _visualizer?.Remove(rejectionBlock);
+            _processedIndices.Remove(rejectionBlock.Index);
         }
+    }
         
-        protected override bool PostDetectionValidation(Level rejectionBlock, int currentIndex)
-        {
-            if (!base.PostDetectionValidation(rejectionBlock, currentIndex))
-                return false;
-            
-            // Check if we already have this rejection block
-            bool isDuplicate = Repository.Any(rb =>
-                rb.Index == rejectionBlock.Index &&
-                rb.Direction == rejectionBlock.Direction &&
-                rb.LevelType == LevelType.RejectionBlock);
-            
-            return !isDuplicate;
-        }
-        
-        protected override void PublishDetectionEvent(Level rejectionBlock, int currentIndex)
-        {
-            EventAggregator.Publish(new RejectionBlockDetectedEvent(rejectionBlock));
-            
-            if (Settings.Patterns.ShowRejectionBlock && _visualizer != null)
-            {
-                _visualizer.Draw(rejectionBlock);
-            }
-        }
-        
-        protected override void LogDetection(Level rejectionBlock, int currentIndex)
-        {
-            if (Settings.Notifications.EnableLog)
-            {
-                Logger($"Rejection Block detected: {rejectionBlock.Direction} at index {currentIndex}");
-            }
-        }
-        
-        public override List<Level> GetByDirection(Direction direction)
-        {
-            return Repository.Find(rb => 
-                rb.LevelType == LevelType.RejectionBlock && 
-                rb.Direction == direction);
-        }
-        
-        public override bool IsValid(Level rejectionBlock, int currentIndex)
-        {
-            return rejectionBlock != null && 
-                   rejectionBlock.LevelType == LevelType.RejectionBlock;
-        }
-        
-        /// <summary>
-        /// Removes rejection block at a specific index (used when order block is detected at same index)
-        /// </summary>
-        public void RemoveRejectionBlockAtIndex(int index)
-        {
-            var rejectionBlock = Repository.Find(rb => 
-                rb.Index == index && 
-                rb.LevelType == LevelType.RejectionBlock)
-                .FirstOrDefault();
-            
-            if (rejectionBlock != null)
-            {
-                Repository.Remove(rejectionBlock);
-                _visualizer?.Remove(rejectionBlock);
-                Logger($"Removed rejection block at index {index} (replaced by order block)");
-            }
-        }
-        
-        protected override void SubscribeToEvents()
-        {
-            EventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
-            EventAggregator.Subscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
-        }
-        
-        protected override void UnsubscribeFromEvents()
-        {
-            EventAggregator.Unsubscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
-            EventAggregator.Unsubscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
-        }
-        
-        private void OnSwingPointDetected(SwingPointDetectedEvent evt)
-        {
-            CheckForRejectionBlock(evt.SwingPoint);
-        }
-        
-        private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
-        {
-            // Remove any rejection block at the same index as the order block
-            if (evt.OrderBlock != null)
-            {
-                RemoveRejectionBlockAtIndex(evt.OrderBlock.Index);
-            }
-        }
+    protected override void OnDispose()
+    {
+        base.OnDispose();
+        _processedIndices.Clear();
     }
 }

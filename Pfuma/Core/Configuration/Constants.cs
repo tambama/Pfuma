@@ -41,7 +41,7 @@ namespace Pfuma.Core.Configuration
         public static class Patterns
         {
             public const int FvgRequiredBars = 3;
-            public const int OrderBlockLookback = 3;
+            public const int RejectionBlockLookback = 3;
             public const int ConsecutiveCandlesMin = 1;
         }
         

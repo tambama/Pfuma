@@ -112,15 +112,6 @@
       {
         "DefaultValue": false,
         "ParameterType": "Boolean",
-        "PropertyName": "ShowOrderBlock",
-        "FriendlyName": "Show Order Blocks",
-        "GroupName": "Patterns",
-        "IsValueVisibleInTitle": true,
-        "Description": ""
-      },
-      {
-        "DefaultValue": false,
-        "ParameterType": "Boolean",
         "PropertyName": "ShowOrderFlow",
         "FriendlyName": "Show Order Flow",
         "GroupName": "Patterns",
