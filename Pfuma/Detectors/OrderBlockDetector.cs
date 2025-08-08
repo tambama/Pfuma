@@ -97,8 +97,6 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         return orderBlock;
     }
         
-        
-        
     private Level CreateOrderBlock(Candle candle, int index, Direction direction)
     {
         var orderBlock = new Level(

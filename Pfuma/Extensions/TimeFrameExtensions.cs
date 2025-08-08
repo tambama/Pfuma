@@ -83,8 +83,14 @@ public static class TimeFrameExtensions
         int higherMinutes = TimeFrameToMinutes(higherTimeframe);
 
         // Calculate how many current timeframe bars fit in one higher timeframe bar
-        if (currentMinutes == 0 || higherMinutes == 0 || currentMinutes > higherMinutes)
-            return 0; // Invalid case or current timeframe is larger than higher timeframe
+        if (currentMinutes == 0 || higherMinutes == 0)
+            return 0; // Invalid timeframe
+            
+        if (currentMinutes >= higherMinutes)
+            return 0; // Current timeframe must be smaller than higher timeframe
+            
+        if (higherMinutes % currentMinutes != 0)
+            return 0; // Higher timeframe must be an exact multiple of current timeframe
 
         return higherMinutes / currentMinutes;
     }

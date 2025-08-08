@@ -103,7 +103,13 @@ namespace Pfuma.Services
         private bool IsValidHigherTimeframe(TimeFrame higherTimeframe)
         {
             var periodicity = _timeFrame.GetPeriodicity(higherTimeframe);
-            return periodicity > 1; // Must be a multiple (greater than 1)
+            
+            // Log for debugging
+            _logger?.Invoke($"Checking HTF validity: {_timeFrame.GetShortName()} -> {higherTimeframe.GetShortName()}, Periodicity: {periodicity}");
+            
+            // Must be a valid multiple (at least 2x for it to be "higher")
+            // Changed from > 1 to >= 2 for clarity, though they're equivalent
+            return periodicity >= 2;
         }
         
         /// <summary>
@@ -112,35 +118,45 @@ namespace Pfuma.Services
         /// </summary>
         private DateTime GetHtfPeriodStart(DateTime ltfTime, TimeFrame htf)
         {
-            // For hourly timeframes, round down to the hour
-            if (htf == TimeFrame.Hour)
+            var htfMinutes = htf.TimeFrameToMinutes();
+            
+            if (htfMinutes <= 0)
+                return ltfTime; // Invalid timeframe
+            
+            // For minute and hour timeframes (anything less than a day)
+            if (htfMinutes < 1440)
             {
-                return new DateTime(ltfTime.Year, ltfTime.Month, ltfTime.Day, ltfTime.Hour, 0, 0);
+                // Calculate the total minutes since midnight
+                var totalMinutesInDay = (int)ltfTime.TimeOfDay.TotalMinutes;
+                
+                // Round down to the nearest HTF period boundary
+                var periodStartMinutes = (totalMinutesInDay / htfMinutes) * htfMinutes;
+                
+                // Create the period start time
+                return ltfTime.Date.AddMinutes(periodStartMinutes);
             }
             
-            // For daily timeframes, round down to the day
-            if (htf == TimeFrame.Daily)
+            // For daily timeframes
+            if (htfMinutes == 1440)
             {
                 return new DateTime(ltfTime.Year, ltfTime.Month, ltfTime.Day, 0, 0, 0);
             }
             
-            // For 4-hour timeframes, round down to 4-hour boundaries (0, 4, 8, 12, 16, 20)
-            if (htf == TimeFrame.Hour4)
-            {
-                var hour = (ltfTime.Hour / 4) * 4;
-                return new DateTime(ltfTime.Year, ltfTime.Month, ltfTime.Day, hour, 0, 0);
-            }
-            
             // For weekly timeframes, round down to Monday
-            if (htf == TimeFrame.Weekly)
+            if (htfMinutes == 10080)
             {
-                var daysFromMonday = ((int)ltfTime.DayOfWeek + 6) % 7; // Sunday = 0, Monday = 1, etc. -> Monday = 0
+                var daysFromMonday = ((int)ltfTime.DayOfWeek + 6) % 7; // Convert to Monday = 0
                 var monday = ltfTime.Date.AddDays(-daysFromMonday);
                 return new DateTime(monday.Year, monday.Month, monday.Day, 0, 0, 0);
             }
             
-            // For other timeframes, fall back to basic calculation
-            // This could be extended for other specific timeframes as needed
+            // For monthly timeframes
+            if (htfMinutes >= 43200)
+            {
+                return new DateTime(ltfTime.Year, ltfTime.Month, 1, 0, 0, 0);
+            }
+            
+            // Default fallback
             return ltfTime.Date;
         }
         
@@ -294,16 +310,22 @@ namespace Pfuma.Services
         private DateTime GetNextLtfTime(DateTime currentTime)
         {
             // Add the LTF timeframe duration to get next expected time
-            if (_timeFrame == TimeFrame.Minute)
-                return currentTime.AddMinutes(1);
-            if (_timeFrame == TimeFrame.Minute5)
-                return currentTime.AddMinutes(5);
-            if (_timeFrame == TimeFrame.Minute15)
-                return currentTime.AddMinutes(15);
-            if (_timeFrame == TimeFrame.Hour)
-                return currentTime.AddHours(1);
+            var minutes = _timeFrame.TimeFrameToMinutes();
             
-            // Default fallback
+            if (minutes > 0 && minutes < 1440) // Valid minute/hour timeframes
+            {
+                return currentTime.AddMinutes(minutes);
+            }
+            else if (minutes == 1440) // Daily
+            {
+                return currentTime.AddDays(1);
+            }
+            else if (minutes == 10080) // Weekly
+            {
+                return currentTime.AddDays(7);
+            }
+            
+            // Default fallback for any unhandled cases
             return currentTime.AddMinutes(1);
         }
         

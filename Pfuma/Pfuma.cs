@@ -422,9 +422,10 @@ namespace Pfuma
                     _htfFvgDetector?.Detect(index);
                 }
                 
-                // Order Block detector now works via FVG events, so always enable it
-                // (ShowOrderBlock only controls visualization)
-                _orderBlockDetector?.Detect(index);
+                if (ShowOrderBlock)
+                {
+                    _orderBlockDetector?.Detect(index);
+                }
                 
                 if (ShowRejectionBlock)
                 {
