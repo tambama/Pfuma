@@ -33,6 +33,11 @@ namespace Pfuma.Services
         private readonly Dictionary<TimeFrame, List<SwingPoint>> _htfSwingPoints;
         private readonly Dictionary<TimeFrame, SwingPointState> _htfSwingStates;
         
+        // HTF Processing State Tracking (for handling market gaps)
+        private readonly Dictionary<TimeFrame, DateTime> _lastProcessedHtfTime;
+        private readonly Dictionary<TimeFrame, List<Candle>> _pendingHtfCandles;
+        private readonly Dictionary<TimeFrame, DateTime> _currentHtfPeriodStart;
+        
         // Event aggregator for publishing events
         private readonly IEventAggregator _eventAggregator;
 
@@ -50,6 +55,9 @@ namespace Pfuma.Services
             _htfCandles = new Dictionary<TimeFrame, List<Candle>>();
             _htfSwingPoints = new Dictionary<TimeFrame, List<SwingPoint>>();
             _htfSwingStates = new Dictionary<TimeFrame, SwingPointState>();
+            _lastProcessedHtfTime = new Dictionary<TimeFrame, DateTime>();
+            _pendingHtfCandles = new Dictionary<TimeFrame, List<Candle>>();
+            _currentHtfPeriodStart = new Dictionary<TimeFrame, DateTime>();
             _higherTimeframes = new List<TimeFrame>();
             
             InitializeHigherTimeframes(timeframes);
@@ -76,6 +84,9 @@ namespace Pfuma.Services
                     _htfCandles[tf] = new List<Candle>();
                     _htfSwingPoints[tf] = new List<SwingPoint>();
                     _htfSwingStates[tf] = new SwingPointState();
+                    _lastProcessedHtfTime[tf] = DateTime.MinValue;
+                    _pendingHtfCandles[tf] = new List<Candle>();
+                    _currentHtfPeriodStart[tf] = DateTime.MinValue;
                     
                     _logger?.Invoke($"Added higher timeframe: {tf.GetShortName()}");
                 }
@@ -93,6 +104,44 @@ namespace Pfuma.Services
         {
             var periodicity = _timeFrame.GetPeriodicity(higherTimeframe);
             return periodicity > 1; // Must be a multiple (greater than 1)
+        }
+        
+        /// <summary>
+        /// Get the start time of the HTF period that contains the given LTF time
+        /// This handles market gaps by calculating the proper HTF period boundary
+        /// </summary>
+        private DateTime GetHtfPeriodStart(DateTime ltfTime, TimeFrame htf)
+        {
+            // For hourly timeframes, round down to the hour
+            if (htf == TimeFrame.Hour)
+            {
+                return new DateTime(ltfTime.Year, ltfTime.Month, ltfTime.Day, ltfTime.Hour, 0, 0);
+            }
+            
+            // For daily timeframes, round down to the day
+            if (htf == TimeFrame.Daily)
+            {
+                return new DateTime(ltfTime.Year, ltfTime.Month, ltfTime.Day, 0, 0, 0);
+            }
+            
+            // For 4-hour timeframes, round down to 4-hour boundaries (0, 4, 8, 12, 16, 20)
+            if (htf == TimeFrame.Hour4)
+            {
+                var hour = (ltfTime.Hour / 4) * 4;
+                return new DateTime(ltfTime.Year, ltfTime.Month, ltfTime.Day, hour, 0, 0);
+            }
+            
+            // For weekly timeframes, round down to Monday
+            if (htf == TimeFrame.Weekly)
+            {
+                var daysFromMonday = ((int)ltfTime.DayOfWeek + 6) % 7; // Sunday = 0, Monday = 1, etc. -> Monday = 0
+                var monday = ltfTime.Date.AddDays(-daysFromMonday);
+                return new DateTime(monday.Year, monday.Month, monday.Day, 0, 0, 0);
+            }
+            
+            // For other timeframes, fall back to basic calculation
+            // This could be extended for other specific timeframes as needed
+            return ltfTime.Date;
         }
         
         /// <summary>
@@ -145,25 +194,124 @@ namespace Pfuma.Services
         
         /// <summary>
         /// Process higher timeframe candles when a new LTF candle closes
+        /// 
+        /// IMPROVED VERSION: This handles market gaps by tracking HTF periods properly.
+        /// 
+        /// Key improvements over the old approach:
+        /// - Tracks last processed HTF time for each timeframe to detect gaps
+        /// - Uses actual time boundaries instead of simple periodicity calculations  
+        /// - Handles markets that close/open with gaps (e.g., indices: 16:59 close -> 18:00 open, skipping 17:00)
+        /// - Works correctly for both continuous markets (forex) and gapped markets (indices, commodities)
+        /// - Accumulates LTF candles per HTF period and finalizes when period boundaries are crossed
         /// </summary>
         private void ProcessHigherTimeframeCandles(int currentIndex, Candle currentCandle)
         {
-            if (currentIndex < 1 || _higherTimeframes.Count == 0)
+            if (currentIndex < 1 || _higherTimeframes.Count == 0 || currentCandle == null)
                 return;
 
             foreach (var htf in _higherTimeframes)
             {
-                // Check if a new HTF candle should be created
-                if (ShouldCreateNewHtfCandle(currentIndex, htf))
-                {
-                    CreateHigherTimeframeCandle(currentIndex, htf);
-                }
+                ProcessHtfCandleForTimeframe(currentIndex, currentCandle, htf);
             }
         }
         
         /// <summary>
-        /// Check if we should create a new higher timeframe candle
+        /// Process HTF candle for a specific timeframe using gap-aware logic
         /// </summary>
+        private void ProcessHtfCandleForTimeframe(int currentIndex, Candle currentCandle, TimeFrame htf)
+        {
+            var currentTime = currentCandle.Time;
+            var currentHtfPeriodStart = GetHtfPeriodStart(currentTime, htf);
+            
+            // Check if we've moved to a new HTF period
+            if (_currentHtfPeriodStart[htf] != DateTime.MinValue && 
+                currentHtfPeriodStart != _currentHtfPeriodStart[htf])
+            {
+                // We've moved to a new HTF period - finalize the previous one
+                FinalizePendingHtfCandle(htf);
+            }
+            
+            // Start new HTF period if needed
+            if (_currentHtfPeriodStart[htf] != currentHtfPeriodStart)
+            {
+                _currentHtfPeriodStart[htf] = currentHtfPeriodStart;
+                _pendingHtfCandles[htf].Clear();
+                
+                _logger?.Invoke($"Started new {htf.GetShortName()} period at {currentHtfPeriodStart:yyyy-MM-dd HH:mm}");
+            }
+            
+            // Add current LTF candle to pending HTF candles
+            _pendingHtfCandles[htf].Add(currentCandle);
+            
+            // Check if we should finalize the current HTF candle
+            // This happens when we detect the next period starting
+            var nextLtfTime = GetNextLtfTime(currentTime);
+            var nextHtfPeriodStart = GetHtfPeriodStart(nextLtfTime, htf);
+            
+            if (nextHtfPeriodStart != currentHtfPeriodStart)
+            {
+                // Current LTF candle is the last one in this HTF period
+                FinalizePendingHtfCandle(htf);
+            }
+        }
+        
+        /// <summary>
+        /// Finalize and create HTF candle from pending LTF candles
+        /// </summary>
+        private void FinalizePendingHtfCandle(TimeFrame htf)
+        {
+            var pendingCandles = _pendingHtfCandles[htf];
+            
+            if (pendingCandles.Count == 0)
+                return;
+                
+            var htfCandle = CreateHtfCandleFromLtfCandles(pendingCandles, htf, pendingCandles.First().Index ?? 0);
+            
+            if (htfCandle != null)
+            {
+                _htfCandles[htf].Add(htfCandle);
+                _lastProcessedHtfTime[htf] = _currentHtfPeriodStart[htf];
+                
+                // Process swing point detection for HTF candle
+                ProcessHtfSwingPointDetection(htf, htfCandle);
+                
+                // Draw visualization if enabled
+                if (_showHighTimeframeCandle && _chart != null)
+                {
+                    DrawHighTimeframeCandlePoints(htfCandle, pendingCandles);
+                }
+                
+                _logger?.Invoke($"Finalized {htf.GetShortName()} candle for period {_currentHtfPeriodStart[htf]:yyyy-MM-dd HH:mm} using {pendingCandles.Count} LTF candles");
+            }
+            
+            // Clear pending candles
+            _pendingHtfCandles[htf].Clear();
+        }
+        
+        /// <summary>
+        /// Get the next LTF time (approximation for period boundary detection)
+        /// </summary>
+        private DateTime GetNextLtfTime(DateTime currentTime)
+        {
+            // Add the LTF timeframe duration to get next expected time
+            if (_timeFrame == TimeFrame.Minute)
+                return currentTime.AddMinutes(1);
+            if (_timeFrame == TimeFrame.Minute5)
+                return currentTime.AddMinutes(5);
+            if (_timeFrame == TimeFrame.Minute15)
+                return currentTime.AddMinutes(15);
+            if (_timeFrame == TimeFrame.Hour)
+                return currentTime.AddHours(1);
+            
+            // Default fallback
+            return currentTime.AddMinutes(1);
+        }
+        
+        /// <summary>
+        /// Check if we should create a new higher timeframe candle 
+        /// DEPRECATED: This method doesn't handle market gaps properly. Use ProcessHtfCandleForTimeframe instead.
+        /// </summary>
+        [Obsolete("This method doesn't handle market gaps properly. The new gap-aware logic is handled in ProcessHtfCandleForTimeframe.")]
         private bool ShouldCreateNewHtfCandle(int currentIndex, TimeFrame htf)
         {
             if (currentIndex < 1 || currentIndex >= _bars.Count)
@@ -177,7 +325,10 @@ namespace Pfuma.Services
         
         /// <summary>
         /// Create a higher timeframe candle from lower timeframe candles
+        /// DEPRECATED: This method uses periodicity-based logic that doesn't handle market gaps.
+        /// Use FinalizePendingHtfCandle instead which handles gaps properly.
         /// </summary>
+        [Obsolete("This method uses periodicity-based logic that doesn't handle market gaps. Use FinalizePendingHtfCandle instead.")]
         private void CreateHigherTimeframeCandle(int currentIndex, TimeFrame htf)
         {
             var periodicity = _timeFrame.GetPeriodicity(htf);
