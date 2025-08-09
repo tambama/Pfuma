@@ -172,17 +172,27 @@ namespace Pfuma.Detectors
         /// </summary>
         private Level CreateOrderFlow(SwingPoint fromPoint, SwingPoint toPoint, Direction direction, TimeFrame timeframe)
         {
+            // Determine which point is high/low based on price, not direction
+            bool fromIsLow = fromPoint.Price < toPoint.Price;
+            var lowPoint = fromIsLow ? fromPoint : toPoint;
+            var highPoint = fromIsLow ? toPoint : fromPoint;
+            
+            // For consistent chronological ordering:
+            // - Bullish: index = starting point (fromPoint which is the low)
+            // - Bearish: index = ending point (toPoint which is the low)
+            int mainIndex = direction == Direction.Up ? fromPoint.Index : toPoint.Index;
+            
             var orderFlow = new Level(
-                LevelType.Orderflow,                                          // levelType
-                Math.Min(fromPoint.Price, toPoint.Price),                     // low
-                Math.Max(fromPoint.Price, toPoint.Price),                     // high
-                direction == Direction.Up ? fromPoint.Time : toPoint.Time,   // lowTime
-                direction == Direction.Up ? toPoint.Time : fromPoint.Time,   // highTime
-                null,                                                         // midTime
-                direction,                                                    // direction
-                direction == Direction.Up ? toPoint.Index : fromPoint.Index, // index
-                direction == Direction.Up ? toPoint.Index : fromPoint.Index, // indexHigh
-                direction == Direction.Up ? fromPoint.Index : toPoint.Index  // indexLow
+                LevelType.Orderflow,           // levelType
+                lowPoint.Price,                // low
+                highPoint.Price,               // high
+                lowPoint.Time,                 // lowTime
+                highPoint.Time,                // highTime
+                null,                          // midTime
+                direction,                     // direction
+                mainIndex,                     // index (starting point)
+                highPoint.Index,               // indexHigh (where high occurs)
+                lowPoint.Index                 // indexLow (where low occurs)
             );
             
             orderFlow.TimeFrame = timeframe;

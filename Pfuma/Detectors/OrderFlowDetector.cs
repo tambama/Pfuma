@@ -158,9 +158,9 @@ namespace Pfuma.Detectors
                     previousSwingHigh.Time,
                     null,
                     Direction.Down,
-                    previousSwingHigh.Index,
-                    previousSwingHigh.Index,
-                    recentSwingLow.Index
+                    recentSwingLow.Index,     // Index (starting point - should be the most recent point)
+                    previousSwingHigh.Index,  // IndexHigh (where the high is)
+                    recentSwingLow.Index      // IndexLow (where the low is)
                 );
                 
                 // Set TimeFrame from swing point
