@@ -22,4 +22,6 @@ public enum LevelType
     CISD,
     [Description("Rejection Block")]
     RejectionBlock,
+    [Description("Order Block")]
+    OrderBlock,
 }

@@ -38,6 +38,9 @@ namespace Pfuma
         [Parameter("Show Rejection Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowRejectionBlock { get; set; }
         
+        [Parameter("Show Order Blocks", DefaultValue = false, Group = "Patterns")]
+        public bool ShowOrderBlock { get; set; }
+        
         [Parameter("Show Breaker Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowBreakerBlock { get; set; }
         
@@ -148,6 +151,7 @@ namespace Pfuma
         private OrderFlowDetector _orderFlowDetector;
         private HtfOrderFlowDetector _htfOrderFlowDetector;
         private RejectionBlockDetector _rejectionBlockDetector;
+        private OrderBlockDetector _orderBlockDetector;
         private BreakerBlockDetector _breakerBlockDetector;
         private CisdDetector _cisdDetector;
         private UnicornDetector _unicornDetector;
@@ -157,6 +161,7 @@ namespace Pfuma
         private IVisualization<Level> _htfFvgVisualizer;
         private IVisualization<Level> _orderFlowVisualizer;
         private IVisualization<Level> _rejectionBlockVisualizer;
+        private IVisualization<Level> _orderBlockVisualizer;
         private IVisualization<Level> _breakerBlockVisualizer;
         private IVisualization<Level> _cisdVisualizer;
         private IVisualization<Level> _unicornVisualizer;
@@ -217,6 +222,7 @@ namespace Pfuma
                     ShowOrderFlow = ShowOrderFlow,
                     ShowLiquiditySweep = ShowLiquiditySweep,
                     ShowRejectionBlock = ShowRejectionBlock,
+                    ShowOrderBlock = ShowOrderBlock,
                     ShowBreakerBlock = ShowBreakerBlock,
                     ShowCISD = ShowCISD,
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
@@ -271,6 +277,7 @@ namespace Pfuma
             _htfFvgVisualizer = new HtfFvgVisualizer(Chart, _settings);
             _orderFlowVisualizer = new OrderFlowVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _rejectionBlockVisualizer = new RejectionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _orderBlockVisualizer = new OrderBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _breakerBlockVisualizer = new BreakerBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
@@ -311,6 +318,9 @@ namespace Pfuma
             _rejectionBlockDetector = new RejectionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
+            _orderBlockDetector = new OrderBlockDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
+            
             _breakerBlockDetector = new BreakerBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
             
@@ -330,6 +340,7 @@ namespace Pfuma
             _orderFlowDetector.Initialize();
             _htfOrderFlowDetector.Initialize();
             _rejectionBlockDetector.Initialize();
+            _orderBlockDetector.Initialize();
             _breakerBlockDetector.Initialize();
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
@@ -417,6 +428,11 @@ namespace Pfuma
                 if (ShowRejectionBlock)
                 {
                     _rejectionBlockDetector?.Detect(index);
+                }
+                
+                if (ShowOrderBlock)
+                {
+                    _orderBlockDetector?.Detect(index);
                 }
                 
                 // 7. Update market structure (handled via events)
@@ -591,6 +607,14 @@ namespace Pfuma
         }
         
         /// <summary>
+        /// Gets all detected Order Blocks
+        /// </summary>
+        public List<Level> GetAllOrderBlocks()
+        {
+            return (_levelRepository as LevelRepository)?.GetByType(LevelType.OrderBlock) ?? new List<Level>();
+        }
+        
+        /// <summary>
         /// Gets all order flows (with liquidity sweeps)
         /// </summary>
         public List<Level> GetAllOrderFlows()
@@ -690,6 +714,7 @@ namespace Pfuma
                 _htfFvgDetector?.Dispose();
                 _orderFlowDetector?.Dispose();
                 _rejectionBlockDetector?.Dispose();
+                _orderBlockDetector?.Dispose();
                 _breakerBlockDetector?.Dispose();
                 _cisdDetector?.Dispose();
                 _unicornDetector?.Dispose();
@@ -700,6 +725,7 @@ namespace Pfuma
                 _fvgVisualizer?.Clear();
                 _orderFlowVisualizer?.Clear();
                 _rejectionBlockVisualizer?.Clear();
+                _orderBlockVisualizer?.Clear();
                 _breakerBlockVisualizer?.Clear();
                 _cisdVisualizer?.Clear();
                 _unicornVisualizer?.Clear();
