@@ -102,6 +102,7 @@ namespace Pfuma
         public bool ShowHtfFvg { get; set; }
         
         
+        
         #endregion
         
         #region Output Series
@@ -140,6 +141,7 @@ namespace Pfuma
         private SwingPointDetector _swingPointDetector;
         private SwingPointManager _swingPointManager;
         private CandleManager _candleManager;
+        private LiquidityManager _liquidityManager;
         
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
@@ -277,7 +279,7 @@ namespace Pfuma
             _htfFvgVisualizer = new HtfFvgVisualizer(Chart, _settings);
             _orderFlowVisualizer = new OrderFlowVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _rejectionBlockVisualizer = new RejectionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
-            _orderBlockVisualizer = new OrderBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _orderBlockVisualizer = new OrderBlockVisualizer(Chart, _settings.Visualization, _eventAggregator, EnableLog ? Print : null);
             _breakerBlockVisualizer = new BreakerBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
@@ -299,6 +301,8 @@ namespace Pfuma
                 Chart, _candleManager, _swingPointDetector, _notificationService,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
             
+            // Initialize liquidity manager
+            _liquidityManager = new LiquidityManager(_eventAggregator, _levelRepository, _settings, EnableLog ? Print : null);
             
         }
         
@@ -320,6 +324,7 @@ namespace Pfuma
             
             _orderBlockDetector = new OrderBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointManager, _settings, EnableLog ? Print : null);
+            
             
             _breakerBlockDetector = new BreakerBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
@@ -344,6 +349,10 @@ namespace Pfuma
             _breakerBlockDetector.Initialize();
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
+            
+            // Initialize liquidity manager and order block visualizer
+            _liquidityManager.Initialize();
+            (_orderBlockVisualizer as OrderBlockVisualizer)?.Initialize();
         }
         
         private void SubscribeToEvents()
@@ -434,6 +443,7 @@ namespace Pfuma
                 {
                     _orderBlockDetector?.Detect(index);
                 }
+                
                 
                 // 7. Update market structure (handled via events)
                 
@@ -719,7 +729,8 @@ namespace Pfuma
                 _cisdDetector?.Dispose();
                 _unicornDetector?.Dispose();
                 
-                // Dispose analyzers
+                // Dispose services
+                _liquidityManager?.Dispose();
                 
                 // Clear visualizers
                 _fvgVisualizer?.Clear();

@@ -68,8 +68,14 @@ namespace Pfuma.Models
         // Quadrant tracking
         public List<Quadrant> Quadrants { get; set; } = new List<Quadrant>();
 
-        // Whether this PD Array is active (at least one quadrant is not swept)
-        public bool IsActive => Quadrants.Any(q => !q.IsSwept);
+        // Whether this level has been liquidity swept (independent of quadrants)
+        public bool IsLiquiditySwept { get; set; } = false;
+        
+        // Index at which liquidity sweep occurred
+        public int SweptIndex { get; set; }
+
+        // Whether this level is active (not liquidity swept and, if has quadrants, at least one quadrant is not swept)
+        public bool IsActive => !IsLiquiditySwept && (Quadrants.Count == 0 || Quadrants.Any(q => !q.IsSwept));
 
         // Initialize quadrants
         public void InitializeQuadrants()

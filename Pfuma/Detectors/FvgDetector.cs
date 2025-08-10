@@ -11,7 +11,8 @@ using Pfuma.Services;
 namespace Pfuma.Detectors
 {
     /// <summary>
-    /// Detects Fair Value Gaps (FVGs) in price action
+    /// Detects Fair Value Gaps (FVGs) in price action using simple gap detection
+    /// without volume imbalance analysis for boundary refinement
     /// </summary>
     public class FvgDetector : BasePatternDetector<Level>
     {
@@ -71,31 +72,23 @@ namespace Pfuma.Detectors
         
         private Level DetectBullishFvg(Candle candle1, Candle candle2, Candle candle3, int currentIndex)
         {
-            // Bullish FVG: candle1's high must be lower than candle3's low (primary gap condition)
+            // Bullish FVG: candle1's high must be lower than candle3's low (gap condition)
             if (candle1.High >= candle3.Low)
                 return null;
             
-            // Volume imbalance analysis for boundary refinement per documentation
-            bool hasVolumeImbalance1 = candle1.Close < candle2.Open;
-            bool hasVolumeImbalance2 = candle2.Close < candle3.Open;
-            
-            // Determine boundaries based on volume imbalance presence (per documentation table)
-            // Low boundary: Use candle1.Close if imbalance1 present, otherwise candle1.High
-            // High boundary: Use candle3.Open if imbalance2 present, otherwise candle3.Low
-            double low = hasVolumeImbalance1 ? candle1.Close : candle1.High;
-            double high = hasVolumeImbalance2 ? candle3.Open : candle3.Low;
+            // Simple boundary calculation without volume imbalance analysis
+            double low = candle1.High;   // Top of first candle
+            double high = candle3.Low;   // Bottom of third candle
             
             // Validate boundaries to ensure valid FVG  
             if (low >= high)
                 return null; // Invalid gap - boundaries are inverted or equal
             
-            // No gap size restriction - detect all valid FVGs regardless of size
-            
-            // Create a bullish FVG level with proper index assignments per documentation
-            var bullishFVG = new Level(
+            // Create a bullish FVG level with proper index assignments
+            var bullishFvg = new Level(
                 LevelType.FairValueGap,
-                low,                    // Refined low boundary
-                high,                   // Refined high boundary
+                low,                    // Low boundary (top of first candle)
+                high,                   // High boundary (bottom of third candle)
                 candle1.Time,           // Start time reference
                 candle3.Time,           // End time reference
                 candle2.Time,           // Middle candle time
@@ -108,41 +101,33 @@ namespace Pfuma.Detectors
             );
             
             // Set TimeFrame from candle
-            bullishFVG.TimeFrame = candle1.TimeFrame;
+            bullishFvg.TimeFrame = candle1.TimeFrame;
             
             // Initialize quadrants for the bullish FVG
-            bullishFVG.InitializeQuadrants();
+            bullishFvg.InitializeQuadrants();
             
-            return bullishFVG;
+            return bullishFvg;
         }
         
         private Level DetectBearishFvg(Candle candle1, Candle candle2, Candle candle3, int currentIndex)
         {
-            // Bearish FVG: candle1's low must be higher than candle3's high (primary gap condition)
+            // Bearish FVG: candle1's low must be higher than candle3's high (gap condition)
             if (candle1.Low <= candle3.High)
                 return null;
             
-            // Volume imbalance analysis for boundary refinement per documentation
-            bool hasVolumeImbalance1 = candle1.Close > candle2.Open;
-            bool hasVolumeImbalance2 = candle2.Close > candle3.Open;
-            
-            // Determine boundaries based on volume imbalance presence (per documentation table)
-            // High boundary: Use candle1.Close if imbalance1 present, otherwise candle1.Low
-            // Low boundary: Use candle3.Open if imbalance2 present, otherwise candle3.High
-            double high = hasVolumeImbalance1 ? candle1.Close : candle1.Low;
-            double low = hasVolumeImbalance2 ? candle3.Open : candle3.High;
+            // Simple boundary calculation without volume imbalance analysis
+            double high = candle1.Low;   // Bottom of first candle
+            double low = candle3.High;   // Top of third candle
             
             // Validate boundaries to ensure valid FVG  
             if (low >= high)
                 return null; // Invalid gap - boundaries are inverted or equal
             
-            // No gap size restriction - detect all valid FVGs regardless of size
-            
-            // Create a bearish FVG level with proper index assignments per documentation
-            var bearishFVG = new Level(
+            // Create a bearish FVG level with proper index assignments
+            var bearishFvg = new Level(
                 LevelType.FairValueGap,
-                low,                    // Refined low boundary
-                high,                   // Refined high boundary
+                low,                    // Low boundary (top of third candle)
+                high,                   // High boundary (bottom of first candle)
                 candle3.Time,           // Start time reference (reversed for bearish)
                 candle1.Time,           // End time reference (reversed for bearish)
                 candle2.Time,           // Middle candle time
@@ -155,12 +140,12 @@ namespace Pfuma.Detectors
             );
             
             // Set TimeFrame from candle
-            bearishFVG.TimeFrame = candle1.TimeFrame;
+            bearishFvg.TimeFrame = candle1.TimeFrame;
             
             // Initialize quadrants for the bearish FVG
-            bearishFVG.InitializeQuadrants();
+            bearishFvg.InitializeQuadrants();
             
-            return bearishFVG;
+            return bearishFvg;
         }
         
         protected override bool PostDetectionValidation(Level fvg, int currentIndex)

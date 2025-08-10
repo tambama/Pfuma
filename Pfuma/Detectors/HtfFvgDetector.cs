@@ -13,7 +13,8 @@ using Pfuma.Services;
 namespace Pfuma.Detectors
 {
     /// <summary>
-    /// Detects Fair Value Gaps (FVGs) in Higher Timeframe (HTF) candles
+    /// Detects Fair Value Gaps (FVGs) in Higher Timeframe (HTF) candles using simple gap detection
+    /// without volume imbalance analysis for boundary refinement
     /// </summary>
     public class HtfFvgDetector : BasePatternDetector<Level>
     {
@@ -118,24 +119,20 @@ namespace Pfuma.Detectors
         
         private Level DetectBullishHtfFvg(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
         {
-            // Bullish FVG: candle1's high must be lower than candle3's low
+            // Bullish FVG: candle1's high must be lower than candle3's low (gap condition)
             if (candle1.High >= candle3.Low)
                 return null;
             
-            // Volume imbalance analysis for boundary refinement
-            bool hasVolumeImbalance1 = candle1.Close < candle2.Open;
-            bool hasVolumeImbalance2 = candle2.Close < candle3.Open;
-            
-            // Determine boundaries based on volume imbalance
-            double low = hasVolumeImbalance1 ? candle1.Close : candle1.High;
-            double high = hasVolumeImbalance2 ? candle3.Open : candle3.Low;
+            // Simple boundary calculation without volume imbalance analysis
+            double low = candle1.High;   // Top of first candle
+            double high = candle3.Low;   // Bottom of third candle
             
             // Validate boundaries
             if (low >= high)
                 return null;
             
             // Create a bullish HTF FVG level
-            var bullishFVG = new Level(
+            var bullishFvg = new Level(
                 LevelType.FairValueGap,
                 low,
                 high,
@@ -151,37 +148,33 @@ namespace Pfuma.Detectors
             );
             
             // Set HTF TimeFrame
-            bullishFVG.TimeFrame = htf;
+            bullishFvg.TimeFrame = htf;
             
             // Store HTF marker in the TimeFrame property
             // Description property doesn't exist, using TimeFrame to track HTF origin
             
             // Initialize quadrants
-            bullishFVG.InitializeQuadrants();
+            bullishFvg.InitializeQuadrants();
             
-            return bullishFVG;
+            return bullishFvg;
         }
         
         private Level DetectBearishHtfFvg(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
         {
-            // Bearish FVG: candle1's low must be higher than candle3's high
+            // Bearish FVG: candle1's low must be higher than candle3's high (gap condition)
             if (candle1.Low <= candle3.High)
                 return null;
             
-            // Volume imbalance analysis for boundary refinement
-            bool hasVolumeImbalance1 = candle1.Close > candle2.Open;
-            bool hasVolumeImbalance2 = candle2.Close > candle3.Open;
-            
-            // Determine boundaries based on volume imbalance
-            double high = hasVolumeImbalance1 ? candle1.Close : candle1.Low;
-            double low = hasVolumeImbalance2 ? candle3.Open : candle3.High;
+            // Simple boundary calculation without volume imbalance analysis
+            double high = candle1.Low;   // Bottom of first candle
+            double low = candle3.High;   // Top of third candle
             
             // Validate boundaries
             if (low >= high)
                 return null;
             
             // Create a bearish HTF FVG level
-            var bearishFVG = new Level(
+            var bearishFvg = new Level(
                 LevelType.FairValueGap,
                 low,
                 high,
@@ -197,15 +190,15 @@ namespace Pfuma.Detectors
             );
             
             // Set HTF TimeFrame
-            bearishFVG.TimeFrame = htf;
+            bearishFvg.TimeFrame = htf;
             
             // Store HTF marker in the TimeFrame property
             // Description property doesn't exist, using TimeFrame to track HTF origin
             
             // Initialize quadrants
-            bearishFVG.InitializeQuadrants();
+            bearishFvg.InitializeQuadrants();
             
-            return bearishFVG;
+            return bearishFvg;
         }
         
         private bool IsDuplicateHtfFvg(Level fvg, TimeFrame htf)
