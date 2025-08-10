@@ -12,26 +12,30 @@ using Pfuma.Services;
 namespace Pfuma.Detectors;
 
 /// <summary>
-/// Detects Order Blocks based on orderflow analysis
-/// 
-/// Bullish Order Block Detection:
-/// - Triggered when a new bullish orderflow is created
-/// - High of current bullish OF > high of most recent bearish OF
-/// - Low of current bullish OF < low of previous bullish OF  
-/// - Must have bullish candle closing above bearish OF high
-/// - The most recent bearish orderflow becomes a bullish order block
+/// Detects Order Blocks based on swing point analysis
 /// 
 /// Bearish Order Block Detection:
 /// - Triggered when a new bearish orderflow is created
-/// - Low of current bearish OF < low of most recent bullish OF
-/// - High of current bearish OF > high of previous bearish OF
-/// - Must have bearish candle closing below bullish OF low
-/// - The most recent bullish orderflow becomes a bearish order block
+/// - Order bearish swing points by index descending: first=current, second=previous
+/// - Order bullish swing points by index descending: second=current, third=previous
+/// - Check: current bearish swing < previous bearish swing
+/// - Check: current bullish swing > previous bullish swing
+/// - Check: bearish candle between current bullish and current bearish closes below previous bearish
+/// - Mark orderflow from previous bearish to current bullish as bearish order block
+/// 
+/// Bullish Order Block Detection:
+/// - Triggered when a new bullish orderflow is created
+/// - Order bullish swing points by index descending: first=current, second=previous
+/// - Order bearish swing points by index descending: second=current, third=previous
+/// - Check: current bullish swing > previous bullish swing
+/// - Check: current bearish swing < previous bearish swing
+/// - Check: bullish candle between current bearish and current bullish closes above previous bullish
+/// - Mark orderflow from previous bullish to current bearish as bullish order block
 /// </summary>
 public class OrderBlockDetector : BasePatternDetector<Level>
 {
     private readonly IVisualization<Level> _visualizer;
-    private readonly SwingPointDetector _swingPointDetector;
+    private readonly SwingPointManager _swingPointManager;
     private readonly HashSet<int> _processedIndices;
         
     public OrderBlockDetector(
@@ -40,13 +44,13 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         IEventAggregator eventAggregator,
         IRepository<Level> repository,
         IVisualization<Level> visualizer,
-        SwingPointDetector swingPointDetector,
+        SwingPointManager swingPointManager,
         IndicatorSettings settings,
         Action<string> logger = null)
         : base(chart, candleManager, eventAggregator, repository, settings, logger)
     {
         _visualizer = visualizer;
-        _swingPointDetector = swingPointDetector;
+        _swingPointManager = swingPointManager;
         _processedIndices = new HashSet<int>();
     }
         
@@ -59,242 +63,199 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         var detectedOrderBlocks = new List<Level>();
         
-        if (!Settings.Patterns.ShowOrderBlock || _processedIndices.Contains(currentIndex))
-            return detectedOrderBlocks;
-
-        try
-        {
-            // Get all orderflows (bullish and bearish)
-            var allOrderFlows = Repository.Find(l => l.LevelType == LevelType.Orderflow)
-                .OrderBy(of => of.Index)
-                .ToList();
-
-            if (allOrderFlows.Count < 3) // Need at least 3 orderflows to detect pattern
-                return detectedOrderBlocks;
-
-            // Check for new bullish orderflows that might trigger bullish order block detection
-            var recentBullishOrderFlows = allOrderFlows
-                .Where(of => of.Direction == Direction.Up && of.Index >= currentIndex - 10)
-                .OrderByDescending(of => of.Index)
-                .ToList();
-
-            foreach (var newBullishOrderFlow in recentBullishOrderFlows)
-            {
-                var bullishOrderBlock = CheckForBullishOrderBlockFromOrderFlow(newBullishOrderFlow, allOrderFlows);
-                if (bullishOrderBlock != null)
-                {
-                    detectedOrderBlocks.Add(bullishOrderBlock);
-                    _processedIndices.Add(currentIndex);
-                }
-            }
-
-            // Check for new bearish orderflows that might trigger bearish order block detection
-            var recentBearishOrderFlows = allOrderFlows
-                .Where(of => of.Direction == Direction.Down && of.Index >= currentIndex - 10)
-                .OrderByDescending(of => of.Index)
-                .ToList();
-
-            foreach (var newBearishOrderFlow in recentBearishOrderFlows)
-            {
-                var bearishOrderBlock = CheckForBearishOrderBlockFromOrderFlow(newBearishOrderFlow, allOrderFlows);
-                if (bearishOrderBlock != null)
-                {
-                    detectedOrderBlocks.Add(bearishOrderBlock);
-                    _processedIndices.Add(currentIndex);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger?.Invoke($"Error in OrderBlock detection: {ex.Message}");
-        }
-
+        // Order block detection is now event-driven via swing point events
+        // This method is kept for interface compliance but detection happens in event handlers
+        
         return detectedOrderBlocks;
     }
 
     /// <summary>
-    /// Checks if a new bullish orderflow creates a bullish order block pattern
-    /// For bullish order blocks:
-    /// - A new bullish orderflow is created (current bullish OF)
-    /// - Get the most recent bearish orderflow (current bearish OF)
-    /// - Get the second most recent bullish orderflow (previous bullish OF)
-    /// - Check: High of current bullish OF > high of current bearish OF
-    /// - Check: Low of current bullish OF < low of previous bullish OF
-    /// - Check: There's a bullish candle in current bullish OF that closes above current bearish OF's high
-    /// - Then the current bearish orderflow becomes a bullish order block
+    /// Checks for bearish order block when a new bearish orderflow is created
+    /// Logic:
+    /// - Order bearish swing points by index descending: first=current, second=previous
+    /// - Order bullish swing points by index descending: second=current, third=previous
+    /// - Check: current bearish swing < previous bearish swing
+    /// - Check: current bullish swing > previous bullish swing
+    /// - Check: bearish candle between current bullish and current bearish closes below previous bearish
+    /// - Mark orderflow from previous bearish to current bullish as bearish order block
     /// </summary>
-    private Level CheckForBullishOrderBlockFromOrderFlow(Level newBullishOrderFlow, List<Level> allOrderFlows)
+    private Level CheckForBearishOrderBlock()
     {
         try
         {
-            // Current bullish orderflow is the new one passed in
-            var currentBullishOrderFlow = newBullishOrderFlow;
-            
-            // Get all bearish orderflows ordered by index descending and get the first one (most recent)
-            var currentBearishOrderFlow = allOrderFlows
-                .Where(of => of.Direction == Direction.Down)
-                .OrderByDescending(of => of.Index)
-                .FirstOrDefault();
-
-            if (currentBearishOrderFlow == null)
+            if (!Settings.Patterns.ShowOrderBlock)
                 return null;
 
-            // Get all bullish orderflows ordered by index descending and get the second one (previous bullish)
-            var previousBullishOrderFlow = allOrderFlows
-                .Where(of => of.Direction == Direction.Up)
-                .OrderByDescending(of => of.Index)
-                .Skip(1) // Skip the first (current) to get the second (previous)
-                .FirstOrDefault();
+            // Get all swing points
+            var allBearishSwingPoints = _swingPointManager.GetSwingLows()
+                .OrderByDescending(sp => sp.Index)
+                .ToList();
+            
+            var allBullishSwingPoints = _swingPointManager.GetSwingHighs()
+                .OrderByDescending(sp => sp.Index)
+                .ToList();
 
-            if (previousBullishOrderFlow == null)
+            // Need at least 2 bearish and 3 bullish swing points
+            if (allBearishSwingPoints.Count < 2 || allBullishSwingPoints.Count < 3)
                 return null;
 
-            // Check bullish order block conditions:
-            // 1. High of current bullish orderflow > high of current bearish orderflow
-            // 2. Low of current bullish orderflow < low of previous bullish orderflow
-            // 3. There must be a bullish candle that closes above the high of the current bearish orderflow
-            bool condition1 = currentBullishOrderFlow.High > currentBearishOrderFlow.High;
-            bool condition2 = currentBullishOrderFlow.Low < previousBullishOrderFlow.Low;
+            // Order bearish swing points by index descending
+            var currentBearishSwing = allBearishSwingPoints[0]; // First = current
+            var previousBearishSwing = allBearishSwingPoints[1]; // Second = previous
             
-            // Check for bullish candle closure above current bearish orderflow high
-            // For bullish orderflow with directional indexing: Index is at the low, IndexHigh is at the high
-            bool hasBullishCandleClosureAbove = false;
-            int startIndex = currentBullishOrderFlow.Index;      // Starting point of bullish move (at the low)
-            int endIndex = currentBullishOrderFlow.IndexHigh;    // End point of bullish move (at the high)
+            // Order bullish swing points by index descending
+            var currentBullishSwing = allBullishSwingPoints[1]; // Second = current
+            var previousBullishSwing = allBullishSwingPoints[2]; // Third = previous
+
+            // Check conditions:
+            // 1. Current bearish swing < previous bearish swing
+            bool condition1 = currentBearishSwing.Price < previousBearishSwing.Price;
             
-            // Iterate through the range (startIndex should be < endIndex for bullish)
-            for (int i = Math.Min(startIndex, endIndex); i <= Math.Max(startIndex, endIndex); i++)
+            // 2. Current bullish swing > previous bullish swing
+            bool condition2 = currentBullishSwing.Price > previousBullishSwing.Price;
+            
+            if (!condition1 || !condition2)
+                return null;
+
+            // 3. Check for bearish candle between current bullish and current bearish that closes below previous bearish
+            bool hasBearishCandleClosureBelowPreviousBearish = false;
+            int startIndex = Math.Min(currentBullishSwing.Index, currentBearishSwing.Index);
+            int endIndex = Math.Max(currentBullishSwing.Index, currentBearishSwing.Index);
+            
+            for (int i = startIndex; i <= endIndex; i++)
             {
                 var candle = CandleManager.GetCandle(i);
-                if (candle != null && candle.Close > candle.Open && candle.Close > currentBearishOrderFlow.High)
+                if (candle != null && candle.Close < candle.Open && candle.Close < previousBearishSwing.Price)
                 {
-                    hasBullishCandleClosureAbove = true;
+                    hasBearishCandleClosureBelowPreviousBearish = true;
                     break;
                 }
             }
 
-            if (condition1 && condition2 && hasBullishCandleClosureAbove)
+            if (hasBearishCandleClosureBelowPreviousBearish)
             {
-                // The current bearish orderflow becomes a bullish order block
+                // Create bearish order block from previous bearish swing to current bullish swing
                 var orderBlock = new Level(
                     LevelType.OrderBlock,
-                    currentBearishOrderFlow.Low,
-                    currentBearishOrderFlow.High,
-                    currentBearishOrderFlow.LowTime,
-                    currentBearishOrderFlow.HighTime,
-                    currentBearishOrderFlow.MidTime,
-                    Direction.Up, // Bullish order block
-                    currentBearishOrderFlow.Index,
-                    currentBearishOrderFlow.IndexHigh,
-                    currentBearishOrderFlow.IndexLow,
-                    currentBearishOrderFlow.IndexMid,
-                    currentBearishOrderFlow.Zone,
-                    currentBearishOrderFlow.Score,
-                    currentBearishOrderFlow.StretchTo,
+                    previousBearishSwing.Price,
+                    currentBullishSwing.Price,
+                    previousBearishSwing.Time,
+                    currentBullishSwing.Time,
+                    null,
+                    Direction.Down, // Bearish order block
+                    previousBearishSwing.Index,
+                    currentBullishSwing.Index,
+                    previousBearishSwing.Index,
+                    0,
+                    Zone.Equilibrium,
+                    3, // High score for breaking structure
+                    null,
                     true // isConfirmed
                 );
 
-                Logger?.Invoke($"Bullish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} at index {orderBlock.Index}");
+                Logger?.Invoke($"Bearish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} from previous bearish at index {previousBearishSwing.Index} to current bullish at index {currentBullishSwing.Index}");
                 return orderBlock;
             }
         }
         catch (Exception ex)
         {
-            Logger?.Invoke($"Error checking bullish order block from orderflow: {ex.Message}");
+            Logger?.Invoke($"Error checking bearish order block: {ex.Message}");
         }
 
         return null;
     }
 
     /// <summary>
-    /// Checks if a new bearish orderflow creates a bearish order block pattern
-    /// For bearish order blocks:
-    /// - A new bearish orderflow is created (current bearish OF)
-    /// - Get the most recent bullish orderflow (current bullish OF)
-    /// - Get the second most recent bearish orderflow (previous bearish OF)
-    /// - Check: Low of current bearish OF < low of current bullish OF
-    /// - Check: High of current bearish OF > high of previous bearish OF
-    /// - Check: There's a bearish candle in current bearish OF that closes below current bullish OF's low
-    /// - Then the current bullish orderflow becomes a bearish order block
+    /// Checks for bullish order block when a new bullish orderflow is created
+    /// Logic:
+    /// - Order bullish swing points by index descending: first=current, second=previous
+    /// - Order bearish swing points by index descending: second=current, third=previous
+    /// - Check: current bullish swing > previous bullish swing
+    /// - Check: current bearish swing < previous bearish swing
+    /// - Check: bullish candle between current bearish and current bullish closes above previous bullish
+    /// - Mark orderflow from previous bullish to current bearish as bullish order block
     /// </summary>
-    private Level CheckForBearishOrderBlockFromOrderFlow(Level newBearishOrderFlow, List<Level> allOrderFlows)
+    private Level CheckForBullishOrderBlock()
     {
         try
         {
-            // Current bearish orderflow is the new one passed in
-            var currentBearishOrderFlow = newBearishOrderFlow;
-            
-            // Get all bullish orderflows ordered by index descending and get the first one (most recent)
-            var currentBullishOrderFlow = allOrderFlows
-                .Where(of => of.Direction == Direction.Up)
-                .OrderByDescending(of => of.Index)
-                .FirstOrDefault();
-
-            if (currentBullishOrderFlow == null)
+            if (!Settings.Patterns.ShowOrderBlock)
                 return null;
 
-            // Get all bearish orderflows ordered by index descending and get the second one (previous bearish)
-            var previousBearishOrderFlow = allOrderFlows
-                .Where(of => of.Direction == Direction.Down)
-                .OrderByDescending(of => of.Index)
-                .Skip(1) // Skip the first (current) to get the second (previous)
-                .FirstOrDefault();
+            // Get all swing points
+            var allBullishSwingPoints = _swingPointManager.GetSwingHighs()
+                .OrderByDescending(sp => sp.Index)
+                .ToList();
+            
+            var allBearishSwingPoints = _swingPointManager.GetSwingLows()
+                .OrderByDescending(sp => sp.Index)
+                .ToList();
 
-            if (previousBearishOrderFlow == null)
+            // Need at least 2 bullish and 3 bearish swing points
+            if (allBullishSwingPoints.Count < 2 || allBearishSwingPoints.Count < 3)
                 return null;
 
-            // Check bearish order block conditions:
-            // 1. Low of current bearish orderflow < low of current bullish orderflow
-            // 2. High of current bearish orderflow > high of previous bearish orderflow
-            // 3. There must be a bearish candle that closes below the low of the current bullish orderflow
-            bool condition1 = currentBearishOrderFlow.Low < currentBullishOrderFlow.Low;
-            bool condition2 = currentBearishOrderFlow.High > previousBearishOrderFlow.High;
+            // Order bullish swing points by index descending
+            var currentBullishSwing = allBullishSwingPoints[0]; // First = current
+            var previousBullishSwing = allBullishSwingPoints[1]; // Second = previous
             
-            // Check for bearish candle closure below current bullish orderflow low
-            // For bearish orderflow with directional indexing: Index is at the high, IndexLow is at the low
-            bool hasBearishCandleClosureBelow = false;
-            int startIndex = currentBearishOrderFlow.Index;      // Starting point of bearish move (at the high)
-            int endIndex = currentBearishOrderFlow.IndexLow;     // End point of bearish move (at the low)
+            // Order bearish swing points by index descending
+            var currentBearishSwing = allBearishSwingPoints[1]; // Second = current
+            var previousBearishSwing = allBearishSwingPoints[2]; // Third = previous
+
+            // Check conditions:
+            // 1. Current bullish swing > previous bullish swing
+            bool condition1 = currentBullishSwing.Price > previousBullishSwing.Price;
             
-            // Since bearish moves from high to low, startIndex > endIndex, so we iterate downwards
-            for (int i = Math.Min(startIndex, endIndex); i <= Math.Max(startIndex, endIndex); i++)
+            // 2. Current bearish swing < previous bearish swing
+            bool condition2 = currentBearishSwing.Price < previousBearishSwing.Price;
+            
+            if (!condition1 || !condition2)
+                return null;
+
+            // 3. Check for bullish candle between current bearish and current bullish that closes above previous bullish
+            bool hasBullishCandleClosureAbovePreviousBullish = false;
+            int startIndex = Math.Min(currentBearishSwing.Index, currentBullishSwing.Index);
+            int endIndex = Math.Max(currentBearishSwing.Index, currentBullishSwing.Index);
+            
+            for (int i = startIndex; i <= endIndex; i++)
             {
                 var candle = CandleManager.GetCandle(i);
-                if (candle != null && candle.Close < candle.Open && candle.Close < currentBullishOrderFlow.Low)
+                if (candle != null && candle.Close > candle.Open && candle.Close > previousBullishSwing.Price)
                 {
-                    hasBearishCandleClosureBelow = true;
+                    hasBullishCandleClosureAbovePreviousBullish = true;
                     break;
                 }
             }
 
-            if (condition1 && condition2 && hasBearishCandleClosureBelow)
+            if (hasBullishCandleClosureAbovePreviousBullish)
             {
-                // The current bullish orderflow becomes a bearish order block
+                // Create bullish order block from previous bullish swing to current bearish swing
                 var orderBlock = new Level(
                     LevelType.OrderBlock,
-                    currentBullishOrderFlow.Low,
-                    currentBullishOrderFlow.High,
-                    currentBullishOrderFlow.LowTime,
-                    currentBullishOrderFlow.HighTime,
-                    currentBullishOrderFlow.MidTime,
-                    Direction.Down, // Bearish order block
-                    currentBullishOrderFlow.Index,
-                    currentBullishOrderFlow.IndexHigh,
-                    currentBullishOrderFlow.IndexLow,
-                    currentBullishOrderFlow.IndexMid,
-                    currentBullishOrderFlow.Zone,
-                    currentBullishOrderFlow.Score,
-                    currentBullishOrderFlow.StretchTo,
+                    currentBearishSwing.Price,
+                    previousBullishSwing.Price,
+                    currentBearishSwing.Time,
+                    previousBullishSwing.Time,
+                    null,
+                    Direction.Up, // Bullish order block
+                    previousBullishSwing.Index,
+                    previousBullishSwing.Index,
+                    currentBearishSwing.Index,
+                    0,
+                    Zone.Equilibrium,
+                    3, // High score for breaking structure
+                    null,
                     true // isConfirmed
                 );
 
-                Logger?.Invoke($"Bearish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} at index {orderBlock.Index}");
+                Logger?.Invoke($"Bullish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} from previous bullish at index {previousBullishSwing.Index} to current bearish at index {currentBearishSwing.Index}");
                 return orderBlock;
             }
         }
         catch (Exception ex)
         {
-            Logger?.Invoke($"Error checking bearish order block from orderflow: {ex.Message}");
+            Logger?.Invoke($"Error checking bullish order block: {ex.Message}");
         }
 
         return null;
@@ -304,24 +265,26 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         base.Initialize();
         
-        // Subscribe to orderflow detection events to detect order blocks
+        // Subscribe to orderflow detection events to trigger order block detection
         EventAggregator.Subscribe<OrderFlowDetectedEvent>(OnOrderFlowDetected);
     }
 
     private void OnOrderFlowDetected(OrderFlowDetectedEvent evt)
     {
-        var allOrderFlows = Repository.Find(l => l.LevelType == LevelType.Orderflow).OrderBy(of => of.Index).ToList();
+        if (evt?.OrderFlow == null)
+            return;
+
         Level orderBlock = null;
 
-        if (evt?.OrderFlow?.Direction == Direction.Up) // Process bullish orderflows for bullish order blocks
+        if (evt.OrderFlow.Direction == Direction.Up) // New bullish orderflow created
         {
-            // Trigger detection when a new bullish orderflow is detected
-            orderBlock = CheckForBullishOrderBlockFromOrderFlow(evt.OrderFlow, allOrderFlows);
+            // Check for bullish order block
+            orderBlock = CheckForBullishOrderBlock();
         }
-        else if (evt?.OrderFlow?.Direction == Direction.Down) // Process bearish orderflows for bearish order blocks
+        else if (evt.OrderFlow.Direction == Direction.Down) // New bearish orderflow created
         {
-            // Trigger detection when a new bearish orderflow is detected
-            orderBlock = CheckForBearishOrderBlockFromOrderFlow(evt.OrderFlow, allOrderFlows);
+            // Check for bearish order block
+            orderBlock = CheckForBearishOrderBlock();
         }
         
         if (orderBlock != null)

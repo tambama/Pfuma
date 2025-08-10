@@ -319,7 +319,7 @@ namespace Pfuma
                 Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
             _orderBlockDetector = new OrderBlockDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointManager, _settings, EnableLog ? Print : null);
             
             _breakerBlockDetector = new BreakerBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
