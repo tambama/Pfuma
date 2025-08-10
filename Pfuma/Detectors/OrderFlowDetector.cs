@@ -149,7 +149,8 @@ namespace Pfuma.Detectors
             
             if (previousSwingHigh != null && previousSwingHigh.Index < recentSwingLow.Index)
             {
-                // Create bearish orderflow
+                // Create bearish orderflow with DIRECTIONAL indexing
+                // For bearish orderflow: starts at the high (previousSwingHigh) and moves down to the low (recentSwingLow)
                 var bearishOrderFlow = new Level(
                     LevelType.Orderflow,
                     recentSwingLow.Price,
@@ -158,7 +159,7 @@ namespace Pfuma.Detectors
                     previousSwingHigh.Time,
                     null,
                     Direction.Down,
-                    recentSwingLow.Index,     // Index (starting point - should be the most recent point)
+                    previousSwingHigh.Index,  // Index (starting point of bearish move - at the high)
                     previousSwingHigh.Index,  // IndexHigh (where the high is)
                     recentSwingLow.Index      // IndexLow (where the low is)
                 );

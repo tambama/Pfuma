@@ -157,11 +157,13 @@ public class OrderBlockDetector : BasePatternDetector<Level>
             bool condition2 = currentBullishOrderFlow.Low < previousBullishOrderFlow.Low;
             
             // Check for bullish candle closure above current bearish orderflow high
+            // For bullish orderflow with directional indexing: Index is at the low, IndexHigh is at the high
             bool hasBullishCandleClosureAbove = false;
-            int startIndex = Math.Min(currentBullishOrderFlow.Index, currentBullishOrderFlow.IndexLow);
-            int endIndex = Math.Max(currentBullishOrderFlow.Index, currentBullishOrderFlow.IndexHigh);
+            int startIndex = currentBullishOrderFlow.Index;      // Starting point of bullish move (at the low)
+            int endIndex = currentBullishOrderFlow.IndexHigh;    // End point of bullish move (at the high)
             
-            for (int i = startIndex; i <= endIndex; i++)
+            // Iterate through the range (startIndex should be < endIndex for bullish)
+            for (int i = Math.Min(startIndex, endIndex); i <= Math.Max(startIndex, endIndex); i++)
             {
                 var candle = CandleManager.GetCandle(i);
                 if (candle != null && candle.Close > candle.Open && candle.Close > currentBearishOrderFlow.High)
@@ -249,11 +251,13 @@ public class OrderBlockDetector : BasePatternDetector<Level>
             bool condition2 = currentBearishOrderFlow.High > previousBearishOrderFlow.High;
             
             // Check for bearish candle closure below current bullish orderflow low
+            // For bearish orderflow with directional indexing: Index is at the high, IndexLow is at the low
             bool hasBearishCandleClosureBelow = false;
-            int startIndex = Math.Min(currentBearishOrderFlow.Index, currentBearishOrderFlow.IndexLow);
-            int endIndex = Math.Max(currentBearishOrderFlow.Index, currentBearishOrderFlow.IndexHigh);
+            int startIndex = currentBearishOrderFlow.Index;      // Starting point of bearish move (at the high)
+            int endIndex = currentBearishOrderFlow.IndexLow;     // End point of bearish move (at the low)
             
-            for (int i = startIndex; i <= endIndex; i++)
+            // Since bearish moves from high to low, startIndex > endIndex, so we iterate downwards
+            for (int i = Math.Min(startIndex, endIndex); i <= Math.Max(startIndex, endIndex); i++)
             {
                 var candle = CandleManager.GetCandle(i);
                 if (candle != null && candle.Close < candle.Open && candle.Close < currentBullishOrderFlow.Low)

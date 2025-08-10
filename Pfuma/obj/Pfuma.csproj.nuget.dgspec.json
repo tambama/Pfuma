@@ -14,6 +14,7 @@
         "outputPath": "/Users/peniel/cAlgo/Sources/Indicators/Pfuma/Pfuma/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
+          "/Users/peniel/cAlgo/Sources/Indicators/Pfuma/NuGet.Config",
           "/Users/peniel/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
