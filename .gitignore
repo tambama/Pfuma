@@ -365,3 +365,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Custom ignores for this project
+test_periodicity.*
+*.algo
+*.algo.metadata
