@@ -73,6 +73,9 @@ namespace Pfuma.Models
         
         // Index at which liquidity sweep occurred
         public int SweptIndex { get; set; }
+        
+        // Whether this level has been extended (rectangle extended to include swing point candle)
+        public bool IsExtended { get; set; } = false;
 
         // Whether this level is active (not liquidity swept and, if has quadrants, at least one quadrant is not swept)
         public bool IsActive => !IsLiquiditySwept && (Quadrants.Count == 0 || Quadrants.Any(q => !q.IsSwept));

@@ -260,8 +260,8 @@ namespace Pfuma
             _notificationService = new NotificationService(
                 EnableLog, 
                 EnableTelegram, 
-                "", // chatId - empty for now
-                "", // token - empty for now  
+                "5631623580", // chatId - empty for now
+                "7507336625:AAHM4oYlg_5XIjzzCNFCR_oyLu1Y69qkvns", // token - empty for now  
                 Symbol.Name, 
                 _settings.Time.UtcOffset, 
                 EnableLog ? Print : null);
@@ -302,7 +302,7 @@ namespace Pfuma
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
             
             // Initialize liquidity manager
-            _liquidityManager = new LiquidityManager(_eventAggregator, _levelRepository, _settings, EnableLog ? Print : null);
+            _liquidityManager = new LiquidityManager(Chart, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
             
         }
         

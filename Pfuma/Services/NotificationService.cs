@@ -77,6 +77,48 @@ namespace Pfuma.Services
             SendNotification(message);
         }
 
+
+        /// <summary>
+        /// Send a notification when an Order Block is created inside a key level
+        /// </summary>
+        public void NotifyOrderBlockInsideKeyLevel(Level orderBlock, Level keyLevel)
+        {
+            string obType = orderBlock.Direction == Direction.Up ? "Bullish" : "Bearish";
+            string keyLevelType = GetKeyLevelTypeDescription(keyLevel);
+            string message = $"💎 {obType} Order Block FORMED INSIDE {keyLevelType} for {_symbol} - Range: {orderBlock.Low:F5}-{orderBlock.High:F5} - Time: {DateTime.UtcNow.AddHours(_utcOffset):HH:mm:ss}";
+
+            SendNotification(message);
+        }
+
+        /// <summary>
+        /// Send a notification when a CISD is confirmed inside a key level
+        /// </summary>
+        public void NotifyCisdInsideKeyLevel(Level cisd, Level keyLevel)
+        {
+            string cisdType = cisd.Direction == Direction.Up ? "Bullish" : "Bearish";
+            string keyLevelType = GetKeyLevelTypeDescription(keyLevel);
+            string message = $"🚀 {cisdType} CISD CONFIRMED INSIDE {keyLevelType} for {_symbol} - Range: {cisd.Low:F5}-{cisd.High:F5} - Time: {DateTime.UtcNow.AddHours(_utcOffset):HH:mm:ss}";
+
+            SendNotification(message);
+        }
+
+        /// <summary>
+        /// Get a friendly description of a key level type
+        /// </summary>
+        private string GetKeyLevelTypeDescription(Level keyLevel)
+        {
+            var direction = keyLevel.Direction == Direction.Up ? "Bullish" : "Bearish";
+            return keyLevel.LevelType switch
+            {
+                LevelType.OrderBlock => $"{direction} Order Block",
+                LevelType.CISD => $"{direction} CISD",
+                LevelType.FairValueGap => $"{direction} FVG",
+                LevelType.BreakerBlock => $"{direction} Breaker Block",
+                LevelType.RejectionBlock => $"{direction} Rejection Block",
+                _ => $"{direction} Key Level"
+            };
+        }
+
         /// <summary>
         /// Send a notification when price enters a macro time period (always sends regardless of notification settings)
         /// </summary>

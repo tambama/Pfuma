@@ -91,6 +91,13 @@ namespace Pfuma.Visualization
         {
             try
             {
+                // If the order block was not extended, don't redraw it (it should be deleted)
+                if (!orderBlock.IsExtended)
+                {
+                    Logger?.Invoke($"Skipping redraw of non-extended swept order block: {orderBlock.Direction} at {orderBlock.High:F5}-{orderBlock.Low:F5}");
+                    return;
+                }
+                
                 var patternId = GetPatternId(orderBlock);
                 
                 // Remove the existing label
