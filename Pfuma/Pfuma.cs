@@ -546,12 +546,6 @@ namespace Pfuma
                     {
                         swingPoint.InsideKeyLevel = true;
                         swingPoint.SweptKeyLevel = pdArray;
-                        
-                        // Draw inside key level icon
-                        if (_orderFlowVisualizer != null)
-                        {
-                            DrawInsideKeyLevelIcon(swingPoint);
-                        }
                     }
                 }
             }

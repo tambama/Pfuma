@@ -131,27 +131,37 @@ namespace Pfuma.Detectors
             if (low >= high)
                 return null;
             
+            // For bullish HTF FVG:
+            // - The FVG starts at the LTF index where candle1 made its HIGH
+            // - The FVG ends at the LTF index where candle3 made its LOW
+            int indexStart = candle1.IndexOfHigh ?? FindCurrentTimeframeIndexForTime(candle1.Time);
+            int indexEnd = candle3.IndexOfLow ?? FindCurrentTimeframeIndexForTime(candle3.Time);
+            int indexMid = candle2.Index ?? FindCurrentTimeframeIndexForTime(candle2.Time);
+            
+            // Get the times for these specific LTF indices
+            var startCandle = CandleManager.GetCandle(indexStart);
+            var endCandle = CandleManager.GetCandle(indexEnd);
+            DateTime startTime = startCandle?.Time ?? candle1.Time;
+            DateTime endTime = endCandle?.Time ?? candle3.Time;
+            
             // Create a bullish HTF FVG level
             var bullishFvg = new Level(
                 LevelType.FairValueGap,
                 low,
                 high,
-                candle1.Time,
-                candle3.Time,
-                candle2.Time,
+                startTime,          // Start time (where candle1 made its high)
+                endTime,            // End time (where candle3 made its low)
+                candle2.Time,       // Mid time (candle 2 time)
                 Direction.Up,
                 ltfIndex,           // Use LTF index for reference
-                ltfIndex,           // High index
-                ltfIndex,           // Low index
-                ltfIndex,           // Middle index
+                indexEnd,           // High index (end of rectangle)
+                indexStart,         // Low index (start of rectangle)
+                indexMid,           // Middle index
                 Zone.Premium
             );
             
             // Set HTF TimeFrame
             bullishFvg.TimeFrame = htf;
-            
-            // Store HTF marker in the TimeFrame property
-            // Description property doesn't exist, using TimeFrame to track HTF origin
             
             // Initialize quadrants
             bullishFvg.InitializeQuadrants();
@@ -173,32 +183,61 @@ namespace Pfuma.Detectors
             if (low >= high)
                 return null;
             
+            // For bearish HTF FVG:
+            // - The FVG starts at the LTF index where candle1 made its LOW  
+            // - The FVG ends at the LTF index where candle3 made its HIGH
+            int indexStart = candle1.IndexOfLow ?? FindCurrentTimeframeIndexForTime(candle1.Time);
+            int indexEnd = candle3.IndexOfHigh ?? FindCurrentTimeframeIndexForTime(candle3.Time);
+            int indexMid = candle2.Index ?? FindCurrentTimeframeIndexForTime(candle2.Time);
+            
+            // Get the times for these specific LTF indices
+            var startCandle = CandleManager.GetCandle(indexStart);
+            var endCandle = CandleManager.GetCandle(indexEnd);
+            DateTime startTime = startCandle?.Time ?? candle1.Time;
+            DateTime endTime = endCandle?.Time ?? candle3.Time;
+            
             // Create a bearish HTF FVG level
             var bearishFvg = new Level(
                 LevelType.FairValueGap,
                 low,
                 high,
-                candle3.Time,
-                candle1.Time,
-                candle2.Time,
+                startTime,          // Start time (where candle1 made its low)
+                endTime,            // End time (where candle3 made its high)
+                candle2.Time,       // Mid time (candle 2 time)
                 Direction.Down,
                 ltfIndex,           // Use LTF index for reference
-                ltfIndex,           // High index
-                ltfIndex,           // Low index
-                ltfIndex,           // Middle index
+                indexEnd,           // High index (end of rectangle)
+                indexStart,         // Low index (start of rectangle)
+                indexMid,           // Middle index
                 Zone.Discount
             );
             
             // Set HTF TimeFrame
             bearishFvg.TimeFrame = htf;
             
-            // Store HTF marker in the TimeFrame property
-            // Description property doesn't exist, using TimeFrame to track HTF origin
-            
             // Initialize quadrants
             bearishFvg.InitializeQuadrants();
             
             return bearishFvg;
+        }
+        
+        /// <summary>
+        /// Finds the current timeframe index that corresponds to a specific time
+        /// </summary>
+        private int FindCurrentTimeframeIndexForTime(DateTime targetTime)
+        {
+            // Find the closest current timeframe candle that matches or comes before the target time
+            for (int i = CandleManager.Count - 1; i >= 0; i--)
+            {
+                var candle = CandleManager.GetCandle(i);
+                if (candle != null && candle.Time <= targetTime)
+                {
+                    return i;
+                }
+            }
+            
+            // If no match found, return the current index
+            return CandleManager.Count - 1;
         }
         
         private bool IsDuplicateHtfFvg(Level fvg, TimeFrame htf)

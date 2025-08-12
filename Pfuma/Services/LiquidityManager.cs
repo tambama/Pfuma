@@ -23,6 +23,9 @@ namespace Pfuma.Services
         private readonly IndicatorSettings _settings;
         private readonly NotificationService _notificationService;
         private readonly Action<string> _logger;
+        
+        // Track the last drawn inside key level dot
+        private string _lastInsideKeyLevelDotId;
 
         public LiquidityManager(
             Chart chart,
@@ -536,6 +539,9 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bullishSwingPoint.InsideKeyLevel = true;
                     bullishSwingPoint.SweptKeyLevel = mostRecentOrderBlock;
+                    
+                    // Draw a dot on the swing point
+                    DrawInsideKeyLevelDot(bullishSwingPoint);
 
                     _logger?.Invoke($"Bullish swing point at {bullishSwingPoint.Price:F5} is inside most recent bearish order block (Index: {mostRecentOrderBlock.Index}, High: {mostRecentOrderBlock.High:F5}, Low: {mostRecentOrderBlock.Low:F5})");
                 }
@@ -577,6 +583,9 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bearishSwingPoint.InsideKeyLevel = true;
                     bearishSwingPoint.SweptKeyLevel = mostRecentOrderBlock;
+                    
+                    // Draw a dot on the swing point
+                    DrawInsideKeyLevelDot(bearishSwingPoint);
 
                     _logger?.Invoke($"Bearish swing point at {bearishSwingPoint.Price:F5} is inside most recent bullish order block (Index: {mostRecentOrderBlock.Index}, High: {mostRecentOrderBlock.High:F5}, Low: {mostRecentOrderBlock.Low:F5})");
                 }
@@ -618,6 +627,9 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bullishSwingPoint.InsideKeyLevel = true;
                     bullishSwingPoint.SweptKeyLevel = mostRecentCisd;
+                    
+                    // Draw a dot on the swing point
+                    DrawInsideKeyLevelDot(bullishSwingPoint);
 
                     _logger?.Invoke($"Bullish swing point at {bullishSwingPoint.Price:F5} is inside most recent bearish CISD (Index: {mostRecentCisd.Index}, High: {mostRecentCisd.High:F5}, Low: {mostRecentCisd.Low:F5})");
                 }
@@ -659,6 +671,9 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bearishSwingPoint.InsideKeyLevel = true;
                     bearishSwingPoint.SweptKeyLevel = mostRecentCisd;
+                    
+                    // Draw a dot on the swing point
+                    DrawInsideKeyLevelDot(bearishSwingPoint);
 
                     _logger?.Invoke($"Bearish swing point at {bearishSwingPoint.Price:F5} is inside most recent bullish CISD (Index: {mostRecentCisd.Index}, High: {mostRecentCisd.High:F5}, Low: {mostRecentCisd.Low:F5})");
                 }
@@ -917,6 +932,47 @@ namespace Pfuma.Services
                 LevelType.BreakerBlock => Color.Orange,
                 _ => Color.Gray
             };
+        }
+        
+        /// <summary>
+        /// Draw a dot on a swing point that is inside a key level
+        /// Removes any previously drawn dot before drawing the new one
+        /// </summary>
+        private void DrawInsideKeyLevelDot(SwingPoint swingPoint)
+        {
+            try
+            {
+                // Remove the previous dot if it exists
+                if (!string.IsNullOrEmpty(_lastInsideKeyLevelDotId))
+                {
+                    _chart.RemoveObject(_lastInsideKeyLevelDotId);
+                    _logger?.Invoke($"Removed previous inside key level dot: {_lastInsideKeyLevelDotId}");
+                }
+                
+                // Generate a unique ID for the new dot
+                string dotId = $"inside_key_level_dot_{swingPoint.Index}_{swingPoint.Time:yyyyMMddHHmmss}";
+                
+                // Determine the color based on swing point direction
+                Color dotColor = swingPoint.Direction == Direction.Up ? Color.Green : Color.Red;
+                
+                // Draw the dot at the swing point location
+                _chart.DrawIcon(
+                    dotId,
+                    ChartIconType.Circle,
+                    swingPoint.Time,
+                    swingPoint.Price,
+                    dotColor
+                );
+                
+                // Store the ID for future removal
+                _lastInsideKeyLevelDotId = dotId;
+                
+                _logger?.Invoke($"Drew {swingPoint.Direction} inside key level dot at {swingPoint.Price:F5} (Index: {swingPoint.Index})");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error drawing inside key level dot: {ex.Message}");
+            }
         }
 
         /// <summary>

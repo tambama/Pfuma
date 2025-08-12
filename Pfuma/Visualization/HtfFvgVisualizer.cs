@@ -6,6 +6,7 @@ using Pfuma.Core.Configuration;
 using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
+using static Pfuma.Core.Configuration.Constants;
 
 namespace Pfuma.Visualization
 {
@@ -38,104 +39,57 @@ namespace Pfuma.Visualization
                 return;
             
             var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
-            var rectangleName = patternId;
-            var labelName = $"{patternId}_Label";
             
-            // Add object IDs to the list for tracking
-            objectIds.Add(rectangleName);
-            objectIds.Add(labelName);
+            // Get directional color - green for bullish, red for bearish
+            Color baseColor = GetDirectionalColor(htfFvg.Direction);
             
-            // Use different colors for HTF FVGs (more transparent/subtle)
-            Color rectangleColor;
-            Color textColor;
-            
-            if (htfFvg.Direction == Direction.Up)
-            {
-                // Bullish HTF FVG - Lighter green with more transparency
-                rectangleColor = Color.FromArgb(30, 0, 255, 0); // Very transparent green
-                textColor = Color.FromArgb(180, 0, 200, 0); // Darker green for text
-            }
-            else
-            {
-                // Bearish HTF FVG - Lighter red with more transparency
-                rectangleColor = Color.FromArgb(30, 255, 0, 0); // Very transparent red
-                textColor = Color.FromArgb(180, 200, 0, 0); // Darker red for text
-            }
-            
-            // Calculate extended end time for better visibility
-            // Extend the rectangle forward by the HTF period duration
-            var htfPeriod = htfFvg.HighTime - htfFvg.LowTime;
-            var extendedEndTime = htfFvg.HighTime.Add(htfPeriod.Add(htfPeriod)); // Extend by 2x HTF period
-            
-            // Draw rectangle with thicker border for HTF
-            Chart.DrawRectangle(
-                rectangleName,
-                htfFvg.LowTime,
-                htfFvg.Low,
-                extendedEndTime,
-                htfFvg.High,
-                rectangleColor
-            );
-            
-            // Add a border to make HTF FVGs more visible
-            var borderName = $"{patternId}_Border";
-            objectIds.Add(borderName + "_top");
-            objectIds.Add(borderName + "_bottom");
-            
-            Chart.DrawTrendLine(
-                borderName + "_top",
-                htfFvg.LowTime,
-                htfFvg.High,
-                extendedEndTime,
-                htfFvg.High,
-                textColor,
-                2, // Thicker line
-                LineStyle.Dots
-            );
-            
-            Chart.DrawTrendLine(
-                borderName + "_bottom",
-                htfFvg.LowTime,
-                htfFvg.Low,
-                extendedEndTime,
-                htfFvg.Low,
-                textColor,
-                2, // Thicker line
-                LineStyle.Dots
-            );
-            
-            // Draw middle line (50% level)
-            var midPoint = (htfFvg.High + htfFvg.Low) / 2;
-            var middleLineName = $"{patternId}_Middle";
-            objectIds.Add(middleLineName);
-            
-            Chart.DrawTrendLine(
-                middleLineName,
-                htfFvg.LowTime,
-                midPoint,
-                extendedEndTime,
-                midPoint,
-                textColor,
-                1, // Standard thickness
-                LineStyle.Solid
-            );
+            // Draw main rectangle using same approach as regular FVGs
+            DrawHtfFvgRectangle(htfFvg, patternId, objectIds, baseColor);
             
             // Draw label with timeframe identifier
+            var labelName = $"{patternId}_Label";
+            objectIds.Add(labelName);
+            
             var labelText = $"{tfLabel} FVG";
+            var midPoint = (htfFvg.High + htfFvg.Low) / 2;
             
             Chart.DrawText(
                 labelName,
                 labelText,
                 htfFvg.MidTime,
                 midPoint,
-                textColor
+                baseColor
             );
             
             // Draw quadrants if enabled
             if (_indicatorSettings.Patterns.ShowQuadrants && htfFvg.Quadrants != null && htfFvg.Quadrants.Count > 0)
             {
-                DrawQuadrants(htfFvg, rectangleName, objectIds, extendedEndTime);
+                // Use the same end time as the rectangle (HighTime)
+                DrawQuadrants(htfFvg, patternId, objectIds, htfFvg.HighTime);
             }
+        }
+        
+        private void DrawHtfFvgRectangle(Level htfFvg, string patternId, List<string> objectIds, Color baseColor)
+        {
+            string rectangleId = patternId;
+            
+            // For bullish HTF FVGs: draw from index low (candle 1) to index high (candle 3)
+            // For bearish HTF FVGs: draw from index low (candle 3) to index high (candle 1)  
+            DateTime startTime = htfFvg.LowTime;   // Time of the start candle
+            DateTime endTime = htfFvg.HighTime;    // Time of the end candle
+            
+            var rectangle = Chart.DrawRectangle(
+                rectangleId,
+                startTime,
+                htfFvg.Low,
+                endTime,
+                htfFvg.High,
+                baseColor);
+            
+            rectangle.IsFilled = false;
+            rectangle.Color = ApplyOpacity(baseColor, Settings.Opacity.FVG);
+            
+            objectIds.Add(rectangleId);
         }
         
         private void DrawQuadrants(Level htfFvg, string baseObjectName, List<string> objectIds, DateTime extendedEndTime)
