@@ -135,17 +135,6 @@ namespace Pfuma.Visualization
                     2, // Thicker for 50% line
                     LineStyle.Dots
                 );
-                
-                // Add CE label
-                var ceLabelName = $"{baseObjectName}_CE_Label";
-                objectIds.Add(ceLabelName);
-                Chart.DrawText(
-                    ceLabelName,
-                    $"{tfLabel} CE",
-                    htfFvg.MidTime,
-                    q50.Price,
-                    quadrantColor
-                );
             }
             
             // Draw 75% line
