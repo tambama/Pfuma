@@ -53,6 +53,9 @@ namespace Pfuma.Detectors
         {
             var detectedFvgs = new List<Level>();
             
+            // Check for HTF FVG sweeps by price action
+            CheckHtfFvgSweepsByPriceAction(currentIndex);
+            
             // Process each higher timeframe
             foreach (var htf in CandleManager.GetHigherTimeframes())
             {
@@ -310,27 +313,14 @@ namespace Pfuma.Detectors
         
         public override bool IsValid(Level fvg, int currentIndex)
         {
-            // HTF FVG is valid until it's been filled by price action
-            if (currentIndex >= fvg.Index && currentIndex < CandleManager.Count)
+            // HTF FVG is valid until it's been broken through (not just swept)
+            // If it's been broken through, it's no longer valid
+            if (fvg.IsBrokenThrough)
             {
-                for (int i = fvg.Index; i <= currentIndex; i++)
-                {
-                    var bar = CandleManager.GetCandle(i);
-                    
-                    // For bullish FVG, check if a bar has filled the gap from above
-                    if (fvg.Direction == Direction.Up && bar.Low <= fvg.Low)
-                    {
-                        return false; // FVG has been filled
-                    }
-                    
-                    // For bearish FVG, check if a bar has filled the gap from below
-                    if (fvg.Direction == Direction.Down && bar.High >= fvg.High)
-                    {
-                        return false; // FVG has been filled
-                    }
-                }
+                return false;
             }
             
+            // Otherwise, HTF FVG remains valid even if swept (just wicked through)
             return true;
         }
         
@@ -380,6 +370,118 @@ namespace Pfuma.Detectors
             
             return 0;
         }
+        
+        /// <summary>
+        /// Check for HTF FVG break through by price action on each bar
+        /// </summary>
+        private void CheckHtfFvgSweepsByPriceAction(int currentIndex)
+        {
+            try
+            {
+                var currentBar = CandleManager.GetCandle(currentIndex);
+                if (currentBar == null)
+                    return;
+                
+                var brokenFvgs = new List<(TimeFrame tf, Level fvg)>();
+                
+                // Check all timeframes for break through
+                foreach (var kvp in _htfFvgs)
+                {
+                    var timeframe = kvp.Key;
+                    var fvgList = kvp.Value;
+                    
+                    foreach (var htfFvg in fvgList.ToList()) // ToList to avoid modification during enumeration
+                    {
+                        // Skip already broken FVGs
+                        if (htfFvg.IsBrokenThrough)
+                            continue;
+                            
+                        bool isBrokenThrough = false;
+                        
+                        if (htfFvg.Direction == Direction.Up) // Bullish HTF FVG
+                        {
+                            // Check if candle closes below FVG low (broken through)
+                            if (currentBar.Close < htfFvg.Low)
+                            {
+                                isBrokenThrough = true;
+                            }
+                        }
+                        else if (htfFvg.Direction == Direction.Down) // Bearish HTF FVG
+                        {
+                            // Check if candle closes above FVG high (broken through)
+                            if (currentBar.Close > htfFvg.High)
+                            {
+                                isBrokenThrough = true;
+                            }
+                        }
+                        
+                        if (isBrokenThrough)
+                        {
+                            // Mark HTF FVG as broken through
+                            htfFvg.IsBrokenThrough = true;
+                            htfFvg.IsLiquiditySwept = true; // Also mark as swept for compatibility
+                            htfFvg.SweptIndex = currentIndex;
+                            
+                            brokenFvgs.Add((timeframe, htfFvg));
+                            
+                            Logger?.Invoke($"HTF FVG broken through by price action: {htfFvg.TimeFrame?.GetShortName() ?? "HTF"} {htfFvg.Direction} at {htfFvg.Low:F5}-{htfFvg.High:F5}");
+                            
+                            // If HTF FVG is unextended, remove it completely from chart and storage
+                            if (!htfFvg.IsExtended)
+                            {
+                                RemoveHtfFvgFromChart(htfFvg);
+                                fvgList.Remove(htfFvg);
+                                Logger?.Invoke($"Removed unextended broken HTF FVG from chart and storage");
+                            }
+                        }
+                    }
+                }
+                
+                // Publish break through events for any broken FVGs
+                foreach (var (timeframe, fvg) in brokenFvgs)
+                {
+                    EventAggregator.Publish(new HtfFvgSweptEvent(fvg, currentIndex, true));
+                }
+            }
+            
+            catch (Exception ex)
+            {
+                Logger?.Invoke($"Error checking HTF FVG break through by price action: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Remove HTF FVG from chart (rectangle, quadrants, and label)
+        /// </summary>
+        private void RemoveHtfFvgFromChart(Level htfFvg)
+        {
+            try
+            {
+                if (htfFvg == null || htfFvg.LevelType != LevelType.FairValueGap)
+                    return;
+
+                // Generate the HTF FVG pattern ID to match the visualizer
+                var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
+                var patternId = $"HTF_FVG_{tfLabel}_{htfFvg.Direction}_{htfFvg.Index}_{htfFvg.LowTime:yyyyMMddHHmmss}";
+                
+                // Remove the main rectangle
+                Chart.RemoveObject(patternId);
+                
+                // Remove the label
+                Chart.RemoveObject($"{patternId}_Label");
+                
+                // Remove quadrant lines if they exist
+                Chart.RemoveObject($"{patternId}_Q25");
+                Chart.RemoveObject($"{patternId}_Q50");
+                Chart.RemoveObject($"{patternId}_Q75");
+                
+                Logger?.Invoke($"Removed HTF FVG from chart: {patternId}");
+            }
+            catch (Exception ex)
+            {
+                Logger?.Invoke($"Error removing HTF FVG from chart: {ex.Message}");
+            }
+        }
     }
     
     /// <summary>
@@ -392,6 +494,21 @@ namespace Pfuma.Detectors
         public HtfFvgDetectedEvent(Level htfFvg) : base(htfFvg.Index)
         {
             HtfFvg = htfFvg;
+        }
+    }
+    
+    /// <summary>
+    /// Event for HTF FVG being swept by price action
+    /// </summary>
+    public class HtfFvgSweptEvent : PatternEventBase
+    {
+        public Level HtfFvg { get; }
+        public bool IsBrokenThrough { get; }
+        
+        public HtfFvgSweptEvent(Level htfFvg, int sweptIndex, bool isBrokenThrough = false) : base(sweptIndex)
+        {
+            HtfFvg = htfFvg;
+            IsBrokenThrough = isBrokenThrough;
         }
     }
 }

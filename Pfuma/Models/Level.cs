@@ -71,6 +71,9 @@ namespace Pfuma.Models
         // Whether this level has been liquidity swept (independent of quadrants)
         public bool IsLiquiditySwept { get; set; } = false;
         
+        // Whether this level has been broken through (candle closed through the level)
+        public bool IsBrokenThrough { get; set; } = false;
+        
         // Index at which liquidity sweep occurred
         public int SweptIndex { get; set; }
         

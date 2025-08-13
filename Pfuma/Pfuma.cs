@@ -103,6 +103,7 @@ namespace Pfuma
         
         
         
+        
         #endregion
         
         #region Output Series
@@ -350,7 +351,7 @@ namespace Pfuma
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
             
-            // Initialize liquidity manager and order block visualizer
+            // Initialize liquidity manager and visualizers
             _liquidityManager.Initialize();
             (_orderBlockVisualizer as OrderBlockVisualizer)?.Initialize();
         }

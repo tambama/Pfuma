@@ -182,14 +182,21 @@ namespace Pfuma.Services
                     
                     if (sweptQuadrants.Any())
                     {
-                        _logger?.Invoke($"Bearish HTF FVG quadrants swept by bullish swing at {bullishSwingPoint.Price:F5}. Swept {sweptQuadrants.Count} quadrants");
+                        // Mark swing point as inside HTF FVG key level
+                        bullishSwingPoint.InsideKeyLevel = true;
+                        bullishSwingPoint.SweptKeyLevel = htfFvg;
+                        
+                        // Draw a dot on the swing point to indicate it's inside a key level
+                        DrawInsideKeyLevelDot(bullishSwingPoint);
+                        
+                        _logger?.Invoke($"Bearish HTF FVG quadrants swept by bullish swing at {bullishSwingPoint.Price:F5}. Swept {sweptQuadrants.Count} quadrants. Marked swing as InsideKeyLevel.");
                         
                         // Check if all quadrants are swept (HTF FVG becomes inactive)
                         if (!htfFvg.IsActive)
                         {
-                            // Remove the HTF FVG label when it becomes inactive
-                            RemoveHtfFvgLabel(htfFvg);
-                            _logger?.Invoke($"Bearish HTF FVG at {htfFvg.High:F5}-{htfFvg.Low:F5} is now inactive - removed label");
+                            // Remove the entire HTF FVG from chart (rectangle, quadrants, label)
+                            RemoveHtfFvgFromChart(htfFvg);
+                            _logger?.Invoke($"Bearish HTF FVG at {htfFvg.High:F5}-{htfFvg.Low:F5} is now inactive - removed from chart");
                         }
                     }
                 }
@@ -224,14 +231,21 @@ namespace Pfuma.Services
                     
                     if (sweptQuadrants.Any())
                     {
-                        _logger?.Invoke($"Bullish HTF FVG quadrants swept by bearish swing at {bearishSwingPoint.Price:F5}. Swept {sweptQuadrants.Count} quadrants");
+                        // Mark swing point as inside HTF FVG key level
+                        bearishSwingPoint.InsideKeyLevel = true;
+                        bearishSwingPoint.SweptKeyLevel = htfFvg;
+                        
+                        // Draw a dot on the swing point to indicate it's inside a key level
+                        DrawInsideKeyLevelDot(bearishSwingPoint);
+                        
+                        _logger?.Invoke($"Bullish HTF FVG quadrants swept by bearish swing at {bearishSwingPoint.Price:F5}. Swept {sweptQuadrants.Count} quadrants. Marked swing as InsideKeyLevel.");
                         
                         // Check if all quadrants are swept (HTF FVG becomes inactive)
                         if (!htfFvg.IsActive)
                         {
-                            // Remove the HTF FVG label when it becomes inactive
-                            RemoveHtfFvgLabel(htfFvg);
-                            _logger?.Invoke($"Bullish HTF FVG at {htfFvg.High:F5}-{htfFvg.Low:F5} is now inactive - removed label");
+                            // Remove the entire HTF FVG from chart (rectangle, quadrants, label)
+                            RemoveHtfFvgFromChart(htfFvg);
+                            _logger?.Invoke($"Bullish HTF FVG at {htfFvg.High:F5}-{htfFvg.Low:F5} is now inactive - removed from chart");
                         }
                     }
                 }
@@ -243,28 +257,35 @@ namespace Pfuma.Services
         }
 
         /// <summary>
-        /// Remove the label of an HTF FVG when it becomes inactive
+        /// Remove HTF FVG from chart (rectangle, quadrants, and label)
         /// </summary>
-        private void RemoveHtfFvgLabel(Level htfFvg)
+        private void RemoveHtfFvgFromChart(Level htfFvg)
         {
             try
             {
                 if (htfFvg == null || htfFvg.LevelType != LevelType.FairValueGap)
                     return;
 
-                // Generate the HTF FVG pattern ID to match the label
+                // Generate the HTF FVG pattern ID to match the visualizer
                 var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
                 var patternId = $"HTF_FVG_{tfLabel}_{htfFvg.Direction}_{htfFvg.Index}_{htfFvg.LowTime:yyyyMMddHHmmss}";
-                var labelId = $"{patternId}_Label";
+                
+                // Remove the main rectangle
+                _chart.RemoveObject(patternId);
                 
                 // Remove the label
-                _chart.RemoveObject(labelId);
+                _chart.RemoveObject($"{patternId}_Label");
                 
-                _logger?.Invoke($"Removed label for inactive HTF FVG: {labelId}");
+                // Remove quadrant lines if they exist
+                _chart.RemoveObject($"{patternId}_Q25");
+                _chart.RemoveObject($"{patternId}_Q50");
+                _chart.RemoveObject($"{patternId}_Q75");
+                
+                _logger?.Invoke($"Removed HTF FVG from chart: {patternId}");
             }
             catch (Exception ex)
             {
-                _logger?.Invoke($"Error removing HTF FVG label: {ex.Message}");
+                _logger?.Invoke($"Error removing HTF FVG from chart: {ex.Message}");
             }
         }
 
@@ -691,6 +712,13 @@ namespace Pfuma.Services
         {
             try
             {
+                // Only extend key levels from order blocks if ShowOrderBlock is true
+                if (!_settings.Patterns.ShowOrderBlock)
+                {
+                    _logger?.Invoke($"Skipping order block extension - ShowOrderBlock is false");
+                    return;
+                }
+
                 // Find the swing low (bearish swing point) at the low boundary of this bullish order block
                 var swingLow = _swingPointRepository
                     .Find(sp => sp.Direction == Direction.Down && 
@@ -701,13 +729,22 @@ namespace Pfuma.Services
                 if (swingLow == null || !swingLow.InsideKeyLevel || swingLow.SweptKeyLevel == null)
                     return;
 
-                // Extend the swept key level to include the swing point's candle
-                ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
+                // Check if the swept key level is an HTF FVG
+                if (swingLow.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingLow.SweptKeyLevel.TimeFrame != null)
+                {
+                    // Extend the HTF FVG to include the swing point's candle
+                    ExtendHtfFvg(swingLow.SweptKeyLevel, swingLow);
+                    _logger?.Invoke($"Extended HTF FVG from bullish order block swing low at {swingLow.Price:F5}");
+                }
+                else
+                {
+                    // Extend the regular key level to include the swing point's candle
+                    ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
+                    _logger?.Invoke($"Extended key level from bullish order block swing low at {swingLow.Price:F5}");
+                }
                 
                 // Send Telegram notification about order block formed inside key level
                 _notificationService.NotifyOrderBlockInsideKeyLevel(orderBlock, swingLow.SweptKeyLevel);
-                
-                _logger?.Invoke($"Extended key level from bullish order block swing low at {swingLow.Price:F5}");
             }
             catch (Exception ex)
             {
@@ -722,6 +759,13 @@ namespace Pfuma.Services
         {
             try
             {
+                // Only extend key levels from order blocks if ShowOrderBlock is true
+                if (!_settings.Patterns.ShowOrderBlock)
+                {
+                    _logger?.Invoke($"Skipping order block extension - ShowOrderBlock is false");
+                    return;
+                }
+
                 // Find the swing high (bullish swing point) at the high boundary of this bearish order block
                 var swingHigh = _swingPointRepository
                     .Find(sp => sp.Direction == Direction.Up && 
@@ -732,13 +776,22 @@ namespace Pfuma.Services
                 if (swingHigh == null || !swingHigh.InsideKeyLevel || swingHigh.SweptKeyLevel == null)
                     return;
 
-                // Extend the swept key level to include the swing point's candle
-                ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
+                // Check if the swept key level is an HTF FVG
+                if (swingHigh.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingHigh.SweptKeyLevel.TimeFrame != null)
+                {
+                    // Extend the HTF FVG to include the swing point's candle
+                    ExtendHtfFvg(swingHigh.SweptKeyLevel, swingHigh);
+                    _logger?.Invoke($"Extended HTF FVG from bearish order block swing high at {swingHigh.Price:F5}");
+                }
+                else
+                {
+                    // Extend the regular key level to include the swing point's candle
+                    ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
+                    _logger?.Invoke($"Extended key level from bearish order block swing high at {swingHigh.Price:F5}");
+                }
                 
                 // Send Telegram notification about order block formed inside key level
                 _notificationService.NotifyOrderBlockInsideKeyLevel(orderBlock, swingHigh.SweptKeyLevel);
-                
-                _logger?.Invoke($"Extended key level from bearish order block swing high at {swingHigh.Price:F5}");
             }
             catch (Exception ex)
             {
@@ -762,13 +815,22 @@ namespace Pfuma.Services
                 if (swingHigh == null || !swingHigh.InsideKeyLevel || swingHigh.SweptKeyLevel == null)
                     return;
 
-                // Extend the swept key level to include the CISD swing high candle
-                ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
+                // Check if the swept key level is an HTF FVG
+                if (swingHigh.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingHigh.SweptKeyLevel.TimeFrame != null)
+                {
+                    // Extend the HTF FVG to include the CISD swing high candle
+                    ExtendHtfFvg(swingHigh.SweptKeyLevel, swingHigh);
+                    _logger?.Invoke($"Extended HTF FVG from bearish CISD confirmed swing high at {swingHigh.Price:F5} (Index: {swingHigh.Index})");
+                }
+                else
+                {
+                    // Extend the regular key level to include the CISD swing high candle
+                    ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
+                    _logger?.Invoke($"Extended key level from bearish CISD confirmed swing high at {swingHigh.Price:F5} (Index: {swingHigh.Index})");
+                }
                 
                 // Send Telegram notification about CISD confirmed inside key level
                 _notificationService.NotifyCisdInsideKeyLevel(cisdLevel, swingHigh.SweptKeyLevel);
-                
-                _logger?.Invoke($"Extended key level from bearish CISD confirmed swing high at {swingHigh.Price:F5} (Index: {swingHigh.Index})");
             }
             catch (Exception ex)
             {
@@ -792,17 +854,69 @@ namespace Pfuma.Services
                 if (swingLow == null || !swingLow.InsideKeyLevel || swingLow.SweptKeyLevel == null)
                     return;
 
-                // Extend the swept key level to include the CISD swing low candle
-                ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
+                // Check if the swept key level is an HTF FVG
+                if (swingLow.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingLow.SweptKeyLevel.TimeFrame != null)
+                {
+                    // Extend the HTF FVG to include the CISD swing low candle
+                    ExtendHtfFvg(swingLow.SweptKeyLevel, swingLow);
+                    _logger?.Invoke($"Extended HTF FVG from bullish CISD confirmed swing low at {swingLow.Price:F5} (Index: {swingLow.Index})");
+                }
+                else
+                {
+                    // Extend the regular key level to include the CISD swing low candle
+                    ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
+                    _logger?.Invoke($"Extended key level from bullish CISD confirmed swing low at {swingLow.Price:F5} (Index: {swingLow.Index})");
+                }
                 
                 // Send Telegram notification about CISD confirmed inside key level
                 _notificationService.NotifyCisdInsideKeyLevel(cisdLevel, swingLow.SweptKeyLevel);
-                
-                _logger?.Invoke($"Extended key level from bullish CISD confirmed swing low at {swingLow.Price:F5} (Index: {swingLow.Index})");
             }
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error handling bullish CISD confirmation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Extend an HTF FVG to include the swing point's candle
+        /// This extends both the rectangle and redraw the quadrants
+        /// </summary>
+        private void ExtendHtfFvg(Level htfFvg, SwingPoint swingPoint)
+        {
+            try
+            {
+                if (htfFvg == null || swingPoint == null || htfFvg.LevelType != LevelType.FairValueGap)
+                    return;
+
+                // Extend the time range of the HTF FVG to include the swing point's time
+                bool wasExtended = false;
+                if (swingPoint.Time > htfFvg.HighTime)
+                {
+                    htfFvg.HighTime = swingPoint.Time;
+                    htfFvg.IndexHigh = swingPoint.Index;
+                    wasExtended = true;
+                }
+                else if (swingPoint.Time < htfFvg.LowTime)
+                {
+                    htfFvg.LowTime = swingPoint.Time;
+                    htfFvg.IndexLow = swingPoint.Index;
+                    wasExtended = true;
+                }
+
+                if (wasExtended)
+                {
+                    // Mark the HTF FVG as extended
+                    htfFvg.IsExtended = true;
+                    
+                    // Redraw the HTF FVG with extended time range (rectangle and quadrants)
+                    RedrawHtfFvg(htfFvg);
+                    
+                    _logger?.Invoke($"Extended HTF FVG {htfFvg.Direction} from {htfFvg.Low:F5}-{htfFvg.High:F5} to include swing point at {swingPoint.Price:F5}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error extending HTF FVG: {ex.Message}");
             }
         }
 
@@ -815,6 +929,13 @@ namespace Pfuma.Services
             {
                 if (keyLevel == null || swingPoint == null)
                     return;
+
+                // Only extend regular CISDs if ShowCISD is true
+                if (keyLevel.LevelType == LevelType.CISD && keyLevel.TimeFrame == null && !_settings.Patterns.ShowCISD)
+                {
+                    _logger?.Invoke($"Skipping CISD extension - ShowCISD is false");
+                    return;
+                }
 
                 // Extend the time range of the key level to include the swing point's time
                 bool wasExtended = false;
@@ -852,6 +973,138 @@ namespace Pfuma.Services
         }
 
         /// <summary>
+        /// Redraw an HTF FVG with updated time properties (rectangle and quadrants)
+        /// </summary>
+        private void RedrawHtfFvg(Level htfFvg)
+        {
+            try
+            {
+                if (htfFvg == null || htfFvg.LevelType != LevelType.FairValueGap)
+                    return;
+
+                // Don't redraw HTF FVGs if ShowHtfFvg is false
+                if (!_settings.Patterns.ShowHtfFvg)
+                {
+                    // Remove any existing HTF FVG objects since it shouldn't be displayed
+                    var tfLabelForRemoval = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
+                    var patternIdForRemoval = $"HTF_FVG_{tfLabelForRemoval}_{htfFvg.Direction}_{htfFvg.Index}_{htfFvg.LowTime:yyyyMMddHHmmss}";
+                    
+                    _chart.RemoveObject(patternIdForRemoval); // Rectangle
+                    _chart.RemoveObject($"{patternIdForRemoval}_Label"); // Label
+                    _chart.RemoveObject($"{patternIdForRemoval}_Q25"); // Quadrant lines
+                    _chart.RemoveObject($"{patternIdForRemoval}_Q50");
+                    _chart.RemoveObject($"{patternIdForRemoval}_Q75");
+                    
+                    _logger?.Invoke($"Removed HTF FVG rectangle - ShowHtfFvg is false");
+                    return;
+                }
+
+                // Generate the HTF FVG pattern ID to match the visualizer
+                var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
+                var patternId = $"HTF_FVG_{tfLabel}_{htfFvg.Direction}_{htfFvg.Index}_{htfFvg.LowTime:yyyyMMddHHmmss}";
+                
+                // Remove existing objects
+                _chart.RemoveObject(patternId); // Rectangle
+                _chart.RemoveObject($"{patternId}_Label"); // Label
+                _chart.RemoveObject($"{patternId}_Q25"); // Quadrant lines
+                _chart.RemoveObject($"{patternId}_Q50");
+                _chart.RemoveObject($"{patternId}_Q75");
+
+                // Get appropriate color for the HTF FVG
+                Color baseColor = htfFvg.Direction == Direction.Up ? Color.Green : Color.Red;
+                
+                // Determine start and end times for extended rectangle
+                var startTime = htfFvg.LowTime < htfFvg.HighTime ? htfFvg.LowTime : htfFvg.HighTime;
+                var endTime = htfFvg.LowTime < htfFvg.HighTime ? htfFvg.HighTime : htfFvg.LowTime;
+
+                // Draw new extended rectangle
+                var rectangle = _chart.DrawRectangle(
+                    patternId,
+                    startTime,
+                    htfFvg.Low,
+                    endTime,
+                    htfFvg.High,
+                    baseColor
+                );
+
+                rectangle.IsFilled = false;
+                rectangle.Color = Color.FromArgb(30, baseColor); // 30% opacity for HTF FVGs
+                
+                // Redraw label
+                var labelText = $"{tfLabel} FVG";
+                var midPoint = (htfFvg.High + htfFvg.Low) / 2;
+                
+                _chart.DrawText(
+                    $"{patternId}_Label",
+                    labelText,
+                    htfFvg.MidTime,
+                    midPoint,
+                    baseColor
+                );
+                
+                // Redraw quadrant lines if quadrants are enabled
+                if (htfFvg.Quadrants != null && htfFvg.Quadrants.Count > 0)
+                {
+                    var quadrantColor = Color.FromArgb(50, baseColor);
+                    
+                    // Draw 25% line
+                    var q25 = htfFvg.Quadrants.FirstOrDefault(q => q.Percent == 25);
+                    if (q25 != null)
+                    {
+                        _chart.DrawTrendLine(
+                            $"{patternId}_Q25",
+                            startTime,
+                            q25.Price,
+                            endTime,
+                            q25.Price,
+                            quadrantColor,
+                            1,
+                            LineStyle.DotsRare
+                        );
+                    }
+                    
+                    // Draw 50% line (CE - Consequent Encroachment)
+                    var q50 = htfFvg.Quadrants.FirstOrDefault(q => q.Percent == 50);
+                    if (q50 != null)
+                    {
+                        _chart.DrawTrendLine(
+                            $"{patternId}_Q50",
+                            startTime,
+                            q50.Price,
+                            endTime,
+                            q50.Price,
+                            quadrantColor,
+                            2, // Thicker for 50% line
+                            LineStyle.Dots
+                        );
+                    }
+                    
+                    // Draw 75% line
+                    var q75 = htfFvg.Quadrants.FirstOrDefault(q => q.Percent == 75);
+                    if (q75 != null)
+                    {
+                        _chart.DrawTrendLine(
+                            $"{patternId}_Q75",
+                            startTime,
+                            q75.Price,
+                            endTime,
+                            q75.Price,
+                            quadrantColor,
+                            1,
+                            LineStyle.DotsRare
+                        );
+                    }
+                }
+
+                _logger?.Invoke($"Redrawn extended HTF FVG with quadrants from {startTime} to {endTime}");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error redrawing HTF FVG: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Redraw the rectangle for a key level with updated time properties
         /// </summary>
         private void RedrawKeyLevelRectangle(Level keyLevel)
@@ -861,12 +1114,34 @@ namespace Pfuma.Services
                 if (keyLevel == null)
                     return;
 
+                // Don't redraw regular CISDs if ShowCISD is false
+                if (keyLevel.LevelType == LevelType.CISD && keyLevel.TimeFrame == null && !_settings.Patterns.ShowCISD)
+                {
+                    // Remove any existing rectangles for this CISD since it shouldn't be displayed
+                    string rectangleId = GenerateRectangleId(keyLevel);
+                    _chart.RemoveObject(rectangleId);
+                    _chart.RemoveObject($"{rectangleId}-midline");
+                    _logger?.Invoke($"Removed CISD rectangle - ShowCISD is false");
+                    return;
+                }
+
+                // Don't redraw order blocks if ShowOrderBlock is false
+                if (keyLevel.LevelType == LevelType.OrderBlock && !_settings.Patterns.ShowOrderBlock)
+                {
+                    // Remove any existing rectangles for this order block since it shouldn't be displayed
+                    string rectangleId = GenerateRectangleId(keyLevel);
+                    _chart.RemoveObject(rectangleId);
+                    _chart.RemoveObject($"{rectangleId}-midline");
+                    _logger?.Invoke($"Removed Order Block rectangle - ShowOrderBlock is false");
+                    return;
+                }
+
                 // Generate rectangle ID based on level type and properties
-                string rectangleId = GenerateRectangleId(keyLevel);
+                string rectId = GenerateRectangleId(keyLevel);
                 
                 // Remove existing rectangle and middle line
-                _chart.RemoveObject(rectangleId);
-                _chart.RemoveObject($"{rectangleId}-midline");
+                _chart.RemoveObject(rectId);
+                _chart.RemoveObject($"{rectId}-midline");
 
                 // Get appropriate color for the level type
                 Color rectangleColor = GetLevelColor(keyLevel);
@@ -877,7 +1152,7 @@ namespace Pfuma.Services
 
                 // Draw new extended rectangle
                 var rectangle = _chart.DrawRectangle(
-                    rectangleId,
+                    rectId,
                     startTime,
                     keyLevel.Low,
                     endTime,
@@ -889,7 +1164,7 @@ namespace Pfuma.Services
                 rectangle.Color = Color.FromArgb(5, rectangleColor); // 5% opacity
 
                 // Draw middle line
-                string midLineId = $"{rectangleId}-midline";
+                string midLineId = $"{rectId}-midline";
                 double midPrice = (keyLevel.High + keyLevel.Low) / 2;
                 
                 _chart.DrawTrendLine(
@@ -942,6 +1217,13 @@ namespace Pfuma.Services
         {
             try
             {
+                // Only draw inside key level dots if ShowInsideKeyLevel is enabled
+                if (!_settings.Patterns.ShowInsideKeyLevel)
+                {
+                    _logger?.Invoke($"Skipping inside key level dot - ShowInsideKeyLevel is false");
+                    return;
+                }
+
                 // Remove the previous dot if it exists
                 if (!string.IsNullOrEmpty(_lastInsideKeyLevelDotId))
                 {
