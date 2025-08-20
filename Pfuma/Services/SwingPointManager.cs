@@ -217,16 +217,18 @@ namespace Pfuma.Services
         }
         
         /// <summary>
-        /// Checks if the new bar sweeps any important liquidity points (PDH, PDL)
+        /// Checks if the new bar sweeps any important liquidity points (PDH, PDL, PSH, PSL)
         /// </summary>
         public List<SwingPoint> CheckForSweptLiquidity(Candle currentBar, int currentIndex)
         {
             var sweptPoints = new List<SwingPoint>();
             
-            // Get all swing points that could be swept
+            // Get all swing points that could be swept (daily and session highs/lows)
             var liquidityPoints = _swingPoints.Where(sp =>
                 (sp.LiquidityType == LiquidityType.PDH ||
-                sp.LiquidityType == LiquidityType.PDL) && !sp.Swept).ToList();
+                sp.LiquidityType == LiquidityType.PDL ||
+                sp.LiquidityType == LiquidityType.PSH ||
+                sp.LiquidityType == LiquidityType.PSL) && !sp.Swept).ToList();
             
             foreach (var point in liquidityPoints)
             {
@@ -236,14 +238,14 @@ namespace Pfuma.Services
                 
                 bool wasSwept = false;
                 
-                // Check for swept highs (PDH)
-                if (point.LiquidityType == LiquidityType.PDH &&
+                // Check for swept highs (PDH, PSH)
+                if ((point.LiquidityType == LiquidityType.PDH || point.LiquidityType == LiquidityType.PSH) &&
                     currentBar.High >= point.Price && point.Index < currentIndex)
                 {
                     wasSwept = true;
                 }
-                // Check for swept lows (PDL)
-                else if (point.LiquidityType == LiquidityType.PDL &&
+                // Check for swept lows (PDL, PSL)
+                else if ((point.LiquidityType == LiquidityType.PDL || point.LiquidityType == LiquidityType.PSL) &&
                          currentBar.Low <= point.Price && point.Index < currentIndex)
                 {
                     wasSwept = true;

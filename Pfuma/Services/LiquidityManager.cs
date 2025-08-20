@@ -77,6 +77,9 @@ namespace Pfuma.Services
                 // Check for HTF FVG quadrant sweeps by bullish swing point
                 HandleBullishSwingPointHtfFvgQuadrantSweep(swingPoint);
                 
+                // Check for session/daily high liquidity sweeps by bullish swing point
+                HandleBullishSwingPointSessionDailyHighLiquiditySweep(swingPoint);
+                
                 // Check if bullish swing point is inside a bearish order block
                 CheckBullishSwingPointInsideOrderBlock(swingPoint);
                 
@@ -93,6 +96,9 @@ namespace Pfuma.Services
                 
                 // Check for HTF FVG quadrant sweeps by bearish swing point
                 HandleBearishSwingPointHtfFvgQuadrantSweep(swingPoint);
+                
+                // Check for session/daily low liquidity sweeps by bearish swing point
+                HandleBearishSwingPointSessionDailyLowLiquiditySweep(swingPoint);
                 
                 // Check if bearish swing point is inside a bullish order block
                 CheckBearishSwingPointInsideOrderBlock(swingPoint);
@@ -526,6 +532,90 @@ namespace Pfuma.Services
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error handling bearish swing point CISD liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish swing point session/daily high liquidity sweeps
+        /// Check if the bullish swing point sweeps any session highs (PSH) or daily highs (PDH)
+        /// Update visual representation when sweeps occur
+        /// </summary>
+        private void HandleBullishSwingPointSessionDailyHighLiquiditySweep(SwingPoint bullishSwingPoint)
+        {
+            try
+            {
+                if (!_settings.Patterns.ShowLiquiditySweep)
+                    return;
+
+                // Get all active session and daily highs (PSH, PDH) that could be swept
+                var activeHighs = _swingPointRepository
+                    .Find(sp => 
+                        (sp.LiquidityType == LiquidityType.PSH || sp.LiquidityType == LiquidityType.PDH) &&
+                        !sp.Swept &&
+                        sp.Index < bullishSwingPoint.Index) // Must be before the current swing point
+                    .ToList();
+
+                foreach (var sessionDailyHigh in activeHighs)
+                {
+                    // Check if bullish swing point price is equal to or above the session/daily high
+                    if (bullishSwingPoint.Price >= sessionDailyHigh.Price)
+                    {
+                        // Mark the session/daily high as swept
+                        sessionDailyHigh.Swept = true;
+                        sessionDailyHigh.IndexOfSweepingCandle = bullishSwingPoint.Index;
+                        
+                        // Update the visual representation
+                        HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bullishSwingPoint);
+                        
+                        _logger?.Invoke($"Session/Daily high {sessionDailyHigh.LiquidityName} at {sessionDailyHigh.Price:F5} swept by bullish swing at {bullishSwingPoint.Price:F5}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bullish swing point session/daily high liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish swing point session/daily low liquidity sweeps
+        /// Check if the bearish swing point sweeps any session lows (PSL) or daily lows (PDL)
+        /// Update visual representation when sweeps occur
+        /// </summary>
+        private void HandleBearishSwingPointSessionDailyLowLiquiditySweep(SwingPoint bearishSwingPoint)
+        {
+            try
+            {
+                if (!_settings.Patterns.ShowLiquiditySweep)
+                    return;
+
+                // Get all active session and daily lows (PSL, PDL) that could be swept
+                var activeLows = _swingPointRepository
+                    .Find(sp => 
+                        (sp.LiquidityType == LiquidityType.PSL || sp.LiquidityType == LiquidityType.PDL) &&
+                        !sp.Swept &&
+                        sp.Index < bearishSwingPoint.Index) // Must be before the current swing point
+                    .ToList();
+
+                foreach (var sessionDailyLow in activeLows)
+                {
+                    // Check if bearish swing point price is equal to or below the session/daily low
+                    if (bearishSwingPoint.Price <= sessionDailyLow.Price)
+                    {
+                        // Mark the session/daily low as swept
+                        sessionDailyLow.Swept = true;
+                        sessionDailyLow.IndexOfSweepingCandle = bearishSwingPoint.Index;
+                        
+                        // Update the visual representation
+                        HandleLiquiditySweepVisualUpdate(sessionDailyLow, bearishSwingPoint);
+                        
+                        _logger?.Invoke($"Session/Daily low {sessionDailyLow.LiquidityName} at {sessionDailyLow.Price:F5} swept by bearish swing at {bearishSwingPoint.Price:F5}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bearish swing point session/daily low liquidity sweep: {ex.Message}");
             }
         }
 
@@ -1328,6 +1418,66 @@ namespace Pfuma.Services
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error removing CISD from chart: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle liquidity sweep visual updates for session and daily highs/lows
+        /// Redraw the liquidity line from the original high/low to the sweeping candle
+        /// Change label alignment from left to right and color to red if multiple liquidity is swept
+        /// </summary>
+        private void HandleLiquiditySweepVisualUpdate(SwingPoint sweptPoint, SwingPoint sweepingPoint)
+        {
+            try
+            {
+                if (sweptPoint == null || sweepingPoint == null)
+                    return;
+
+                // Handle highs (PDH, PSH) being swept by bullish swing points
+                bool isHighSwept = (sweptPoint.LiquidityType == LiquidityType.PDH || sweptPoint.LiquidityType == LiquidityType.PSH) &&
+                                  sweepingPoint.Direction == Direction.Up;
+
+                // Handle lows (PDL, PSL) being swept by bearish swing points  
+                bool isLowSwept = (sweptPoint.LiquidityType == LiquidityType.PDL || sweptPoint.LiquidityType == LiquidityType.PSL) &&
+                                 sweepingPoint.Direction == Direction.Down;
+
+                // Only process valid sweep combinations
+                if (!isHighSwept && !isLowSwept)
+                    return;
+
+                // Create new line ID for the swept liquidity
+                string originalId = $"{sweptPoint.LiquidityName.ToString().ToLower()}-{sweptPoint.Time.Ticks}";
+                string sweptId = $"{originalId}-swept";
+
+                // Remove the original line
+                _chart.RemoveObject(originalId);
+                _chart.RemoveObject($"{originalId}-label");
+
+                // Keep original wheat color - don't change color based on multiple sweeps
+                Color lineColor = Color.Wheat;
+
+                // Draw new line from original level to sweeping candle
+                _chart.DrawStraightLine(
+                    sweptId,
+                    sweptPoint.Time,           // Start at original level time
+                    sweptPoint.Price,          // Start at level price
+                    sweepingPoint.Time,        // End at sweeping candle time
+                    sweptPoint.Price,          // End at same level price (horizontal line)
+                    sweptPoint.LiquidityName.ToString(), // Label text
+                    LineStyle.Solid,
+                    lineColor,
+                    hasLabel: true,
+                    removeExisting: true,
+                    labelOnRight: true         // Change label alignment to right
+                );
+
+                string levelType = isHighSwept ? "high" : "low";
+                string swingType = sweepingPoint.Direction == Direction.Up ? "bullish" : "bearish";
+                _logger?.Invoke($"Updated liquidity sweep visual for {sweptPoint.LiquidityName} {levelType} swept by {swingType} swing at {sweepingPoint.Price:F5}. Color: Wheat");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error updating liquidity sweep visual: {ex.Message}");
             }
         }
 

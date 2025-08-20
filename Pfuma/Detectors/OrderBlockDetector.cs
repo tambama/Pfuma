@@ -18,8 +18,8 @@ namespace Pfuma.Detectors;
 /// - Triggered when a new bearish orderflow is created
 /// - Order bearish swing points by index descending: first=current, second=previous
 /// - Order bullish swing points by index descending: second=current, third=previous
-/// - Check: current bearish swing < previous bearish swing
-/// - Check: current bullish swing > previous bullish swing
+/// - Check: current bearish swing is less than previous bearish swing
+/// - Check: current bullish swing is greater than previous bullish swing
 /// - Check: bearish candle between current bullish and current bearish closes below previous bearish
 /// - Mark orderflow from previous bearish to current bullish as bearish order block
 /// 
@@ -27,8 +27,8 @@ namespace Pfuma.Detectors;
 /// - Triggered when a new bullish orderflow is created
 /// - Order bullish swing points by index descending: first=current, second=previous
 /// - Order bearish swing points by index descending: second=current, third=previous
-/// - Check: current bullish swing > previous bullish swing
-/// - Check: current bearish swing < previous bearish swing
+/// - Check: current bullish swing is greater than previous bullish swing
+/// - Check: current bearish swing is less than previous bearish swing
 /// - Check: bullish candle between current bearish and current bullish closes above previous bullish
 /// - Mark orderflow from previous bullish to current bearish as bullish order block
 /// </summary>
@@ -36,7 +36,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
 {
     private readonly IVisualization<Level> _visualizer;
     private readonly SwingPointManager _swingPointManager;
-    private readonly HashSet<int> _processedIndices;
+    private readonly HashSet<string> _detectedOrderBlockSignatures;
         
     public OrderBlockDetector(
         Chart chart,
@@ -51,7 +51,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         _visualizer = visualizer;
         _swingPointManager = swingPointManager;
-        _processedIndices = new HashSet<int>();
+        _detectedOrderBlockSignatures = new HashSet<string>();
     }
         
     protected override int GetMinimumBarsRequired()
@@ -74,8 +74,8 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     /// Logic:
     /// - Order bearish swing points by index descending: first=current, second=previous
     /// - Order bullish swing points by index descending: second=current, third=previous
-    /// - Check: current bearish swing < previous bearish swing
-    /// - Check: current bullish swing > previous bullish swing
+    /// - Check: current bearish swing is less than previous bearish swing
+    /// - Check: current bullish swing is greater than previous bullish swing
     /// - Check: bearish candle between current bullish and current bearish closes below previous bearish
     /// - Mark orderflow from previous bearish to current bullish as bearish order block
     /// </summary>
@@ -106,6 +106,13 @@ public class OrderBlockDetector : BasePatternDetector<Level>
             // Order bullish swing points by index descending
             var currentBullishSwing = allBullishSwingPoints[1]; // Second = current
             var previousBullishSwing = allBullishSwingPoints[2]; // Third = previous
+            
+            // Create a unique signature for this order block configuration
+            string orderBlockSignature = $"BEARISH_{previousBearishSwing.Index}_{currentBullishSwing.Index}";
+            
+            // Check if we've already detected this order block
+            if (_detectedOrderBlockSignatures.Contains(orderBlockSignature))
+                return null;
 
             // Check conditions:
             // 1. Current bearish swing < previous bearish swing
@@ -134,6 +141,14 @@ public class OrderBlockDetector : BasePatternDetector<Level>
 
             if (hasBearishCandleClosureBelowPreviousBearish)
             {
+                // Check if the order block has already been swept
+                if (IsOrderBlockSwept(previousBearishSwing.Price, currentBullishSwing.Price, 
+                    previousBearishSwing.Index, currentBullishSwing.Index, Direction.Down))
+                {
+                    Logger?.Invoke($"Bearish Order Block already swept, skipping detection");
+                    return null;
+                }
+                
                 // Create bearish order block from previous bearish swing to current bullish swing
                 var orderBlock = new Level(
                     LevelType.OrderBlock,
@@ -153,6 +168,9 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                     true // isConfirmed
                 );
 
+                // Mark this configuration as detected
+                _detectedOrderBlockSignatures.Add(orderBlockSignature);
+                
                 Logger?.Invoke($"Bearish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} from previous bearish at index {previousBearishSwing.Index} to current bullish at index {currentBullishSwing.Index}");
                 return orderBlock;
             }
@@ -170,8 +188,8 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     /// Logic:
     /// - Order bullish swing points by index descending: first=current, second=previous
     /// - Order bearish swing points by index descending: second=current, third=previous
-    /// - Check: current bullish swing > previous bullish swing
-    /// - Check: current bearish swing < previous bearish swing
+    /// - Check: current bullish swing is greater than previous bullish swing
+    /// - Check: current bearish swing is less than previous bearish swing
     /// - Check: bullish candle between current bearish and current bullish closes above previous bullish
     /// - Mark orderflow from previous bullish to current bearish as bullish order block
     /// </summary>
@@ -202,6 +220,13 @@ public class OrderBlockDetector : BasePatternDetector<Level>
             // Order bearish swing points by index descending
             var currentBearishSwing = allBearishSwingPoints[1]; // Second = current
             var previousBearishSwing = allBearishSwingPoints[2]; // Third = previous
+            
+            // Create a unique signature for this order block configuration
+            string orderBlockSignature = $"BULLISH_{previousBullishSwing.Index}_{currentBearishSwing.Index}";
+            
+            // Check if we've already detected this order block
+            if (_detectedOrderBlockSignatures.Contains(orderBlockSignature))
+                return null;
 
             // Check conditions:
             // 1. Current bullish swing > previous bullish swing
@@ -230,6 +255,14 @@ public class OrderBlockDetector : BasePatternDetector<Level>
 
             if (hasBullishCandleClosureAbovePreviousBullish)
             {
+                // Check if the order block has already been swept
+                if (IsOrderBlockSwept(currentBearishSwing.Price, previousBullishSwing.Price, 
+                    previousBullishSwing.Index, currentBearishSwing.Index, Direction.Up))
+                {
+                    Logger?.Invoke($"Bullish Order Block already swept, skipping detection");
+                    return null;
+                }
+                
                 // Create bullish order block from previous bullish swing to current bearish swing
                 var orderBlock = new Level(
                     LevelType.OrderBlock,
@@ -249,6 +282,9 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                     true // isConfirmed
                 );
 
+                // Mark this configuration as detected
+                _detectedOrderBlockSignatures.Add(orderBlockSignature);
+                
                 Logger?.Invoke($"Bullish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} from previous bullish at index {previousBullishSwing.Index} to current bearish at index {currentBearishSwing.Index}");
                 return orderBlock;
             }
@@ -310,9 +346,57 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         return level?.LevelType == LevelType.OrderBlock;
     }
 
+    /// <summary>
+    /// Checks if an order block has been swept by price action
+    /// </summary>
+    private bool IsOrderBlockSwept(double low, double high, int startIndex, int endIndex, Direction direction)
+    {
+        try
+        {
+            // Get the current price index
+            int currentIndex = CandleManager.Count - 1;
+            
+            // Check from the end of the order block to current candle
+            int checkStart = Math.Max(startIndex, endIndex) + 1;
+            
+            for (int i = checkStart; i <= currentIndex; i++)
+            {
+                var candle = CandleManager.GetCandle(i);
+                if (candle == null)
+                    continue;
+                    
+                if (direction == Direction.Up)
+                {
+                    // Bullish order block is swept if price goes below its low
+                    if (candle.Low < low)
+                    {
+                        Logger?.Invoke($"Bullish Order Block swept at index {i}, candle low {candle.Low:F5} < OB low {low:F5}");
+                        return true;
+                    }
+                }
+                else // Direction.Down
+                {
+                    // Bearish order block is swept if price goes above its high
+                    if (candle.High > high)
+                    {
+                        Logger?.Invoke($"Bearish Order Block swept at index {i}, candle high {candle.High:F5} > OB high {high:F5}");
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Logger?.Invoke($"Error checking if order block is swept: {ex.Message}");
+            return false;
+        }
+    }
+    
     public override void Dispose()
     {
-        _processedIndices?.Clear();
+        _detectedOrderBlockSignatures?.Clear();
         base.Dispose();
     }
 }
