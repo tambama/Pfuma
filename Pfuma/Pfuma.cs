@@ -89,6 +89,9 @@ namespace Pfuma
         [Parameter("See Timeframe", DefaultValue = "", Group = "Visualization")]
         public string SeeTimeframe { get; set; }
         
+        [Parameter("Extension Opacity", DefaultValue = 10, MinValue = 0, MaxValue = 100, Group = "Visualization")]
+        public int ExtensionOpacity { get; set; }
+        
         [Parameter("Timeframes", DefaultValue = "H1", Group = "Multi-Timeframe")]
         public string Timeframes { get; set; }
         
@@ -246,7 +249,13 @@ namespace Pfuma
                     EnableLog = EnableLog,
                     EnableTelegram = EnableTelegram
                 },
-                Visualization = new VisualizationSettings()
+                Visualization = new VisualizationSettings
+                {
+                    Opacity = new OpacitySettings
+                    {
+                        Extension = ExtensionOpacity
+                    }
+                }
             };
             
             // Connect settings references

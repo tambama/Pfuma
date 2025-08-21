@@ -1251,7 +1251,8 @@ namespace Pfuma.Services
                 );
 
                 rectangle.IsFilled = true;
-                rectangle.Color = Color.FromArgb(5, rectangleColor); // 5% opacity
+                int extensionOpacity = Math.Max(1, Math.Min(255, (int)(255 * _settings.Visualization.Opacity.Extension / 100.0)));
+                rectangle.Color = Color.FromArgb(extensionOpacity, rectangleColor);
 
                 // Draw middle line
                 string midLineId = $"{rectId}-midline";
@@ -1289,14 +1290,7 @@ namespace Pfuma.Services
         /// </summary>
         private Color GetLevelColor(Level keyLevel)
         {
-            return keyLevel.LevelType switch
-            {
-                LevelType.OrderBlock => keyLevel.Direction == Direction.Up ? Color.Green : Color.Red,
-                LevelType.FairValueGap => Color.Yellow,
-                LevelType.RejectionBlock => Color.Purple,
-                LevelType.BreakerBlock => Color.Orange,
-                _ => Color.Gray
-            };
+            return keyLevel.Direction == Direction.Up ? Color.Green : Color.Red;
         }
         
         /// <summary>

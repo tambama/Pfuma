@@ -115,7 +115,7 @@ namespace Pfuma.Visualization
                 var startTime = orderBlock.LowTime;
                 var endTime = orderBlock.StretchTo ?? orderBlock.HighTime;
                 
-                Chart.DrawRectangle(rectangleId, startTime, orderBlock.High, endTime, orderBlock.Low, sweptRectangleColor);
+                var rect = Chart.DrawRectangle(rectangleId, startTime, orderBlock.High, endTime, orderBlock.Low, sweptRectangleColor);
                 
                 Logger?.Invoke($"Updated liquidity swept order block visualization: {orderBlock.Direction} at {orderBlock.High:F5}-{orderBlock.Low:F5}");
             }
