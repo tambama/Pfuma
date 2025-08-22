@@ -118,16 +118,11 @@ namespace Pfuma.Detectors
             int firstBullishIndex = lastBullishSet.Min();
             int lastBullishIndex = lastBullishSet.Max();
             
-            // For bearish CISD, we need to include the swing high price
-            // The high should be the maximum of the CISD candles OR the orderflow high (which includes the swing high)
-            double cisdLow = CandleManager.GetCandle(firstBullishIndex).Open;
-            double cisdHigh = Math.Max(CandleManager.GetCandle(lastBullishIndex).Close, orderflow.High);
-            
-            // Create a BEARISH CISD level that includes the swing high
+            // Create a BEARISH CISD level
             var cisdLevel = new Level(
                 LevelType.CISD,
-                cisdLow,
-                cisdHigh,
+                CandleManager.GetCandle(firstBullishIndex).Open,
+                CandleManager.GetCandle(lastBullishIndex).Close,
                 CandleManager.GetCandle(firstBullishIndex).Time,
                 CandleManager.GetCandle(lastBullishIndex).Time,
                 null,
@@ -139,8 +134,6 @@ namespace Pfuma.Detectors
             
             // Set TimeFrame from candle
             cisdLevel.TimeFrame = CandleManager.GetCandle(firstBullishIndex).TimeFrame;
-            
-            Logger?.Invoke($"Bearish CISD detected: Low={cisdLow:F5}, High={cisdHigh:F5} (includes swing high)");
             
             return cisdLevel;
         }
@@ -184,16 +177,11 @@ namespace Pfuma.Detectors
             int firstBearishIndex = lastBearishSet.Min();
             int lastBearishIndex = lastBearishSet.Max();
             
-            // For bullish CISD, we need to include the swing low price
-            // The low should be the minimum of the CISD candles OR the orderflow low (which includes the swing low)
-            double cisdLow = Math.Min(CandleManager.GetCandle(lastBearishIndex).Close, orderflow.Low);
-            double cisdHigh = CandleManager.GetCandle(firstBearishIndex).Open;
-            
-            // Create a BULLISH CISD level that includes the swing low
+            // Create a BULLISH CISD level
             var cisdLevel = new Level(
                 LevelType.CISD,
-                cisdLow,
-                cisdHigh,
+                CandleManager.GetCandle(lastBearishIndex).Close,
+                CandleManager.GetCandle(firstBearishIndex).Open,
                 CandleManager.GetCandle(lastBearishIndex).Time,
                 CandleManager.GetCandle(firstBearishIndex).Time,
                 null,
@@ -205,8 +193,6 @@ namespace Pfuma.Detectors
             
             // Set TimeFrame from candle
             cisdLevel.TimeFrame = CandleManager.GetCandle(firstBearishIndex).TimeFrame;
-            
-            Logger?.Invoke($"Bullish CISD detected: Low={cisdLow:F5}, High={cisdHigh:F5} (includes swing low)");
             
             return cisdLevel;
         }
