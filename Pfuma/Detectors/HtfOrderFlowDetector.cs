@@ -212,7 +212,7 @@ namespace Pfuma.Detectors
         {
             EventAggregator.Publish(new HtfOrderFlowDetectedEvent(orderFlow, orderFlow.TimeFrame));
             
-            if (Settings.Patterns.ShowOrderFlow && _visualizer != null)
+            if (Settings.Patterns.ShowHtfOrderFlow && _visualizer != null)
             {
                 _visualizer.Draw(orderFlow);
             }

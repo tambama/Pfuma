@@ -4,6 +4,7 @@ public class PatternDetectionSettings
 {
     // Order Flow
     public bool ShowOrderFlow { get; set; } = false;
+    public bool ShowHtfOrderFlow { get; set; } = false;
     public bool ShowLiquiditySweep { get; set; } = false;
         
     // FVG

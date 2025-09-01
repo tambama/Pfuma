@@ -104,6 +104,9 @@ namespace Pfuma
         [Parameter("Show HTF FVG", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHtfFvg { get; set; }
         
+        [Parameter("Show HTF Order Flow", DefaultValue = false, Group = "Multi-Timeframe")]
+        public bool ShowHtfOrderFlow { get; set; }
+        
         
         
         
@@ -225,7 +228,8 @@ namespace Pfuma
                 {
                     ShowFVG = ShowFVG,  // Only for LTF FVG visualization
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
-                    ShowOrderFlow = ShowOrderFlow,
+                    ShowOrderFlow = ShowOrderFlow,  // Only for regular orderflow
+                    ShowHtfOrderFlow = ShowHtfOrderFlow,  // Only for HTF orderflow
                     ShowLiquiditySweep = ShowLiquiditySweep,
                     ShowRejectionBlock = ShowRejectionBlock,
                     ShowOrderBlock = ShowOrderBlock,

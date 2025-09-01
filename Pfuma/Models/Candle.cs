@@ -34,4 +34,7 @@ public class Candle
     
     // Timeframe tracking
     public TimeFrame TimeFrame { get; set; }
+    
+    // Direction
+    public Direction Direction => Close > Open ? Direction.Up : Direction.Down;
 }

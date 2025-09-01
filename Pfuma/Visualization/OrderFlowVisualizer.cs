@@ -23,9 +23,10 @@ namespace Pfuma.Visualization
         
         protected override bool ShouldDraw(Level orderFlow)
         {
+            // Only check base conditions and level type
+            // The detectors will control when to call Draw based on their respective settings
             return base.ShouldDraw(orderFlow) && 
-                   orderFlow.LevelType == LevelType.Orderflow &&
-                   Settings.Patterns.ShowOrderFlow;
+                   orderFlow.LevelType == LevelType.Orderflow;
         }
         
         protected override string GetPatternId(Level orderFlow)
@@ -62,8 +63,36 @@ namespace Pfuma.Visualization
         
         private void DrawOrderFlowRectangle(Level orderFlow, string patternId, List<string> objectIds, Color baseColor)
         {
-            DateTime startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
-            DateTime endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+            DateTime startTime, endTime;
+            
+            // For HTF orderflows, we need to use the actual bar times from the chart
+            // The orderFlow times might be HTF candle times which don't directly map to chart bars
+            if (orderFlow.TimeFrame != null && orderFlow.IndexLow >= 0 && orderFlow.IndexHigh >= 0)
+            {
+                // Use the actual bar indices to get correct times for HTF patterns
+                int startIndex = Math.Min(orderFlow.IndexLow, orderFlow.IndexHigh);
+                int endIndex = Math.Max(orderFlow.IndexLow, orderFlow.IndexHigh);
+                
+                // Make sure indices are within bounds
+                if (startIndex < Chart.BarsTotal && endIndex < Chart.BarsTotal)
+                {
+                    startTime = Chart.Bars[startIndex].OpenTime;
+                    endTime = Chart.Bars[endIndex].OpenTime;
+                }
+                else
+                {
+                    // Fallback to stored times if indices are out of bounds
+                    startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
+                    endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+                }
+            }
+            else
+            {
+                // Regular orderflow - use stored times
+                startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
+                endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+            }
+            
             double lowPrice = orderFlow.Low;
             double highPrice = orderFlow.High;
             
@@ -130,8 +159,30 @@ namespace Pfuma.Visualization
         
         private void DrawQuadrantLevels(Level orderFlow, string patternId, List<string> objectIds)
         {
-            DateTime startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
-            DateTime endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+            DateTime startTime, endTime;
+            
+            // For HTF orderflows, use actual bar times from indices
+            if (orderFlow.TimeFrame != null && orderFlow.IndexLow >= 0 && orderFlow.IndexHigh >= 0)
+            {
+                int startIndex = Math.Min(orderFlow.IndexLow, orderFlow.IndexHigh);
+                int endIndex = Math.Max(orderFlow.IndexLow, orderFlow.IndexHigh);
+                
+                if (startIndex < Chart.BarsTotal && endIndex < Chart.BarsTotal)
+                {
+                    startTime = Chart.Bars[startIndex].OpenTime;
+                    endTime = Chart.Bars[endIndex].OpenTime;
+                }
+                else
+                {
+                    startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
+                    endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+                }
+            }
+            else
+            {
+                startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
+                endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+            }
             
             Color unsweptColor = GetColorFromString("Pink");
             Color sweptColor = GetColorFromString("Gray");
@@ -178,8 +229,30 @@ namespace Pfuma.Visualization
             Chart.RemoveObject(quadId);
             
             // Redraw with swept color
-            DateTime startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
-            DateTime endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+            DateTime startTime, endTime;
+            
+            // For HTF orderflows, use actual bar times from indices
+            if (orderFlow.TimeFrame != null && orderFlow.IndexLow >= 0 && orderFlow.IndexHigh >= 0)
+            {
+                int startIndex = Math.Min(orderFlow.IndexLow, orderFlow.IndexHigh);
+                int endIndex = Math.Max(orderFlow.IndexLow, orderFlow.IndexHigh);
+                
+                if (startIndex < Chart.BarsTotal && endIndex < Chart.BarsTotal)
+                {
+                    startTime = Chart.Bars[startIndex].OpenTime;
+                    endTime = Chart.Bars[endIndex].OpenTime;
+                }
+                else
+                {
+                    startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
+                    endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+                }
+            }
+            else
+            {
+                startTime = orderFlow.Direction == Direction.Up ? orderFlow.LowTime : orderFlow.HighTime;
+                endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
+            }
             
             LineStyle style = (quadrant.Percent % 50 == 0) ? LineStyle.Solid : LineStyle.Dots;
             
