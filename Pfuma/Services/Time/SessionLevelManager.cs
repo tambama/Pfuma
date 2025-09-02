@@ -253,6 +253,13 @@ public class SessionLevelManager : ISessionLevelManager
         
         if (existingPoint != null)
         {
+            // Don't override daily levels with session levels
+            if (IsDailyLevelType(existingPoint.LiquidityType))
+            {
+                // Daily level already exists at this index, don't replace it with session level
+                return;
+            }
+            
             if ((liquidityType == LiquidityType.PDH || liquidityType == LiquidityType.PDL) &&
                 existingPoint.LiquidityType != LiquidityType.PDH &&
                 existingPoint.LiquidityType != LiquidityType.PDL)
@@ -296,6 +303,15 @@ public class SessionLevelManager : ISessionLevelManager
                 true
             );
         }
+    }
+    
+    /// <summary>
+    /// Check if the liquidity type represents a daily level that should not be overridden by session levels
+    /// </summary>
+    private bool IsDailyLevelType(LiquidityType liquidityType)
+    {
+        return liquidityType == LiquidityType.PDH || 
+               liquidityType == LiquidityType.PDL;
     }
     
     private void RemoveExistingSessionLabels(DateTime time, double price)

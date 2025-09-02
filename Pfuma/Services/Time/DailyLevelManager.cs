@@ -73,27 +73,41 @@ public class DailyLevelManager : IDailyLevelManager
         var highCandle = candlesInRange.OrderByDescending(c => c.High).First();
         var lowCandle = candlesInRange.OrderBy(c => c.Low).First();
 
-        CreateOrUpdateSpecialSwingPoint(
-            highCandle.Index ?? 0,
-            highCandle.High,
-            highCandle.Time,
-            highCandle,
-            SwingType.H,
-            LiquidityType.PDH,
-            Direction.Up,
-            LiquidityName.PDH,
-            dayEnd);
+        // Check if high and low occur at the same index
+        if (highCandle.Index == lowCandle.Index)
+        {
+            // Special handling when PDH and PDL are at the same candle
+            // We need to draw both lines at their correct prices
+            HandleSameIndexDailyLevels(
+                highCandle,
+                lowCandle,
+                dayEnd);
+        }
+        else
+        {
+            // Normal case - high and low are at different indices
+            CreateOrUpdateSpecialSwingPoint(
+                highCandle.Index ?? 0,
+                highCandle.High,
+                highCandle.Time,
+                highCandle,
+                SwingType.H,
+                LiquidityType.PDH,
+                Direction.Up,
+                LiquidityName.PDH,
+                dayEnd);
 
-        CreateOrUpdateSpecialSwingPoint(
-            lowCandle.Index ?? 0,
-            lowCandle.Low,
-            lowCandle.Time,
-            lowCandle,
-            SwingType.L,
-            LiquidityType.PDL,
-            Direction.Down,
-            LiquidityName.PDL,
-            dayEnd);
+            CreateOrUpdateSpecialSwingPoint(
+                lowCandle.Index ?? 0,
+                lowCandle.Low,
+                lowCandle.Time,
+                lowCandle,
+                SwingType.L,
+                LiquidityType.PDL,
+                Direction.Down,
+                LiquidityName.PDL,
+                dayEnd);
+        }
     }
 
     private void CreateOrUpdateSpecialSwingPoint(
@@ -113,15 +127,30 @@ public class DailyLevelManager : IDailyLevelManager
 
         if (existingPoint != null)
         {
+            // If daily level is being set at same index as session level, replace it completely
             if ((liquidityType == LiquidityType.PDH || liquidityType == LiquidityType.PDL) &&
+                IsSessionLevelType(existingPoint.LiquidityType))
+            {
+                // Remove existing session level visualization
+                RemoveExistingSessionLabels(time, price);
+                
+                // Update the existing point to daily level
+                existingPoint.LiquidityType = liquidityType;
+                existingPoint.LiquidityName = liquidityName;
+            }
+            else if ((liquidityType == LiquidityType.PDH || liquidityType == LiquidityType.PDL) &&
                 existingPoint.LiquidityType != LiquidityType.PDH &&
                 existingPoint.LiquidityType != LiquidityType.PDL)
             {
                 RemoveExistingSessionLabels(time, price);
+                existingPoint.LiquidityType = liquidityType;
+                existingPoint.LiquidityName = liquidityName;
             }
-
-            existingPoint.LiquidityType = liquidityType;
-            existingPoint.LiquidityName = liquidityName;
+            else
+            {
+                existingPoint.LiquidityType = liquidityType;
+                existingPoint.LiquidityName = liquidityName;
+            }
         }
         else
         {
@@ -158,11 +187,96 @@ public class DailyLevelManager : IDailyLevelManager
         }
     }
 
+    /// <summary>
+    /// Handle the special case when PDH and PDL occur at the same index
+    /// </summary>
+    private void HandleSameIndexDailyLevels(Candle candle, Candle sameCandle, DateTime endTime)
+    {
+        if (_swingPointDetector == null || candle == null) return;
+        
+        int index = candle.Index ?? 0;
+        
+        // Remove any existing session levels at this index
+        RemoveExistingSessionLabels(candle.Time, candle.High);
+        RemoveExistingSessionLabels(candle.Time, candle.Low);
+        
+        // Check if there's an existing swing point at this index
+        var existingPoint = _swingPointDetector.GetSwingPointAtIndex(index);
+        
+        if (existingPoint != null)
+        {
+            // Update existing point to PDH (we'll draw both lines separately)
+            existingPoint.LiquidityType = LiquidityType.PDH;
+            existingPoint.LiquidityName = LiquidityName.PDH;
+            existingPoint.Price = candle.High; // Set to high price for the swing point
+        }
+        else
+        {
+            // Create a new swing point for PDH (at the high price)
+            var swingPoint = new SwingPoint(
+                index,
+                candle.High,
+                candle.Time,
+                candle,
+                SwingType.H,
+                LiquidityType.PDH,
+                Direction.Up,
+                LiquidityName.PDH
+            );
+            
+            _swingPointDetector.AddSpecialSwingPoint(swingPoint);
+        }
+        
+        // Draw both PDH and PDL lines at their correct prices
+        if (_chart != null && _showDailyLevels)
+        {
+            // Draw PDH line at the high price
+            string pdhId = $"pdh-{candle.Time.Ticks}";
+            _chart.DrawStraightLine(
+                pdhId,
+                candle.Time,
+                candle.High,
+                endTime,
+                candle.High,
+                "PDH",
+                LineStyle.Solid,
+                Color.Wheat,
+                true,
+                true
+            );
+            
+            // Draw PDL line at the low price
+            string pdlId = $"pdl-{candle.Time.Ticks}";
+            _chart.DrawStraightLine(
+                pdlId,
+                candle.Time,
+                candle.Low,
+                endTime,
+                candle.Low,
+                "PDL",
+                LineStyle.Solid,
+                Color.Wheat,
+                true,
+                true
+            );
+        }
+    }
+
+    /// <summary>
+    /// Check if the liquidity type represents a session level that should be replaced by daily levels
+    /// </summary>
+    private bool IsSessionLevelType(LiquidityType liquidityType)
+    {
+        return liquidityType == LiquidityType.PSH || 
+               liquidityType == LiquidityType.PSL;
+    }
+
     private void RemoveExistingSessionLabels(DateTime time, double price)
     {
         if (_chart == null)
             return;
 
+        // Remove session level drawings that might exist at this time/price level
         string[] sessionPrefixes =
         {
             "ah", "al", "lh", "ll", "lph", "lpl", "llh", "lll",
@@ -172,11 +286,17 @@ public class DailyLevelManager : IDailyLevelManager
 
         foreach (var prefix in sessionPrefixes)
         {
+            // Try different possible ID patterns that might have been used for session levels
             string lineId = $"{prefix}-{time.Ticks}";
             string labelId = $"{lineId}-label";
 
             _chart.RemoveObject(lineId);
             _chart.RemoveObject(labelId);
+            
+            // Also try removing with simplified naming patterns
+            string simplifiedId = prefix.ToLower();
+            _chart.RemoveObject(simplifiedId);
+            _chart.RemoveObject($"{simplifiedId}-label");
         }
     }
 }
