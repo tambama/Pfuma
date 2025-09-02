@@ -123,37 +123,43 @@ public class DailyLevelManager : IDailyLevelManager
     {
         if (_swingPointDetector == null) return;
 
-        var existingPoint = _swingPointDetector.GetSwingPointAtIndex(index);
+        // Check if there's already a swing point at this index with the same direction
+        var existingPointsAtIndex = _swingPointDetector.GetSwingPointsAtIndex(index);
+        var existingPointWithSameDirection = existingPointsAtIndex?.FirstOrDefault(sp => sp.Direction == direction);
 
-        if (existingPoint != null)
+        if (existingPointWithSameDirection != null)
         {
             // If daily level is being set at same index as session level, replace it completely
             if ((liquidityType == LiquidityType.PDH || liquidityType == LiquidityType.PDL) &&
-                IsSessionLevelType(existingPoint.LiquidityType))
+                IsSessionLevelType(existingPointWithSameDirection.LiquidityType))
             {
                 // Remove existing session level visualization
                 RemoveExistingSessionLabels(time, price);
                 
                 // Update the existing point to daily level
-                existingPoint.LiquidityType = liquidityType;
-                existingPoint.LiquidityName = liquidityName;
+                existingPointWithSameDirection.LiquidityType = liquidityType;
+                existingPointWithSameDirection.LiquidityName = liquidityName;
+                existingPointWithSameDirection.Price = price; // Ensure correct price
             }
             else if ((liquidityType == LiquidityType.PDH || liquidityType == LiquidityType.PDL) &&
-                existingPoint.LiquidityType != LiquidityType.PDH &&
-                existingPoint.LiquidityType != LiquidityType.PDL)
+                existingPointWithSameDirection.LiquidityType != LiquidityType.PDH &&
+                existingPointWithSameDirection.LiquidityType != LiquidityType.PDL)
             {
                 RemoveExistingSessionLabels(time, price);
-                existingPoint.LiquidityType = liquidityType;
-                existingPoint.LiquidityName = liquidityName;
+                existingPointWithSameDirection.LiquidityType = liquidityType;
+                existingPointWithSameDirection.LiquidityName = liquidityName;
+                existingPointWithSameDirection.Price = price; // Ensure correct price
             }
             else
             {
-                existingPoint.LiquidityType = liquidityType;
-                existingPoint.LiquidityName = liquidityName;
+                existingPointWithSameDirection.LiquidityType = liquidityType;
+                existingPointWithSameDirection.LiquidityName = liquidityName;
+                existingPointWithSameDirection.Price = price; // Ensure correct price
             }
         }
         else
         {
+            // Create new swing point (either no existing point, or existing point has different direction)
             var swingPoint = new SwingPoint(
                 index,
                 price,
@@ -200,20 +206,23 @@ public class DailyLevelManager : IDailyLevelManager
         RemoveExistingSessionLabels(candle.Time, candle.High);
         RemoveExistingSessionLabels(candle.Time, candle.Low);
         
-        // Check if there's an existing swing point at this index
-        var existingPoint = _swingPointDetector.GetSwingPointAtIndex(index);
+        // Check for existing swing points at this index
+        var existingPointsAtIndex = _swingPointDetector.GetSwingPointsAtIndex(index);
+        var existingUpwardPoint = existingPointsAtIndex?.FirstOrDefault(sp => sp.Direction == Direction.Up);
+        var existingDownwardPoint = existingPointsAtIndex?.FirstOrDefault(sp => sp.Direction == Direction.Down);
         
-        if (existingPoint != null)
+        // Handle or create PDH (upward direction)
+        if (existingUpwardPoint != null)
         {
-            // Update existing point to PDH (we'll draw both lines separately)
-            existingPoint.LiquidityType = LiquidityType.PDH;
-            existingPoint.LiquidityName = LiquidityName.PDH;
-            existingPoint.Price = candle.High; // Set to high price for the swing point
+            // Update existing upward point to PDH
+            existingUpwardPoint.LiquidityType = LiquidityType.PDH;
+            existingUpwardPoint.LiquidityName = LiquidityName.PDH;
+            existingUpwardPoint.Price = candle.High; // Ensure high price
         }
         else
         {
             // Create a new swing point for PDH (at the high price)
-            var swingPoint = new SwingPoint(
+            var pdhSwingPoint = new SwingPoint(
                 index,
                 candle.High,
                 candle.Time,
@@ -224,7 +233,32 @@ public class DailyLevelManager : IDailyLevelManager
                 LiquidityName.PDH
             );
             
-            _swingPointDetector.AddSpecialSwingPoint(swingPoint);
+            _swingPointDetector.AddSpecialSwingPoint(pdhSwingPoint);
+        }
+        
+        // Handle or create PDL (downward direction)
+        if (existingDownwardPoint != null)
+        {
+            // Update existing downward point to PDL
+            existingDownwardPoint.LiquidityType = LiquidityType.PDL;
+            existingDownwardPoint.LiquidityName = LiquidityName.PDL;
+            existingDownwardPoint.Price = candle.Low; // Ensure low price
+        }
+        else
+        {
+            // Create a new swing point for PDL (at the low price)
+            var pdlSwingPoint = new SwingPoint(
+                index,
+                candle.Low,
+                candle.Time,
+                candle,
+                SwingType.L,
+                LiquidityType.PDL,
+                Direction.Down,
+                LiquidityName.PDL
+            );
+            
+            _swingPointDetector.AddSpecialSwingPoint(pdlSwingPoint);
         }
         
         // Draw both PDH and PDL lines at their correct prices
