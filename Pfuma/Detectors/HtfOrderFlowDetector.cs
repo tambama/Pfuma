@@ -118,7 +118,7 @@ namespace Pfuma.Detectors
                 Repository.Add(bullishOrderFlow);
                 PublishDetectionEvent(bullishOrderFlow, newSwingLow.Index);
                 
-                Logger?.Invoke($"{timeFrame.GetShortName()} Bullish Order Flow detected from {previousSwingLow.Index} to {recentSwingHigh.Index}");
+                // HTF bullish order flow detected
             }
         }
         
@@ -163,7 +163,7 @@ namespace Pfuma.Detectors
                 Repository.Add(bearishOrderFlow);
                 PublishDetectionEvent(bearishOrderFlow, newSwingHigh.Index);
                 
-                Logger?.Invoke($"{timeFrame.GetShortName()} Bearish Order Flow detected from {previousSwingHigh.Index} to {recentSwingLow.Index}");
+                // HTF bearish order flow detected
             }
         }
         

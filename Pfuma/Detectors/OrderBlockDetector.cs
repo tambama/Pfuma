@@ -133,7 +133,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                 if (IsOrderBlockSwept(previousLow.Price, currentHigh.Price, 
                     previousLow.Index, currentHigh.Index, Direction.Down))
                 {
-                    Logger?.Invoke($"Bearish Order Block already swept, skipping detection");
+                    // Order block already swept
                     return null;
                 }
                 
@@ -159,7 +159,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                 // Mark this configuration as detected
                 _detectedOrderBlockSignatures.Add(orderBlockSignature);
                 
-                Logger?.Invoke($"Bearish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} from previous low at index {previousLow.Index} to current high at index {currentHigh.Index}");
+                // Bearish order block detected
                 return orderBlock;
             }
         }
@@ -237,7 +237,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                 if (IsOrderBlockSwept(currentLow.Price, previousHigh.Price, 
                     previousHigh.Index, currentLow.Index, Direction.Up))
                 {
-                    Logger?.Invoke($"Bullish Order Block already swept, skipping detection");
+                    // Order block already swept
                     return null;
                 }
                 
@@ -263,7 +263,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                 // Mark this configuration as detected
                 _detectedOrderBlockSignatures.Add(orderBlockSignature);
                 
-                Logger?.Invoke($"Bullish Order Block detected: High={orderBlock.High:F5}, Low={orderBlock.Low:F5} from previous high at index {previousHigh.Index} to current low at index {currentLow.Index}");
+                // Bullish order block detected
                 return orderBlock;
             }
         }
@@ -348,7 +348,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                     // Bullish order block is swept if price goes below its low
                     if (candle.Low < low)
                     {
-                        Logger?.Invoke($"Bullish Order Block swept at index {i}, candle low {candle.Low:F5} < OB low {low:F5}");
+                        // Order block swept
                         return true;
                     }
                 }
@@ -357,7 +357,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                     // Bearish order block is swept if price goes above its high
                     if (candle.High > high)
                     {
-                        Logger?.Invoke($"Bearish Order Block swept at index {i}, candle high {candle.High:F5} > OB high {high:F5}");
+                        // Order block swept
                         return true;
                     }
                 }

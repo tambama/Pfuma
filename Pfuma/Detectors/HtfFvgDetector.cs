@@ -424,14 +424,14 @@ namespace Pfuma.Detectors
                             
                             brokenFvgs.Add((timeframe, htfFvg));
                             
-                            Logger?.Invoke($"HTF FVG broken through by price action: {htfFvg.TimeFrame?.GetShortName() ?? "HTF"} {htfFvg.Direction} at {htfFvg.Low:F5}-{htfFvg.High:F5}");
+                            // HTF FVG broken through by price action
                             
                             // If HTF FVG is unextended, remove it completely from chart and storage
                             if (!htfFvg.IsExtended)
                             {
                                 RemoveHtfFvgFromChart(htfFvg);
                                 fvgList.Remove(htfFvg);
-                                Logger?.Invoke($"Removed unextended broken HTF FVG from chart and storage");
+                                // Broken HTF FVG removed
                             }
                         }
                     }
@@ -475,7 +475,7 @@ namespace Pfuma.Detectors
                 Chart.RemoveObject($"{patternId}_Q50");
                 Chart.RemoveObject($"{patternId}_Q75");
                 
-                Logger?.Invoke($"Removed HTF FVG from chart: {patternId}");
+                // HTF FVG removed from chart
             }
             catch (Exception ex)
             {

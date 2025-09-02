@@ -94,7 +94,7 @@ namespace Pfuma.Visualization
                 // If the order block was not extended, don't redraw it (it should be deleted)
                 if (!orderBlock.IsExtended)
                 {
-                    Logger?.Invoke($"Skipping redraw of non-extended swept order block: {orderBlock.Direction} at {orderBlock.High:F5}-{orderBlock.Low:F5}");
+                    // Non-extended swept order block not redrawn
                     return;
                 }
                 
@@ -117,7 +117,7 @@ namespace Pfuma.Visualization
                 
                 var rect = Chart.DrawRectangle(rectangleId, startTime, orderBlock.High, endTime, orderBlock.Low, sweptRectangleColor);
                 
-                Logger?.Invoke($"Updated liquidity swept order block visualization: {orderBlock.Direction} at {orderBlock.High:F5}-{orderBlock.Low:F5}");
+                // Order block visualization updated
             }
             catch (Exception ex)
             {

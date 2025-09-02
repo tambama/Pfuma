@@ -16,6 +16,7 @@ namespace Pfuma.Visualization
         private readonly IFibonacciService _fibonacciService;
         private readonly IEventAggregator _eventAggregator;
         private bool _showFibonacciLevels;
+        private bool _showExtendedFib;
         private readonly Dictionary<string, List<string>> _drawnObjects;
         private readonly List<string> _extendedLineIds; // Separate tracking for extended lines
         private readonly CandleManager _candleManager;
@@ -27,13 +28,20 @@ namespace Pfuma.Visualization
             set => _showFibonacciLevels = value;
         }
         
-        public FibonacciVisualizer(Chart chart, IFibonacciService fibonacciService, IEventAggregator eventAggregator, CandleManager candleManager, bool showFibonacciLevels, Action<string> log = null)
+        public bool ShowExtendedFib
+        {
+            get => _showExtendedFib;
+            set => _showExtendedFib = value;
+        }
+        
+        public FibonacciVisualizer(Chart chart, IFibonacciService fibonacciService, IEventAggregator eventAggregator, CandleManager candleManager, bool showFibonacciLevels, bool showExtendedFib, Action<string> log = null)
         {
             _chart = chart;
             _fibonacciService = fibonacciService;
             _eventAggregator = eventAggregator;
             _candleManager = candleManager;
             _showFibonacciLevels = showFibonacciLevels;
+            _showExtendedFib = showExtendedFib;
             _log = log;
             _drawnObjects = new Dictionary<string, List<string>>();
             _extendedLineIds = new List<string>();
@@ -67,23 +75,24 @@ namespace Pfuma.Visualization
             if (sweepEvent == null || sweepEvent.FibonacciLevel == null) 
                 return;
             
-            // Check if visualizer is enabled
-            if (!_showFibonacciLevels) 
-                return;
-            
             var fibLevel = sweepEvent.FibonacciLevel;
             string lineId = $"{fibLevel.FibonacciId}_line_{sweepEvent.SweptRatio:F3}";
             string labelId = $"{lineId}-label";
             
             if (sweepEvent.IsBreak)
             {
-                // Remove the line and label for broken levels
+                // Always remove broken levels regardless of display settings
                 RemoveSpecificLine(lineId, labelId);
             }
-            else if (sweepEvent.IsSweep)
+            else if (sweepEvent.IsSweep && _showExtendedFib)
             {
-                // Extend the line to the sweep candle
+                // Only extend the line if showExtendedFib is true
                 ExtendLineToSweep(fibLevel, lineId, labelId, sweepEvent.SweptRatio, sweepEvent.SweptPrice, sweepEvent.SweepIndex);
+            }
+            else if (sweepEvent.IsSweep && !_showExtendedFib && _showFibonacciLevels)
+            {
+                // If not showing extended but showing regular fibs, just remove the swept line
+                RemoveSpecificLine(lineId, labelId);
             }
         }
         
@@ -143,8 +152,8 @@ namespace Pfuma.Visualization
                     sweepIndex,  // Extend to the sweep candle
                     price,
                     labelText,
-                    LineStyle.Solid,
-                    Color.Orange,  // Change color to indicate swept level
+                    LineStyle.Dots,
+                    Color.Wheat,  // Change color to indicate swept level
                     true,
                     true  // removeExisting = true to force cleanup
                 );

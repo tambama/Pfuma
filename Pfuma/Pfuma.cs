@@ -78,6 +78,9 @@ namespace Pfuma
         [Parameter("Show Fibonacci Levels", DefaultValue = false, Group = "Time")]
         public bool ShowFibonacciLevels { get; set; }
         
+        [Parameter("Show Extended Fib", DefaultValue = true, Group = "Time")]
+        public bool ShowExtendedFib { get; set; }
+        
         [Parameter("UTC Offset", DefaultValue = -4, Group = "Time")]
         public int UtcOffset { get; set; }
         
@@ -328,7 +331,7 @@ namespace Pfuma
             
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
-            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowFibonacciLevels, EnableLog ? Print : null);
+            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowFibonacciLevels, ShowExtendedFib, EnableLog ? Print : null);
             _fibonacciSweepDetector = new FibonacciSweepDetector(_fibonacciService, _eventAggregator, EnableLog ? Print : null);
             
         }
@@ -433,6 +436,7 @@ namespace Pfuma
                 if (_fibonacciVisualizer != null)
                 {
                     _fibonacciVisualizer.ShowFibonacciLevels = ShowFibonacciLevels;
+                    _fibonacciVisualizer.ShowExtendedFib = ShowExtendedFib;
                     if (ShowFibonacciLevels)
                     {
                         _fibonacciVisualizer.DrawFibonacciLevels();
