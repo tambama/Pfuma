@@ -38,9 +38,6 @@ namespace Pfuma.Visualization
             _drawnObjects = new Dictionary<string, List<string>>();
             _extendedLineIds = new List<string>();
             
-            // Force log creation even if log is null
-            System.Diagnostics.Debug.WriteLine($"FibonacciVisualizer created with showFibonacci={showFibonacciLevels}");
-            _log?.Invoke($"FibonacciVisualizer created with showFibonacci={showFibonacciLevels}");
             
             // Subscribe to level removal events
             if (_fibonacciService != null)
@@ -52,7 +49,6 @@ namespace Pfuma.Visualization
             if (_eventAggregator != null)
             {
                 _eventAggregator.Subscribe<Services.FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
-                _log?.Invoke("FibonacciVisualizer subscribed to FibonacciLevelSweptEvent");
             }
         }
         
@@ -63,32 +59,21 @@ namespace Pfuma.Visualization
                 // Always remove all regular drawings for this level
                 // Extended lines are tracked separately and will persist
                 RemoveAllFibonacciDrawings(removedLevel);
-                _log?.Invoke($"OnFibonacciLevelRemoved: Removed all regular drawings for level {removedLevel.FibonacciId}");
             }
         }
         
         private void OnFibonacciLevelSwept(Services.FibonacciLevelSweptEvent sweepEvent)
         {
-            _log?.Invoke($"FibonacciVisualizer received sweep event: IsBreak={sweepEvent?.IsBreak}, IsSweep={sweepEvent?.IsSweep}, Ratio={sweepEvent?.SweptRatio:F3}");
-            
             if (sweepEvent == null || sweepEvent.FibonacciLevel == null) 
-            {
-                _log?.Invoke("FibonacciVisualizer: sweep event or level is null");
                 return;
-            }
             
             // Check if visualizer is enabled
             if (!_showFibonacciLevels) 
-            {
-                _log?.Invoke("FibonacciVisualizer: visualization is disabled, ignoring event");
                 return;
-            }
             
             var fibLevel = sweepEvent.FibonacciLevel;
             string lineId = $"{fibLevel.FibonacciId}_line_{sweepEvent.SweptRatio:F3}";
             string labelId = $"{lineId}-label";
-            
-            _log?.Invoke($"FibonacciVisualizer: Processing {(sweepEvent.IsBreak ? "BREAK" : "SWEEP")} for line {lineId}");
             
             if (sweepEvent.IsBreak)
             {
@@ -105,19 +90,13 @@ namespace Pfuma.Visualization
         private void RemoveSpecificLine(string lineId, string labelId)
         {
             if (_chart == null) 
-            {
-                _log?.Invoke("RemoveSpecificLine: Chart is null");
                 return;
-            }
-            
-            _log?.Invoke($"RemoveSpecificLine: Removing {lineId} and {labelId}");
             
             try
             {
                 // Try to remove the original line (might not exist if already extended)
                 _chart.RemoveObject(lineId);
                 _chart.RemoveObject(labelId);
-                _log?.Invoke($"RemoveSpecificLine: Removed original objects from chart");
                 
                 // Also try to remove any extended version that might exist
                 string extendedLineId = lineId + "-extended";
@@ -125,42 +104,28 @@ namespace Pfuma.Visualization
                 
                 _chart.RemoveObject(extendedLineId);
                 _chart.RemoveObject(extendedLabelId);
-                _log?.Invoke($"RemoveSpecificLine: Removed extended objects from chart");
                 
                 // Remove from regular tracking
                 foreach (var kvp in _drawnObjects)
                 {
-                    bool removedLine = kvp.Value.Remove(lineId);
-                    bool removedLabel = kvp.Value.Remove(labelId);
-                    if (removedLine || removedLabel)
-                    {
-                        _log?.Invoke($"RemoveSpecificLine: Removed from regular tracking in {kvp.Key}");
-                    }
+                    kvp.Value.Remove(lineId);
+                    kvp.Value.Remove(labelId);
                 }
                 
                 // Remove from extended tracking
-                bool removedExtendedLine = _extendedLineIds.Remove(extendedLineId);
-                bool removedExtendedLabel = _extendedLineIds.Remove(extendedLabelId);
-                if (removedExtendedLine || removedExtendedLabel)
-                {
-                    _log?.Invoke($"RemoveSpecificLine: Removed extended IDs from extended tracking");
-                }
+                _extendedLineIds.Remove(extendedLineId);
+                _extendedLineIds.Remove(extendedLabelId);
             }
-            catch (Exception ex)
+            catch
             {
-                _log?.Invoke($"RemoveSpecificLine: Error removing objects: {ex.Message}");
+                // Silently handle removal errors
             }
         }
         
         private void ExtendLineToSweep(FibonacciLevel fibLevel, string lineId, string labelId, double ratio, double price, int sweepIndex)
         {
             if (_chart == null) 
-            {
-                _log?.Invoke("ExtendLineToSweep: Chart is null");
                 return;
-            }
-            
-            _log?.Invoke($"ExtendLineToSweep: Extending {lineId} from index {fibLevel.StartIndex} to {sweepIndex} at price {price:F5}");
             
             try
             {
@@ -188,8 +153,6 @@ namespace Pfuma.Visualization
                 _chart.RemoveObject(lineId);
                 _chart.RemoveObject(labelId);
                 
-                _log?.Invoke($"ExtendLineToSweep: Created extended line {extendedLineId} and removed original {lineId}");
-                
                 // Remove old IDs from regular tracking
                 if (_drawnObjects.ContainsKey(fibLevel.FibonacciId))
                 {
@@ -207,12 +170,10 @@ namespace Pfuma.Visualization
                 {
                     _extendedLineIds.Add(extendedLabelId);
                 }
-                
-                _log?.Invoke($"ExtendLineToSweep: Updated tracking - removed {lineId}/{labelId} from regular, added {extendedLineId}/{extendedLabelId} to extended");
             }
-            catch (Exception ex)
+            catch
             {
-                _log?.Invoke($"ExtendLineToSweep: Error extending line: {ex.Message}");
+                // Silently handle extension errors
             }
         }
         
@@ -333,15 +294,12 @@ namespace Pfuma.Visualization
                     _drawnObjects.Remove(fibLevel.FibonacciId);
                 }
                 
-                _log?.Invoke($"RemoveNonSweptFibonacciDrawings: Removed {objectsToRemove.Count} non-swept objects for {fibLevel.FibonacciId}");
             }
         }
         
         private void RemoveAllFibonacciDrawings(FibonacciLevel fibLevel)
         {
             if (_chart == null || fibLevel == null) return;
-            
-            _log?.Invoke($"RemoveAllFibonacciDrawings: Starting cleanup for {fibLevel.FibonacciId}");
             
             // Remove all objects that are tracked in _drawnObjects for this fibonacci level
             if (_drawnObjects.ContainsKey(fibLevel.FibonacciId))
@@ -352,7 +310,6 @@ namespace Pfuma.Visualization
                     try
                     {
                         _chart.RemoveObject(objectId);
-                        _log?.Invoke($"RemoveAllFibonacciDrawings: Removed tracked object {objectId}");
                     }
                     catch
                     {
@@ -373,17 +330,7 @@ namespace Pfuma.Visualization
                 try
                 {
                     _chart.RemoveObject(lineId);
-                    _log?.Invoke($"RemoveAllFibonacciDrawings: Removed line {lineId}");
-                }
-                catch
-                {
-                    // Silently handle if object doesn't exist
-                }
-                
-                try
-                {
                     _chart.RemoveObject(labelId);
-                    _log?.Invoke($"RemoveAllFibonacciDrawings: Removed label {labelId}");
                 }
                 catch
                 {
@@ -401,7 +348,6 @@ namespace Pfuma.Visualization
                     try
                     {
                         _chart.RemoveObject(extendedId);
-                        _log?.Invoke($"RemoveAllFibonacciDrawings: Removed extended line {extendedId}");
                     }
                     catch
                     {
@@ -415,13 +361,6 @@ namespace Pfuma.Visualization
             {
                 _extendedLineIds.Remove(extendedId);
             }
-            
-            if (extendedLinesToRemove.Count > 0)
-            {
-                _log?.Invoke($"RemoveAllFibonacciDrawings: Removed {extendedLinesToRemove.Count} extended lines for {fibLevel.FibonacciId}");
-            }
-            
-            _log?.Invoke($"RemoveAllFibonacciDrawings: Completed cleanup for {fibLevel.FibonacciId}");
         }
         
         private void RemoveFibonacciDrawings(string fibonacciId)

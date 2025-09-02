@@ -195,14 +195,14 @@ namespace Pfuma.Services
                         // Draw a dot on the swing point to indicate it's inside a key level
                         DrawInsideKeyLevelDot(bullishSwingPoint);
                         
-                        _logger?.Invoke($"Bearish HTF FVG quadrants swept by bullish swing at {bullishSwingPoint.Price:F5}. Swept {sweptQuadrants.Count} quadrants. Marked swing as InsideKeyLevel.");
+                        // Mark swing point as inside HTF FVG key level
                         
                         // Check if all quadrants are swept (HTF FVG becomes inactive)
                         if (!htfFvg.IsActive)
                         {
                             // Remove the entire HTF FVG from chart (rectangle, quadrants, label)
                             RemoveHtfFvgFromChart(htfFvg);
-                            _logger?.Invoke($"Bearish HTF FVG at {htfFvg.High:F5}-{htfFvg.Low:F5} is now inactive - removed from chart");
+                            // HTF FVG now inactive and removed from chart
                         }
                     }
                 }
@@ -244,14 +244,14 @@ namespace Pfuma.Services
                         // Draw a dot on the swing point to indicate it's inside a key level
                         DrawInsideKeyLevelDot(bearishSwingPoint);
                         
-                        _logger?.Invoke($"Bullish HTF FVG quadrants swept by bearish swing at {bearishSwingPoint.Price:F5}. Swept {sweptQuadrants.Count} quadrants. Marked swing as InsideKeyLevel.");
+                        // Mark swing point as inside HTF FVG key level
                         
                         // Check if all quadrants are swept (HTF FVG becomes inactive)
                         if (!htfFvg.IsActive)
                         {
                             // Remove the entire HTF FVG from chart (rectangle, quadrants, label)
                             RemoveHtfFvgFromChart(htfFvg);
-                            _logger?.Invoke($"Bullish HTF FVG at {htfFvg.High:F5}-{htfFvg.Low:F5} is now inactive - removed from chart");
+                            // HTF FVG now inactive and removed from chart
                         }
                     }
                 }
@@ -287,7 +287,7 @@ namespace Pfuma.Services
                 _chart.RemoveObject($"{patternId}_Q50");
                 _chart.RemoveObject($"{patternId}_Q75");
                 
-                _logger?.Invoke($"Removed HTF FVG from chart: {patternId}");
+                // HTF FVG removed from chart
             }
             catch (Exception ex)
             {
@@ -342,10 +342,10 @@ namespace Pfuma.Services
                         if (!orderBlock.IsExtended)
                         {
                             RemoveKeyLevelFromChart(orderBlock);
-                            _logger?.Invoke($"Removed non-extended bearish order block from chart after sweep");
+                            // Non-extended order block removed
                         }
 
-                        _logger?.Invoke($"Bearish Order Block liquidity swept by bullish swing at {swingPointPrice:F5}. OB High: {orderBlock.High:F5}");
+                        // Order block liquidity swept
                     }
                 }
             }
@@ -402,10 +402,10 @@ namespace Pfuma.Services
                         if (!orderBlock.IsExtended)
                         {
                             RemoveKeyLevelFromChart(orderBlock);
-                            _logger?.Invoke($"Removed non-extended bullish order block from chart after sweep");
+                            // Non-extended order block removed
                         }
 
-                        _logger?.Invoke($"Bullish Order Block liquidity swept by bearish swing at {swingPointPrice:F5}. OB Low: {orderBlock.Low:F5}");
+                        // Order block liquidity swept
                     }
                 }
             }
@@ -462,10 +462,10 @@ namespace Pfuma.Services
                         if (!cisd.IsExtended)
                         {
                             RemoveCisdFromChart(cisd);
-                            _logger?.Invoke($"Removed non-extended bearish CISD from chart after sweep");
+                            // Non-extended CISD removed
                         }
 
-                        _logger?.Invoke($"Bearish CISD liquidity swept by bullish swing at {swingPointPrice:F5}. CISD High: {cisd.High:F5}");
+                        // CISD liquidity swept
                     }
                 }
             }
@@ -522,10 +522,10 @@ namespace Pfuma.Services
                         if (!cisd.IsExtended)
                         {
                             RemoveCisdFromChart(cisd);
-                            _logger?.Invoke($"Removed non-extended bullish CISD from chart after sweep");
+                            // Non-extended CISD removed
                         }
 
-                        _logger?.Invoke($"Bullish CISD liquidity swept by bearish swing at {swingPointPrice:F5}. CISD Low: {cisd.Low:F5}");
+                        // CISD liquidity swept
                     }
                 }
             }
@@ -567,7 +567,7 @@ namespace Pfuma.Services
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bullishSwingPoint);
                         
-                        _logger?.Invoke($"Session/Daily high {sessionDailyHigh.LiquidityName} at {sessionDailyHigh.Price:F5} swept by bullish swing at {bullishSwingPoint.Price:F5}");
+                        // Session/Daily high liquidity swept
                         
                         // Send telegram notification if enabled
                         if (_settings.Notifications.NotifyLiquiditySweep && _settings.Notifications.EnableTelegram)
@@ -615,7 +615,7 @@ namespace Pfuma.Services
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyLow, bearishSwingPoint);
                         
-                        _logger?.Invoke($"Session/Daily low {sessionDailyLow.LiquidityName} at {sessionDailyLow.Price:F5} swept by bearish swing at {bearishSwingPoint.Price:F5}");
+                        // Session/Daily low liquidity swept
                         
                         // Send telegram notification if enabled
                         if (_settings.Notifications.NotifyLiquiditySweep && _settings.Notifications.EnableTelegram)
@@ -666,7 +666,7 @@ namespace Pfuma.Services
                     // Draw a dot on the swing point
                     DrawInsideKeyLevelDot(bullishSwingPoint);
 
-                    _logger?.Invoke($"Bullish swing point at {bullishSwingPoint.Price:F5} is inside most recent bearish order block (Index: {mostRecentOrderBlock.Index}, High: {mostRecentOrderBlock.High:F5}, Low: {mostRecentOrderBlock.Low:F5})");
+                    // Swing point is inside order block
                 }
             }
             catch (Exception ex)
@@ -710,7 +710,7 @@ namespace Pfuma.Services
                     // Draw a dot on the swing point
                     DrawInsideKeyLevelDot(bearishSwingPoint);
 
-                    _logger?.Invoke($"Bearish swing point at {bearishSwingPoint.Price:F5} is inside most recent bullish order block (Index: {mostRecentOrderBlock.Index}, High: {mostRecentOrderBlock.High:F5}, Low: {mostRecentOrderBlock.Low:F5})");
+                    // Swing point is inside order block
                 }
             }
             catch (Exception ex)
@@ -754,7 +754,7 @@ namespace Pfuma.Services
                     // Draw a dot on the swing point
                     DrawInsideKeyLevelDot(bullishSwingPoint);
 
-                    _logger?.Invoke($"Bullish swing point at {bullishSwingPoint.Price:F5} is inside most recent bearish CISD (Index: {mostRecentCisd.Index}, High: {mostRecentCisd.High:F5}, Low: {mostRecentCisd.Low:F5})");
+                    // Swing point is inside CISD
                 }
             }
             catch (Exception ex)
@@ -798,7 +798,7 @@ namespace Pfuma.Services
                     // Draw a dot on the swing point
                     DrawInsideKeyLevelDot(bearishSwingPoint);
 
-                    _logger?.Invoke($"Bearish swing point at {bearishSwingPoint.Price:F5} is inside most recent bullish CISD (Index: {mostRecentCisd.Index}, High: {mostRecentCisd.High:F5}, Low: {mostRecentCisd.Low:F5})");
+                    // Swing point is inside CISD
                 }
             }
             catch (Exception ex)
@@ -817,7 +817,7 @@ namespace Pfuma.Services
                 // Only extend key levels from order blocks if ShowOrderBlock is true
                 if (!_settings.Patterns.ShowOrderBlock)
                 {
-                    _logger?.Invoke($"Skipping order block extension - ShowOrderBlock is false");
+                    // Order block extension disabled in settings
                     return;
                 }
 
@@ -836,13 +836,13 @@ namespace Pfuma.Services
                 {
                     // Extend the HTF FVG to include the swing point's candle
                     ExtendHtfFvg(swingLow.SweptKeyLevel, swingLow);
-                    _logger?.Invoke($"Extended HTF FVG from bullish order block swing low at {swingLow.Price:F5}");
+                    // HTF FVG extended from order block
                 }
                 else
                 {
                     // Extend the regular key level to include the swing point's candle
                     ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
-                    _logger?.Invoke($"Extended key level from bullish order block swing low at {swingLow.Price:F5}");
+                    // Key level extended from order block
                 }
                 
                 // Send Telegram notification about order block formed inside key level
@@ -864,7 +864,7 @@ namespace Pfuma.Services
                 // Only extend key levels from order blocks if ShowOrderBlock is true
                 if (!_settings.Patterns.ShowOrderBlock)
                 {
-                    _logger?.Invoke($"Skipping order block extension - ShowOrderBlock is false");
+                    // Order block extension disabled in settings
                     return;
                 }
 
@@ -883,13 +883,13 @@ namespace Pfuma.Services
                 {
                     // Extend the HTF FVG to include the swing point's candle
                     ExtendHtfFvg(swingHigh.SweptKeyLevel, swingHigh);
-                    _logger?.Invoke($"Extended HTF FVG from bearish order block swing high at {swingHigh.Price:F5}");
+                    // HTF FVG extended from order block
                 }
                 else
                 {
                     // Extend the regular key level to include the swing point's candle
                     ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
-                    _logger?.Invoke($"Extended key level from bearish order block swing high at {swingHigh.Price:F5}");
+                    // Key level extended from order block
                 }
                 
                 // Send Telegram notification about order block formed inside key level
@@ -922,13 +922,13 @@ namespace Pfuma.Services
                 {
                     // Extend the HTF FVG to include the CISD swing high candle
                     ExtendHtfFvg(swingHigh.SweptKeyLevel, swingHigh);
-                    _logger?.Invoke($"Extended HTF FVG from bearish CISD confirmed swing high at {swingHigh.Price:F5} (Index: {swingHigh.Index})");
+                    // HTF FVG extended from CISD
                 }
                 else
                 {
                     // Extend the regular key level to include the CISD swing high candle
                     ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
-                    _logger?.Invoke($"Extended key level from bearish CISD confirmed swing high at {swingHigh.Price:F5} (Index: {swingHigh.Index})");
+                    // Key level extended from CISD
                 }
                 
                 // Send Telegram notification about CISD confirmed inside key level
@@ -961,13 +961,13 @@ namespace Pfuma.Services
                 {
                     // Extend the HTF FVG to include the CISD swing low candle
                     ExtendHtfFvg(swingLow.SweptKeyLevel, swingLow);
-                    _logger?.Invoke($"Extended HTF FVG from bullish CISD confirmed swing low at {swingLow.Price:F5} (Index: {swingLow.Index})");
+                    // HTF FVG extended from CISD
                 }
                 else
                 {
                     // Extend the regular key level to include the CISD swing low candle
                     ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
-                    _logger?.Invoke($"Extended key level from bullish CISD confirmed swing low at {swingLow.Price:F5} (Index: {swingLow.Index})");
+                    // Key level extended from CISD
                 }
                 
                 // Send Telegram notification about CISD confirmed inside key level
@@ -1013,7 +1013,7 @@ namespace Pfuma.Services
                     // Redraw the HTF FVG with extended time range (rectangle and quadrants)
                     RedrawHtfFvg(htfFvg);
                     
-                    _logger?.Invoke($"Extended HTF FVG {htfFvg.Direction} from {htfFvg.Low:F5}-{htfFvg.High:F5} to include swing point at {swingPoint.Price:F5}");
+                    // HTF FVG time range extended
                 }
             }
             catch (Exception ex)
@@ -1035,7 +1035,7 @@ namespace Pfuma.Services
                 // Only extend regular CISDs if ShowCISD is true
                 if (keyLevel.LevelType == LevelType.CISD && keyLevel.TimeFrame == null && !_settings.Patterns.ShowCISD)
                 {
-                    _logger?.Invoke($"Skipping CISD extension - ShowCISD is false");
+                    // CISD extension disabled in settings
                     return;
                 }
 
@@ -1062,7 +1062,7 @@ namespace Pfuma.Services
                     // Redraw the rectangle with extended time range
                     RedrawKeyLevelRectangle(keyLevel);
                     
-                    _logger?.Invoke($"Extended key level {keyLevel.LevelType} from {keyLevel.Low:F5}-{keyLevel.High:F5} to include swing point at {swingPoint.Price:F5}");
+                    // Key level time range extended
                     
                     // TODO: Publish event that key level has been extended
                     // _eventAggregator.Publish(new KeyLevelExtendedEvent(keyLevel, swingPoint));
@@ -1097,7 +1097,7 @@ namespace Pfuma.Services
                     _chart.RemoveObject($"{patternIdForRemoval}_Q50");
                     _chart.RemoveObject($"{patternIdForRemoval}_Q75");
                     
-                    _logger?.Invoke($"Removed HTF FVG rectangle - ShowHtfFvg is false");
+                    // HTF FVG visualization disabled
                     return;
                 }
 
@@ -1198,7 +1198,7 @@ namespace Pfuma.Services
                     }
                 }
 
-                _logger?.Invoke($"Redrawn extended HTF FVG with quadrants from {startTime} to {endTime}");
+                // HTF FVG redrawn with updated time range
             }
             catch (Exception ex)
             {
@@ -1223,7 +1223,7 @@ namespace Pfuma.Services
                     string rectangleId = GenerateRectangleId(keyLevel);
                     _chart.RemoveObject(rectangleId);
                     _chart.RemoveObject($"{rectangleId}-midline");
-                    _logger?.Invoke($"Removed CISD rectangle - ShowCISD is false");
+                    // CISD visualization disabled
                     return;
                 }
 
@@ -1234,7 +1234,7 @@ namespace Pfuma.Services
                     string rectangleId = GenerateRectangleId(keyLevel);
                     _chart.RemoveObject(rectangleId);
                     _chart.RemoveObject($"{rectangleId}-midline");
-                    _logger?.Invoke($"Removed Order Block rectangle - ShowOrderBlock is false");
+                    // Order block visualization disabled
                     return;
                 }
 
@@ -1281,7 +1281,7 @@ namespace Pfuma.Services
                     LineStyle.Dots
                 );
 
-                _logger?.Invoke($"Redrawn extended rectangle with middle line for {keyLevel.LevelType} from {startTime} to {endTime}");
+                // Rectangle redrawn with updated time range
             }
             catch (Exception ex)
             {
@@ -1316,7 +1316,7 @@ namespace Pfuma.Services
                 // Only draw inside key level dots if ShowInsideKeyLevel is enabled
                 if (!_settings.Patterns.ShowInsideKeyLevel)
                 {
-                    _logger?.Invoke($"Skipping inside key level dot - ShowInsideKeyLevel is false");
+                    // Inside key level dots disabled
                     return;
                 }
 
@@ -1324,7 +1324,7 @@ namespace Pfuma.Services
                 if (!string.IsNullOrEmpty(_lastInsideKeyLevelDotId))
                 {
                     _chart.RemoveObject(_lastInsideKeyLevelDotId);
-                    _logger?.Invoke($"Removed previous inside key level dot: {_lastInsideKeyLevelDotId}");
+                    // Previous dot removed
                 }
                 
                 // Generate a unique ID for the new dot
@@ -1345,7 +1345,7 @@ namespace Pfuma.Services
                 // Store the ID for future removal
                 _lastInsideKeyLevelDotId = dotId;
                 
-                _logger?.Invoke($"Drew {swingPoint.Direction} inside key level dot at {swingPoint.Price:F5} (Index: {swingPoint.Index})");
+                // Inside key level dot drawn
             }
             catch (Exception ex)
             {
@@ -1393,7 +1393,7 @@ namespace Pfuma.Services
                     _chart.RemoveObject($"{extendedRectId}-midline");
                 }
                 
-                _logger?.Invoke($"Removed {keyLevel.LevelType} from chart (High: {keyLevel.High:F5}, Low: {keyLevel.Low:F5})");
+                // Key level removed from chart
             }
             catch (Exception ex)
             {
@@ -1419,7 +1419,7 @@ namespace Pfuma.Services
                 _chart.RemoveObject($"{patternId}-confirm");
                 _chart.RemoveObject($"{patternId}-tf-label");
                 
-                _logger?.Invoke($"Removed CISD from chart (High: {cisd.High:F5}, Low: {cisd.Low:F5})");
+                // CISD removed from chart
             }
             catch (Exception ex)
             {
@@ -1479,7 +1479,7 @@ namespace Pfuma.Services
 
                 string levelType = isHighSwept ? "high" : "low";
                 string swingType = sweepingPoint.Direction == Direction.Up ? "bullish" : "bearish";
-                _logger?.Invoke($"Updated liquidity sweep visual for {sweptPoint.LiquidityName} {levelType} swept by {swingType} swing at {sweepingPoint.Price:F5}. Color: Wheat");
+                // Liquidity sweep visual updated
             }
             catch (Exception ex)
             {

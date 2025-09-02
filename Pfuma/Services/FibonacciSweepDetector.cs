@@ -26,14 +26,12 @@ namespace Pfuma.Services
             
             // Subscribe to swing point detection events
             _eventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
-            _log?.Invoke("FibonacciSweepDetector initialized and subscribed to SwingPointDetectedEvent");
         }
         
         private void OnSwingPointDetected(SwingPointDetectedEvent swingEvent)
         {
             if (swingEvent?.SwingPoint == null || swingEvent.SwingPoint.Bar == null) return;
             
-            _log?.Invoke($"SwingPoint detected at index {swingEvent.SwingPoint.Index}, type: {swingEvent.SwingPoint.SwingType}");
             ProcessSwingPoint(swingEvent.SwingPoint, swingEvent.SwingPoint.Bar);
         }
         
@@ -103,8 +101,6 @@ namespace Pfuma.Services
             {
                 if (isSweep)
                 {
-                    _log?.Invoke($"Fibonacci level SWEPT at ratio {ratio:F3}, price {price:F5}, index {swingPoint.Index}");
-                    
                     // Mark as swept
                     swingPoint.SweptFib = true;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio));
@@ -118,8 +114,6 @@ namespace Pfuma.Services
                 }
                 else if (isBreak)
                 {
-                    _log?.Invoke($"Fibonacci level BROKEN at ratio {ratio:F3}, price {price:F5}, index {swingPoint.Index}");
-                    
                     // Mark as broken (remove from chart)
                     fibLevel.SweptLevelLineIds[ratio] = "BROKEN";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as processed to prevent reprocessing
@@ -172,8 +166,6 @@ namespace Pfuma.Services
             {
                 if (isSweep)
                 {
-                    _log?.Invoke($"Fibonacci level SWEPT at ratio {ratio:F3}, price {price:F5}, index {swingPoint.Index}");
-                    
                     // Mark as swept
                     swingPoint.SweptFib = true;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio));
@@ -187,8 +179,6 @@ namespace Pfuma.Services
                 }
                 else if (isBreak)
                 {
-                    _log?.Invoke($"Fibonacci level BROKEN at ratio {ratio:F3}, price {price:F5}, index {swingPoint.Index}");
-                    
                     // Mark as broken (remove from chart)
                     fibLevel.SweptLevelLineIds[ratio] = "BROKEN";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as processed to prevent reprocessing
@@ -211,7 +201,6 @@ namespace Pfuma.Services
                 IsBreak = isBreak
             };
             
-            _log?.Invoke($"Publishing FibonacciLevelSweptEvent: {(isSweep ? "SWEEP" : "BREAK")} ratio={ratio:F3}");
             _eventAggregator?.Publish(sweepEvent);
         }
     }

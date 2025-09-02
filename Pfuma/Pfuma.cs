@@ -219,12 +219,10 @@ namespace Pfuma
                 
                 _isInitialized = true;
                 
-                if (EnableLog)
-                    Print("Pfuma indicator initialized successfully");
             }
-            catch (Exception ex)
+            catch
             {
-                Print($"Error initializing Pfuma: {ex.Message}");
+                // Initialization error - indicator will not function
                 _isInitialized = false;
             }
         }
@@ -500,10 +498,9 @@ namespace Pfuma
                 }
                 
             }
-            catch (Exception ex)
+            catch
             {
-                if (EnableLog)
-                    Print($"Error in Calculate: {ex.Message}");
+                // Silently handle calculation errors
             }
         }
         
@@ -540,8 +537,6 @@ namespace Pfuma
                     // Publish activation event
                     _eventAggregator.Publish(new CisdActivatedEvent(cisd, previousBarIndex));
                     
-                    if (EnableLog)
-                        Print($"CISD activated: {cisd.Direction} at index {previousBarIndex}");
                 }
             }
         }
@@ -559,8 +554,6 @@ namespace Pfuma
                 _orderFlowDetector?.ProcessSwingPoint(sp);
             }
             
-            if (EnableLog)
-                Print($"Initialized detectors with {swingPoints.Count} swing points");
         }
         
         /// <summary>
@@ -781,12 +774,10 @@ namespace Pfuma
                 // Clear event aggregator
                 _eventAggregator?.Clear();
                 
-                if (EnableLog)
-                    Print("Pfuma indicator destroyed");
             }
-            catch (Exception ex)
+            catch
             {
-                Print($"Error in OnDestroy: {ex.Message}");
+                // Error during cleanup
             }
         }
         

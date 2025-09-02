@@ -88,11 +88,11 @@ namespace Pfuma.Services
                     _pendingHtfCandles[tf] = new List<Candle>();
                     _currentHtfPeriodStart[tf] = DateTime.MinValue;
                     
-                    _logger?.Invoke($"Added higher timeframe: {tf.GetShortName()}");
+                    // Higher timeframe added
                 }
                 else
                 {
-                    _logger?.Invoke($"Skipped invalid timeframe: {tfStr} (not a multiple of current timeframe {_timeFrame.GetShortName()})");
+                    // Invalid timeframe skipped
                 }
             }
         }
@@ -104,8 +104,7 @@ namespace Pfuma.Services
         {
             var periodicity = _timeFrame.GetPeriodicity(higherTimeframe);
             
-            // Log for debugging
-            _logger?.Invoke($"Checking HTF validity: {_timeFrame.GetShortName()} -> {higherTimeframe.GetShortName()}, Periodicity: {periodicity}");
+            // Validate timeframe periodicity
             
             // Must be a valid multiple (at least 2x for it to be "higher")
             // Changed from > 1 to >= 2 for clarity, though they're equivalent
@@ -253,7 +252,7 @@ namespace Pfuma.Services
                 _currentHtfPeriodStart[htf] = currentHtfPeriodStart;
                 _pendingHtfCandles[htf].Clear();
                 
-                _logger?.Invoke($"Started new {htf.GetShortName()} period at {currentHtfPeriodStart:yyyy-MM-dd HH:mm}");
+                // New HTF period started
             }
             
             // Add current LTF candle to pending HTF candles
@@ -297,7 +296,7 @@ namespace Pfuma.Services
                     DrawHighTimeframeCandlePoints(htfCandle, pendingCandles);
                 }
                 
-                _logger?.Invoke($"Finalized {htf.GetShortName()} candle for period {_currentHtfPeriodStart[htf]:yyyy-MM-dd HH:mm} using {pendingCandles.Count} LTF candles");
+                // HTF candle finalized
             }
             
             // Clear pending candles
@@ -387,7 +386,7 @@ namespace Pfuma.Services
                     DrawHighTimeframeCandlePoints(htfCandle, ltfCandles);
                 }
                 
-                _logger?.Invoke($"Created {htf.GetShortName()} candle from indices {startIndex}-{endIndex}");
+                // HTF candle created
             }
         }
         
@@ -532,7 +531,7 @@ namespace Pfuma.Services
                         }
                         _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                         
-                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bearish candle created both High {high:F5} and Low {low:F5} at index {index}");
+                        // Special case: Bearish candle created both high and low
                         return;
                     }
                     else if (isUpCandle)
@@ -596,7 +595,7 @@ namespace Pfuma.Services
                         }
                         _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                         
-                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bullish candle moved Low to {low:F5} and created High {high:F5} at index {index}");
+                        // Special case: Bullish candle moved low and created high
                         return;
                     }
                 }
@@ -663,7 +662,7 @@ namespace Pfuma.Services
                         }
                         _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                         
-                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bullish candle created both Low {low:F5} and High {high:F5} at index {index}");
+                        // Special case: Bullish candle created both low and high
                         return;
                     }
                     else if (isDownCandle)
@@ -727,7 +726,7 @@ namespace Pfuma.Services
                         }
                         _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                         
-                        _logger?.Invoke($"{timeframe.GetShortName()} Special case: Bearish candle moved High to {high:F5} and created Low {low:F5} at index {index}");
+                        // Special case: Bearish candle moved high and created low
                         return;
                     }
                 }
@@ -765,7 +764,7 @@ namespace Pfuma.Services
                     // Publish HTF swing point event for order flow detection
                     _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                     
-                    _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
+                    // HTF swing high detected
                     return;
                 }
             }
@@ -811,7 +810,7 @@ namespace Pfuma.Services
                     // Publish HTF swing point event for order flow detection
                     _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                     
-                    _logger?.Invoke($"{timeframe.GetShortName()} Swing High updated at index {index}, price {high:F5}");
+                    // HTF swing high updated
                     return;
                 }
                 
@@ -845,7 +844,7 @@ namespace Pfuma.Services
                     // Publish HTF swing point event for order flow detection
                     _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                     
-                    _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
+                    // HTF swing low detected
                     return;
                 }
             }
@@ -882,7 +881,7 @@ namespace Pfuma.Services
                     // Publish HTF swing point event for order flow detection
                     _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                     
-                    _logger?.Invoke($"{timeframe.GetShortName()} Swing Low detected at index {index}, price {low:F5}");
+                    // HTF swing low detected
                     return;
                 }
             }
@@ -928,7 +927,7 @@ namespace Pfuma.Services
                     // Publish HTF swing point event for order flow detection
                     _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(lowSwingPoint, timeframe));
                     
-                    _logger?.Invoke($"{timeframe.GetShortName()} Swing Low updated at index {index}, price {low:F5}");
+                    // HTF swing low updated
                     return;
                 }
                 
@@ -962,7 +961,7 @@ namespace Pfuma.Services
                     // Publish HTF swing point event for order flow detection
                     _eventAggregator?.Publish(new HtfSwingPointDetectedEvent(highSwingPoint, timeframe));
                     
-                    _logger?.Invoke($"{timeframe.GetShortName()} Swing High detected at index {index}, price {high:F5}");
+                    // HTF swing high detected
                     return;
                 }
             }
