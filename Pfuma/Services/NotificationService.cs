@@ -76,6 +76,73 @@ namespace Pfuma.Services
 
             SendNotification(message);
         }
+        
+        /// <summary>
+        /// Send a notification when session or daily levels are swept
+        /// </summary>
+        public void NotifyLiquiditySweep(SwingPoint liquidityLevel, SwingPoint sweepingSwingPoint)
+        {
+            // Determine the type of liquidity swept
+            string liquidityType = "";
+            string emoji = "";
+            
+            switch (liquidityLevel.LiquidityName)
+            {
+                case LiquidityName.PDH:
+                    liquidityType = "Previous Daily High (PDH)";
+                    emoji = "📈";
+                    break;
+                case LiquidityName.PDL:
+                    liquidityType = "Previous Daily Low (PDL)";
+                    emoji = "📉";
+                    break;
+                case LiquidityName.AH:
+                    liquidityType = "Asia Session High";
+                    emoji = "🌏";
+                    break;
+                case LiquidityName.AL:
+                    liquidityType = "Asia Session Low";
+                    emoji = "🌏";
+                    break;
+                case LiquidityName.LH:
+                    liquidityType = "London Session High";
+                    emoji = "🏴󐁧󐁢󐁥󐁮󐁧󐁿";
+                    break;
+                case LiquidityName.LL:
+                    liquidityType = "London Session Low";
+                    emoji = "🏴󐁧󐁢󐁥󐁮󐁧󐁿";
+                    break;
+                case LiquidityName.NYAMH:
+                    liquidityType = "New York AM High";
+                    emoji = "🗽";
+                    break;
+                case LiquidityName.NYAML:
+                    liquidityType = "New York AM Low";
+                    emoji = "🗽";
+                    break;
+                case LiquidityName.NYPMH:
+                    liquidityType = "New York PM High";
+                    emoji = "🌃";
+                    break;
+                case LiquidityName.NYPML:
+                    liquidityType = "New York PM Low";
+                    emoji = "🌃";
+                    break;
+                default:
+                    liquidityType = liquidityLevel.LiquidityName.ToString();
+                    emoji = "💧";
+                    break;
+            }
+            
+            string direction = sweepingSwingPoint.Direction == Direction.Up ? "Bullish" : "Bearish";
+            string message = $"{emoji} LIQUIDITY SWEEP!\n" +
+                           $"Symbol: {_symbol}\n" +
+                           $"Level: {liquidityType} at {liquidityLevel.Price:F5}\n" +
+                           $"Swept by: {direction} swing at {sweepingSwingPoint.Price:F5}\n" +
+                           $"Time: {DateTime.UtcNow.AddHours(_utcOffset):yyyy-MM-dd HH:mm:ss}";
+            
+            SendNotification(message);
+        }
 
 
         /// <summary>

@@ -568,6 +568,12 @@ namespace Pfuma.Services
                         HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bullishSwingPoint);
                         
                         _logger?.Invoke($"Session/Daily high {sessionDailyHigh.LiquidityName} at {sessionDailyHigh.Price:F5} swept by bullish swing at {bullishSwingPoint.Price:F5}");
+                        
+                        // Send telegram notification if enabled
+                        if (_settings.Notifications.NotifyLiquiditySweep && _settings.Notifications.EnableTelegram)
+                        {
+                            _notificationService.NotifyLiquiditySweep(sessionDailyHigh, bullishSwingPoint);
+                        }
                     }
                 }
             }
@@ -610,6 +616,12 @@ namespace Pfuma.Services
                         HandleLiquiditySweepVisualUpdate(sessionDailyLow, bearishSwingPoint);
                         
                         _logger?.Invoke($"Session/Daily low {sessionDailyLow.LiquidityName} at {sessionDailyLow.Price:F5} swept by bearish swing at {bearishSwingPoint.Price:F5}");
+                        
+                        // Send telegram notification if enabled
+                        if (_settings.Notifications.NotifyLiquiditySweep && _settings.Notifications.EnableTelegram)
+                        {
+                            _notificationService.NotifyLiquiditySweep(sessionDailyLow, bearishSwingPoint);
+                        }
                     }
                 }
             }

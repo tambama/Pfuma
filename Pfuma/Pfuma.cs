@@ -85,6 +85,9 @@ namespace Pfuma
         [Parameter("Enable Telegram", DefaultValue = false, Group = "Notifications")]
         public bool EnableTelegram { get; set; }
         
+        [Parameter("Notify Liquidity Sweep", DefaultValue = false, Group = "Notifications")]
+        public bool NotifyLiquiditySweep { get; set; }
+        
         // Timeframe Visualization
         [Parameter("See Timeframe", DefaultValue = "", Group = "Visualization")]
         public string SeeTimeframe { get; set; }
@@ -251,7 +254,8 @@ namespace Pfuma
                 Notifications = new NotificationSettings
                 {
                     EnableLog = EnableLog,
-                    EnableTelegram = EnableTelegram
+                    EnableTelegram = EnableTelegram,
+                    NotifyLiquiditySweep = NotifyLiquiditySweep
                 },
                 Visualization = new VisualizationSettings
                 {
