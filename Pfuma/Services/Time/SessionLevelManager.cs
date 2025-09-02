@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using cAlgo.API;
 using Pfuma.Detectors;
 using Pfuma.Models;
@@ -249,29 +250,36 @@ public class SessionLevelManager : ISessionLevelManager
     {
         if (_swingPointDetector == null) return;
         
-        var existingPoint = _swingPointDetector.GetSwingPointAtIndex(index);
+        // Check if there's already a swing point at this index with the same direction
+        var existingPointsAtIndex = _swingPointDetector.GetSwingPointsAtIndex(index);
+        var existingPointWithSameDirection = existingPointsAtIndex?.FirstOrDefault(sp => sp.Direction == direction);
         
-        if (existingPoint != null)
+        if (existingPointWithSameDirection != null)
         {
             // Don't override daily levels with session levels
-            if (IsDailyLevelType(existingPoint.LiquidityType))
+            if (IsDailyLevelType(existingPointWithSameDirection.LiquidityType))
             {
                 // Daily level already exists at this index, don't replace it with session level
                 return;
             }
             
             if ((liquidityType == LiquidityType.PDH || liquidityType == LiquidityType.PDL) &&
-                existingPoint.LiquidityType != LiquidityType.PDH &&
-                existingPoint.LiquidityType != LiquidityType.PDL)
+                existingPointWithSameDirection.LiquidityType != LiquidityType.PDH &&
+                existingPointWithSameDirection.LiquidityType != LiquidityType.PDL)
             {
                 RemoveExistingSessionLabels(time, price);
             }
             
-            existingPoint.LiquidityType = liquidityType;
-            existingPoint.LiquidityName = liquidityName;
+            existingPointWithSameDirection.LiquidityType = liquidityType;
+            existingPointWithSameDirection.LiquidityName = liquidityName;
+            
+            // Ensure the price matches the session high/low, not the existing swing point price
+            // This is crucial when a candle has both swing high and swing low
+            existingPointWithSameDirection.Price = price;
         }
         else
         {
+            // Create new swing point (either no existing point, or existing point has different direction)
             var swingPoint = new SwingPoint(
                 index,
                 price,
