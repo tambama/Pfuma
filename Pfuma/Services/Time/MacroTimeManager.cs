@@ -74,6 +74,7 @@ namespace Pfuma.Services.Time
         {
             return new List<TimeRange>
             {
+                new TimeRange(new TimeSpan(0, 50, 0), new TimeSpan(1, 10, 0)),
                 new TimeRange(new TimeSpan(1, 50, 0), new TimeSpan(2, 10, 0)),
                 new TimeRange(new TimeSpan(2, 50, 0), new TimeSpan(3, 10, 0)),
                 new TimeRange(new TimeSpan(3, 50, 0), new TimeSpan(4, 10, 0)),
@@ -88,7 +89,13 @@ namespace Pfuma.Services.Time
                 new TimeRange(new TimeSpan(12, 50, 0), new TimeSpan(13, 10, 0)),
                 new TimeRange(new TimeSpan(13, 50, 0), new TimeSpan(14, 10, 0)),
                 new TimeRange(new TimeSpan(14, 50, 0), new TimeSpan(15, 10, 0)),
-                new TimeRange(new TimeSpan(15, 45, 0), new TimeSpan(16, 00, 0))
+                new TimeRange(new TimeSpan(15, 45, 0), new TimeSpan(16, 00, 0)),
+                new TimeRange(new TimeSpan(18, 50, 0), new TimeSpan(19, 10, 0)),
+                new TimeRange(new TimeSpan(19, 50, 0), new TimeSpan(20, 10, 0)),
+                new TimeRange(new TimeSpan(20, 50, 0), new TimeSpan(21, 10, 0)),
+                new TimeRange(new TimeSpan(21, 50, 0), new TimeSpan(22, 10, 0)),
+                new TimeRange(new TimeSpan(22, 50, 0), new TimeSpan(23, 10, 0)),
+                new TimeRange(new TimeSpan(23, 50, 0), new TimeSpan(0, 10, 0))
             };
         }
     }

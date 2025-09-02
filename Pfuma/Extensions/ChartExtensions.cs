@@ -43,6 +43,41 @@ namespace Pfuma.Extensions
             text.HorizontalAlignment = labelOnRight ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         }
     
+        public static void DrawStraightLine(this Chart chart, string id, int startIndex, double startPrice, int endIndex, double endPrice, string label = null, LineStyle lineStyle = LineStyle.Solid, Color color = null, bool hasLabel = false, bool removeExisting = false, bool extended = false, bool editable = false, bool labelOnRight = false)
+        {
+            color ??= Color.Wheat;
+
+            if (removeExisting)
+            {
+                chart.RemoveObject(id);
+            }
+        
+            var line = chart.DrawTrendLine(id, startIndex, startPrice, endIndex, endPrice, color, 1, lineStyle);
+        
+            if (extended)
+            {
+                line.ExtendToInfinity = true;
+            }
+
+            if (editable)
+            {
+                line.IsInteractive = true;
+            }
+
+            if (!hasLabel) return;
+        
+            chart.RemoveObject($"{id}-label");
+    
+            // Position the text either at the start or end of the line based on labelOnRight parameter
+            int textTime = labelOnRight ? endIndex : startIndex;
+            double textPrice = labelOnRight ? endPrice : startPrice;
+    
+            var text = chart.DrawText($"{id}-label", label, textTime, textPrice, color);
+    
+            // Set horizontal alignment based on position
+            text.HorizontalAlignment = labelOnRight ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        }
+
         public static void DrawCycle(this Chart chart, List<TimeRange> cycles, DateTime time)
         {
             var cycle = cycles.FirstOrDefault(c => c.StartTime == time.TimeOfDay);

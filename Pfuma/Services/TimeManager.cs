@@ -1,5 +1,6 @@
 using System;
 using cAlgo.API;
+using Pfuma.Core.Interfaces;
 using Pfuma.Detectors;
 using Pfuma.Services.Time;
 
@@ -13,6 +14,7 @@ namespace Pfuma.Services
         private readonly IMacroTimeManager _macroTimeManager;
         private readonly IDailyLevelManager _dailyLevelManager;
         private readonly ISessionLevelManager _sessionLevelManager;
+        private readonly ITimeCycleManager _timeCycleManager;
         private readonly int _utcOffset;
         private readonly bool _showDailyLevels;
         private readonly bool _showSessionLevels;
@@ -22,6 +24,7 @@ namespace Pfuma.Services
             CandleManager candleManager,
             SwingPointDetector swingPointDetector,
             NotificationService notificationService,
+            IEventAggregator eventAggregator,
             bool showMacros = true,
             bool showDailyLevels = true,
             bool showSessionLevels = true,
@@ -47,6 +50,10 @@ namespace Pfuma.Services
                 swingPointDetector,
                 chart,
                 showSessionLevels);
+                
+            _timeCycleManager = new TimeCycleManager(
+                candleManager,
+                eventAggregator);
         }
 
         /// <summary>
@@ -72,6 +79,9 @@ namespace Pfuma.Services
                 {
                     _sessionLevelManager?.ProcessBar(index, marketTime);
                 }
+                
+                // Process time cycles
+                _timeCycleManager?.ProcessBar(index, marketTime);
             }
             catch (Exception)
             {

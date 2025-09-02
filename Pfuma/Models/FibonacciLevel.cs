@@ -5,7 +5,7 @@ namespace Pfuma.Models;
 
 public class FibonacciLevel
 {
-    public FibonacciLevel(int startIndex, int endIndex, double startPrice, double endPrice, DateTime startTime, DateTime endTime, SessionType sessionType)
+    public FibonacciLevel(int startIndex, int endIndex, double startPrice, double endPrice, DateTime startTime, DateTime endTime)
     {
         // For drawing: always left to right (chronological)
         StartIndex = startIndex;
@@ -19,8 +19,6 @@ public class FibonacciLevel
         
         // If start price is higher than end price, we're in a downtrend
         Direction = startPrice > endPrice ? Direction.Down : Direction.Up;
-        
-        SessionType = sessionType;
         
         // Calculate all the levels based on low-to-high range
         CalculateLevels();
@@ -46,7 +44,7 @@ public class FibonacciLevel
     // Tracked ratios for detecting sweeps - ensure they are in ascending order for visualization
     public static readonly double[] TrackedRatios = new double[] 
     { 
-        -2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.114, 0.886, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0 
+        -4.0,-3.5,-2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.5, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0 
     };
     
     // Swept levels tracking

@@ -75,6 +75,9 @@ namespace Pfuma
         [Parameter("Show Session Levels", DefaultValue = true, Group = "Time")]
         public bool ShowSessionLevels { get; set; }
         
+        [Parameter("Show Fibonacci Levels", DefaultValue = false, Group = "Time")]
+        public bool ShowFibonacciLevels { get; set; }
+        
         [Parameter("UTC Offset", DefaultValue = -4, Group = "Time")]
         public int UtcOffset { get; set; }
         
@@ -152,6 +155,9 @@ namespace Pfuma
         private SwingPointManager _swingPointManager;
         private CandleManager _candleManager;
         private LiquidityManager _liquidityManager;
+        private IFibonacciService _fibonacciService;
+        private FibonacciVisualizer _fibonacciVisualizer;
+        private IFibonacciSweepDetector _fibonacciSweepDetector;
         
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
@@ -316,11 +322,16 @@ namespace Pfuma
             
             // Initialize time manager
             _timeManager = new TimeManager(
-                Chart, _candleManager, _swingPointDetector, _notificationService,
+                Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
             
             // Initialize liquidity manager
             _liquidityManager = new LiquidityManager(Chart, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
+            
+            // Initialize Fibonacci service and visualizer
+            _fibonacciService = new FibonacciService(_eventAggregator);
+            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowFibonacciLevels, EnableLog ? Print : null);
+            _fibonacciSweepDetector = new FibonacciSweepDetector(_fibonacciService, _eventAggregator, EnableLog ? Print : null);
             
         }
         
@@ -420,6 +431,15 @@ namespace Pfuma
                     _timeManager?.ProcessBar(index, Bars[index].OpenTime);
                 }
                 
+                // Update and draw Fibonacci levels if enabled
+                if (_fibonacciVisualizer != null)
+                {
+                    _fibonacciVisualizer.ShowFibonacciLevels = ShowFibonacciLevels;
+                    if (ShowFibonacciLevels)
+                    {
+                        _fibonacciVisualizer.DrawFibonacciLevels();
+                    }
+                }
                 
                 // 2. Check CISD activation on previous bar
                 if (ShowCISD && _cisdDetector != null && index > 1)
@@ -752,6 +772,7 @@ namespace Pfuma
                 _breakerBlockVisualizer?.Clear();
                 _cisdVisualizer?.Clear();
                 _unicornVisualizer?.Clear();
+                _fibonacciVisualizer?.Dispose();
                 
                 // Clear repositories
                 _swingPointRepository?.Clear();

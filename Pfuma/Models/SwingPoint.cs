@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using cAlgo.API;
 
 namespace Pfuma.Models;
@@ -64,6 +65,10 @@ public class SwingPoint
     
     // Special liquidity tracking  
     public bool IsSpecialLiquidity { get; set; }
+    
+    // Fibonacci sweep tracking
+    public bool SweptFib { get; set; }
+    public List<(int Index, double Price, double Ratio)> SweptFibLevels { get; set; } = new List<(int, double, double)>();
     
     // Score
     public int Score
