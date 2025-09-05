@@ -76,14 +76,15 @@ namespace Pfuma.Services
                 endTime = cycle.LowTime.Value;
             }
             
-            // Create Fibonacci level
+            // Create Fibonacci level for Cycle
             var fibLevel = new FibonacciLevel(
                 startIndex,
                 endIndex,
                 startPrice,
                 endPrice,
                 startTime,
-                endTime
+                endTime,
+                FibType.Cycle
             );
             
             // Generate unique ID for this Fibonacci level

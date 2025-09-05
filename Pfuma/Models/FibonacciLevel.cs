@@ -3,15 +3,35 @@ using System.Collections.Generic;
 
 namespace Pfuma.Models;
 
+public enum FibType
+{
+    Cycle,
+    CISD
+}
+
 public class FibonacciLevel
 {
-    public FibonacciLevel(int startIndex, int endIndex, double startPrice, double endPrice, DateTime startTime, DateTime endTime)
+    public FibonacciLevel(int startIndex, int endIndex, double startPrice, double endPrice, DateTime startTime, DateTime endTime, FibType fibType = FibType.Cycle)
     {
         // For drawing: always left to right (chronological)
         StartIndex = startIndex;
         EndIndex = endIndex;
         StartTime = startTime;
         EndTime = endTime;
+        FibType = fibType;
+        
+        // Set tracked ratios based on FibType
+        if (fibType == FibType.Cycle)
+        {
+            TrackedRatios = new double[] 
+            { 
+                -4.0, -3.5, -2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.5, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0 
+            };
+        }
+        else if (fibType == FibType.CISD)
+        {
+            TrackedRatios = new double[] { -2.0, -4.0 };
+        }
         
         // For calculation: always low to high (price order)
         LowPrice = Math.Min(startPrice, endPrice);
@@ -37,15 +57,13 @@ public class FibonacciLevel
     public SessionType SessionType { get; set; } // Session this level belongs to
     public Direction Direction { get; set; } // Direction (up or down)
     public string FibonacciId { get; set; } // ID of the Fibonacci object on the chart
+    public FibType FibType { get; set; } // Type of Fibonacci level (Cycle or CISD)
 
     // Levels dictionary - key is the ratio, value is the calculated price level
     public Dictionary<double, double> Levels { get; private set; } = new Dictionary<double, double>();
     
-    // Tracked ratios for detecting sweeps - ensure they are in ascending order for visualization
-    public static readonly double[] TrackedRatios = new double[] 
-    { 
-        -4.0,-3.5,-2.0, -1.5, -1.0, -0.5, -0.25, 0.0, 0.5, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0 
-    };
+    // Tracked ratios for detecting sweeps - now instance property set in constructor based on FibType
+    public double[] TrackedRatios { get; private set; }
     
     // Swept levels tracking
     public Dictionary<double, bool> SweptLevels { get; private set; } = new Dictionary<double, bool>();
