@@ -96,6 +96,11 @@ namespace Pfuma.Detectors
                 }
                 else if (currentSet.Count > 0)
                 {
+                    // If this is the last candle and it's bearish, add it to the current set
+                    if (i == endIndex)
+                    {
+                        currentSet.Add(i);
+                    }
                     bullishSets.Add(new List<int>(currentSet));
                     currentSet.Clear();
                 }
@@ -122,7 +127,7 @@ namespace Pfuma.Detectors
             var cisdLevel = new Level(
                 LevelType.CISD,
                 CandleManager.GetCandle(firstBullishIndex).Open,
-                CandleManager.GetCandle(lastBullishIndex).Close,
+                CandleManager.GetCandle(lastBullishIndex).High,
                 CandleManager.GetCandle(firstBullishIndex).Time,
                 CandleManager.GetCandle(lastBullishIndex).Time,
                 null,
@@ -155,6 +160,11 @@ namespace Pfuma.Detectors
                 }
                 else if (currentSet.Count > 0)
                 {
+                    // If this is the last candle and it's bullish, add it to the current set
+                    if (i == endIndex)
+                    {
+                        currentSet.Add(i);
+                    }
                     bearishSets.Add(new List<int>(currentSet));
                     currentSet.Clear();
                 }
@@ -180,7 +190,7 @@ namespace Pfuma.Detectors
             // Create a BULLISH CISD level
             var cisdLevel = new Level(
                 LevelType.CISD,
-                CandleManager.GetCandle(lastBearishIndex).Close,
+                CandleManager.GetCandle(lastBearishIndex).Low,
                 CandleManager.GetCandle(firstBearishIndex).Open,
                 CandleManager.GetCandle(lastBearishIndex).Time,
                 CandleManager.GetCandle(firstBearishIndex).Time,

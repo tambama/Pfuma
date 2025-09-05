@@ -730,11 +730,12 @@ namespace Pfuma.Services
                 if (!_settings.Patterns.ShowInsideKeyLevel)
                     return;
 
-                // Get all active bearish CISDs that contain this swing point
+                // Get all confirmed and active bearish CISDs that contain this swing point
                 var containingCisds = _levelRepository
                     .Find(level => 
                         level.LevelType == LevelType.CISD &&
                         level.Direction == Direction.Down &&
+                        level.IsConfirmed &&  // Only consider confirmed CISDs
                         level.IsActive &&
                         level.High > bullishSwingPoint.Price &&  // CISD high above swing point
                         level.Low < bullishSwingPoint.Price)     // CISD low below swing point
@@ -774,11 +775,12 @@ namespace Pfuma.Services
                 if (!_settings.Patterns.ShowInsideKeyLevel)
                     return;
 
-                // Get all active bullish CISDs that contain this swing point
+                // Get all confirmed and active bullish CISDs that contain this swing point
                 var containingCisds = _levelRepository
                     .Find(level => 
                         level.LevelType == LevelType.CISD &&
                         level.Direction == Direction.Up &&
+                        level.IsConfirmed &&  // Only consider confirmed CISDs
                         level.IsActive &&
                         level.Low < bearishSwingPoint.Price &&   // CISD low below swing point
                         level.High > bearishSwingPoint.Price)    // CISD high above swing point
