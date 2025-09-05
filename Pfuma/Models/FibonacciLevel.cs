@@ -78,25 +78,50 @@ public class FibonacciLevel
         // Calculate levels in ascending order by ratio
         foreach (double ratio in TrackedRatios)
         {
-            double level;
+            if (FibType == FibType.Cycle)
+            {
+                double level;
             
-            // Base calculation ensures price levels are in same order as ratios
-            level = LowPrice + (ratio * range);
+                // Base calculation ensures price levels are in same order as ratios
+                level = LowPrice + (ratio * range);
             
-            Levels[ratio] = level;
-            SweptLevels[ratio] = false;
+                Levels[ratio] = level;
+                SweptLevels[ratio] = false;
+            }
+            else
+            {
+                double level;
+                level = Direction == Direction.Up ? HighPrice - (ratio * range) : LowPrice + (ratio * range);
+                Levels[ratio] = level;
+                SweptLevels[ratio] = false;
+            }
         }
     }
     
     // Check if all levels for this Fibonacci retracement have been swept
     public bool AreAllLevelsSwept()
     {
-        foreach (double ratio in TrackedRatios)
+        if (FibType == FibType.CISD)
         {
-            if (!SweptLevels.ContainsKey(ratio) || !SweptLevels[ratio])
-                return false;
+            // For CISD levels, only need to check if the 0.0 level (LowPrice for bullish, HighPrice for bearish) is swept
+            // Bullish CISD: When LowPrice (0.0 ratio) is swept, the entire level is considered fully swept
+            // Bearish CISD: When HighPrice (0.0 ratio) is swept, the entire level is considered fully swept
+            if (SweptLevels.ContainsKey(0.0) && SweptLevels[0.0])
+            {
+                return true;
+            }
+            return false;
         }
-        return true;
+        else
+        {
+            // For Cycle levels, all ratios must be swept
+            foreach (double ratio in TrackedRatios)
+            {
+                if (!SweptLevels.ContainsKey(ratio) || !SweptLevels[ratio])
+                    return false;
+            }
+            return true;
+        }
     }
     
     // Get zone based on ratio

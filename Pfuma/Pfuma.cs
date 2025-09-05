@@ -75,10 +75,13 @@ namespace Pfuma
         [Parameter("Show Session Levels", DefaultValue = true, Group = "Time")]
         public bool ShowSessionLevels { get; set; }
         
-        [Parameter("Show Fibonacci Levels", DefaultValue = false, Group = "Time")]
-        public bool ShowFibonacciLevels { get; set; }
+        [Parameter("Show Cycle Fib Levels", DefaultValue = false, Group = "Fibonacci")]
+        public bool ShowCycleFibLevels { get; set; }
         
-        [Parameter("Show Extended Fib", DefaultValue = true, Group = "Time")]
+        [Parameter("Show CISD Fib Levels", DefaultValue = false, Group = "Fibonacci")]
+        public bool ShowCISDFibLevels { get; set; }
+        
+        [Parameter("Show Extended Fib", DefaultValue = true, Group = "Fibonacci")]
         public bool ShowExtendedFib { get; set; }
         
         [Parameter("UTC Offset", DefaultValue = -4, Group = "Time")]
@@ -331,7 +334,7 @@ namespace Pfuma
             
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
-            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowFibonacciLevels, ShowExtendedFib, EnableLog ? Print : null);
+            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowCycleFibLevels, ShowCISDFibLevels, ShowExtendedFib, EnableLog ? Print : null);
             _fibonacciSweepDetector = new FibonacciSweepDetector(_fibonacciService, _eventAggregator, EnableLog ? Print : null);
             
         }
@@ -360,7 +363,7 @@ namespace Pfuma
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
             
             _cisdDetector = new CisdDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _fibonacciService, _fibonacciVisualizer, _settings, EnableLog ? Print : null);
             
             _unicornDetector = new UnicornDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
@@ -435,9 +438,10 @@ namespace Pfuma
                 // Update and draw Fibonacci levels if enabled
                 if (_fibonacciVisualizer != null)
                 {
-                    _fibonacciVisualizer.ShowFibonacciLevels = ShowFibonacciLevels;
+                    _fibonacciVisualizer.ShowCycleFibLevels = ShowCycleFibLevels;
+                    _fibonacciVisualizer.ShowCISDFibLevels = ShowCISDFibLevels;
                     _fibonacciVisualizer.ShowExtendedFib = ShowExtendedFib;
-                    if (ShowFibonacciLevels)
+                    if (ShowCycleFibLevels || ShowCISDFibLevels)
                     {
                         _fibonacciVisualizer.DrawFibonacciLevels();
                     }

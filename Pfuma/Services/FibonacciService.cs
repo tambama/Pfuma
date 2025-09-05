@@ -10,9 +10,12 @@ namespace Pfuma.Services
     public interface IFibonacciService
     {
         List<FibonacciLevel> GetFibonacciLevels();
+        List<FibonacciLevel> GetCisdFibonacciLevels();
         FibonacciLevel GetLatestLevel();
         FibonacciLevel RemoveOldestLevel();
+        void AddCisdFibonacciLevel(FibonacciLevel level);
         void ClearOldLevels(int maxLevels = 2);
+        void ClearOldCisdLevels(int maxLevels = 5);
         void CheckAndRemoveFullySweptLevels();
         event Action<FibonacciLevel> LevelRemoved;
         event Action<FibonacciLevel> LevelFullySwept;
@@ -22,7 +25,9 @@ namespace Pfuma.Services
     {
         private readonly IEventAggregator _eventAggregator;
         private readonly List<FibonacciLevel> _fibonacciLevels;
+        private readonly List<FibonacciLevel> _cisdFibonacciLevels;
         private const int MaxLevels = 2; // Only keep 2 levels at most
+        private const int MaxCisdLevels = 5; // Keep up to 5 CISD Fibonacci levels
         
         public event Action<FibonacciLevel> LevelRemoved;
         public event Action<FibonacciLevel> LevelFullySwept;
@@ -31,9 +36,13 @@ namespace Pfuma.Services
         {
             _eventAggregator = eventAggregator;
             _fibonacciLevels = new List<FibonacciLevel>();
+            _cisdFibonacciLevels = new List<FibonacciLevel>();
             
             // Subscribe to time cycle events
             _eventAggregator.Subscribe<TimeCycleDetectedEvent>(OnTimeCycleDetected);
+            
+            // Subscribe to swing point creation events for CISD level sweeping
+            _eventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
         }
         
         private void OnTimeCycleDetected(TimeCycleDetectedEvent cycleEvent)
@@ -106,9 +115,88 @@ namespace Pfuma.Services
             _fibonacciLevels.Add(fibLevel);
         }
         
+        private void OnSwingPointDetected(SwingPointDetectedEvent swingPointEvent)
+        {
+            if (swingPointEvent?.SwingPoint == null) return;
+            
+            var swingPoint = swingPointEvent.SwingPoint;
+            
+            // Check if this swing point sweeps any CISD Fibonacci levels
+            CheckCisdFibonacciSweep(swingPoint);
+        }
+        
+        private void CheckCisdFibonacciSweep(SwingPoint swingPoint)
+        {
+            var levelsToRemove = new List<FibonacciLevel>();
+            
+            foreach (var cisdLevel in _cisdFibonacciLevels)
+            {
+                bool isSwept = false;
+                
+                // Bearish swing point checks bullish CISD levels (sweeps LowPrice)
+                if (swingPoint.Direction == Direction.Down && cisdLevel.Direction == Direction.Up)
+                {
+                    // Check if bearish swing point breaks below the LowPrice of bullish CISD
+                    if (swingPoint.Price < cisdLevel.LowPrice)
+                    {
+                        // Mark the 0.0 level as swept
+                        cisdLevel.SweptLevels[0.0] = true;
+                        isSwept = true;
+                    }
+                }
+                // Bullish swing point checks bearish CISD levels (sweeps HighPrice)
+                else if (swingPoint.Direction == Direction.Up && cisdLevel.Direction == Direction.Down)
+                {
+                    // Check if bullish swing point breaks above the HighPrice of bearish CISD
+                    if (swingPoint.Price > cisdLevel.HighPrice)
+                    {
+                        // Mark the 0.0 level as swept
+                        cisdLevel.SweptLevels[0.0] = true;
+                        isSwept = true;
+                    }
+                }
+                
+                if (isSwept)
+                {
+                    levelsToRemove.Add(cisdLevel);
+                }
+            }
+            
+            // Remove swept levels and notify
+            foreach (var levelToRemove in levelsToRemove)
+            {
+                _cisdFibonacciLevels.Remove(levelToRemove);
+                LevelFullySwept?.Invoke(levelToRemove);
+            }
+        }
+        
         public List<FibonacciLevel> GetFibonacciLevels()
         {
             return new List<FibonacciLevel>(_fibonacciLevels);
+        }
+        
+        public List<FibonacciLevel> GetCisdFibonacciLevels()
+        {
+            return new List<FibonacciLevel>(_cisdFibonacciLevels);
+        }
+        
+        public void AddCisdFibonacciLevel(FibonacciLevel level)
+        {
+            if (level == null || level.FibType != FibType.CISD) return;
+            
+            // Check if we need to remove old CISD levels (keep only MaxCisdLevels)
+            if (_cisdFibonacciLevels.Count >= MaxCisdLevels)
+            {
+                // Remove the oldest CISD level
+                var oldestLevel = _cisdFibonacciLevels[0];
+                _cisdFibonacciLevels.RemoveAt(0);
+                
+                // Notify that a level was removed
+                LevelRemoved?.Invoke(oldestLevel);
+            }
+            
+            // Add the new CISD Fibonacci level
+            _cisdFibonacciLevels.Add(level);
         }
         
         public FibonacciLevel GetLatestLevel()
@@ -166,21 +254,49 @@ namespace Pfuma.Services
             }
         }
         
+        public void ClearOldCisdLevels(int maxLevels = 5)
+        {
+            while (_cisdFibonacciLevels.Count > maxLevels)
+            {
+                var oldestLevel = _cisdFibonacciLevels[0];
+                _cisdFibonacciLevels.RemoveAt(0);
+                LevelRemoved?.Invoke(oldestLevel);
+            }
+        }
+        
         public void CheckAndRemoveFullySweptLevels()
         {
-            var levelsToRemove = new List<FibonacciLevel>();
+            // Check and remove fully swept Cycle Fibonacci levels
+            var cycleLevelsToRemove = new List<FibonacciLevel>();
             
             foreach (var level in _fibonacciLevels)
             {
                 if (level.AreAllLevelsSwept())
                 {
-                    levelsToRemove.Add(level);
+                    cycleLevelsToRemove.Add(level);
                 }
             }
             
-            foreach (var levelToRemove in levelsToRemove)
+            foreach (var levelToRemove in cycleLevelsToRemove)
             {
                 _fibonacciLevels.Remove(levelToRemove);
+                LevelFullySwept?.Invoke(levelToRemove);
+            }
+            
+            // Check and remove fully swept CISD Fibonacci levels
+            var cisdLevelsToRemove = new List<FibonacciLevel>();
+            
+            foreach (var level in _cisdFibonacciLevels)
+            {
+                if (level.AreAllLevelsSwept())
+                {
+                    cisdLevelsToRemove.Add(level);
+                }
+            }
+            
+            foreach (var levelToRemove in cisdLevelsToRemove)
+            {
+                _cisdFibonacciLevels.Remove(levelToRemove);
                 LevelFullySwept?.Invoke(levelToRemove);
             }
         }

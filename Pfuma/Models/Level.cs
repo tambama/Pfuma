@@ -9,6 +9,7 @@ namespace Pfuma.Models
     {
         public Level(LevelType levelType, double low, double high, DateTime lowTime, DateTime highTime, DateTime? midTime = null, Direction direction = Direction.Up, int index = 0, int indexHigh = 0, int indexLow = 0, int indexMid = 0, Zone zone = Zone.Equilibrium, int score = 1, DateTime? stretchTo = null, bool isConfirmed = false, double? entry = 0)
         {
+            Id = Guid.NewGuid();
             LevelType = levelType;
             Low = low;
             High = high;
@@ -28,6 +29,7 @@ namespace Pfuma.Models
             SweptSwingPoints = new List<SwingPoint>();
         }
 
+        public Guid Id { get; private set; }
         public Zone Zone { get; set; }
         public LevelType LevelType { get; set; }
         public Direction Direction { get; set; }
@@ -53,6 +55,7 @@ namespace Pfuma.Models
         public int IndexOfConfirmingCandle { get; set; }
         public Level BreakerBlock { get; set; }
         public Level RejectionBlock { get; set; }
+        public Guid OrderFlowId { get; set; }
     
     
         // Properties for liquidity sweep tracking

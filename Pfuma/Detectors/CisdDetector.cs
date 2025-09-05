@@ -9,6 +9,8 @@ using Pfuma.Detectors.Base;
 using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Services;
+using Pfuma.Visualization;
+using FibonacciLevel = Pfuma.Models.FibonacciLevel;
 
 namespace Pfuma.Detectors
 {
@@ -18,6 +20,8 @@ namespace Pfuma.Detectors
     public class CisdDetector : BasePatternDetector<Level>
     {
         private readonly IVisualization<Level> _visualizer;
+        private readonly IFibonacciService _fibonacciService;
+        private readonly FibonacciVisualizer _fibonacciVisualizer;
         private readonly int _maxCisdsPerDirection;
         
         public CisdDetector(
@@ -26,11 +30,15 @@ namespace Pfuma.Detectors
             IEventAggregator eventAggregator,
             IRepository<Level> repository,
             IVisualization<Level> visualizer,
+            IFibonacciService fibonacciService,
+            FibonacciVisualizer fibonacciVisualizer,
             IndicatorSettings settings,
             Action<string> logger = null)
             : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
+            _fibonacciService = fibonacciService;
+            _fibonacciVisualizer = fibonacciVisualizer;
             _maxCisdsPerDirection = settings.Patterns.MaxCisdsPerDirection;
         }
         
@@ -137,6 +145,8 @@ namespace Pfuma.Detectors
                 firstBullishIndex
             );
             
+            cisdLevel.OrderFlowId = orderflow.Id;
+            
             // Set TimeFrame from candle
             cisdLevel.TimeFrame = CandleManager.GetCandle(firstBullishIndex).TimeFrame;
             
@@ -201,6 +211,8 @@ namespace Pfuma.Detectors
                 lastBearishIndex
             );
             
+            cisdLevel.OrderFlowId = orderflow.Id;
+            
             // Set TimeFrame from candle
             cisdLevel.TimeFrame = CandleManager.GetCandle(firstBearishIndex).TimeFrame;
             
@@ -247,6 +259,9 @@ namespace Pfuma.Detectors
                 {
                     cisd.IsConfirmed = true;
                     cisd.IndexOfConfirmingCandle = swingPoint.Index;
+                    
+                    // Create Fibonacci levels for the confirmed CISD
+                    CreateCisdFibonacciLevels(cisd);
                     
                     // Publish confirmation event
                     EventAggregator.Publish(new CisdConfirmedEvent(cisd, cisd.Direction));
@@ -299,6 +314,67 @@ namespace Pfuma.Detectors
                     // Update visualization
                     _visualizer?.Update(cisd);
                 }
+            }
+        }
+        
+        /// <summary>
+        /// Creates Fibonacci levels for a confirmed CISD based on its orderflow
+        /// </summary>
+        private void CreateCisdFibonacciLevels(Level cisd)
+        {
+            if (cisd == null || cisd.OrderFlowId == Guid.Empty)
+                return;
+            
+            // Find the orderflow that created this CISD
+            var orderFlow = Repository.Find(level => 
+                level.Id == cisd.OrderFlowId && 
+                level.LevelType == LevelType.Orderflow)
+                .FirstOrDefault();
+            
+            if (orderFlow == null)
+                return;
+            
+            FibonacciLevel fibLevel = null;
+            
+            if (cisd.Direction == Direction.Up) // Bullish CISD (bearish orderflow)
+            {
+                // For bullish CISD, the bearish orderflow goes from low to high
+                // StartIndex is the low, EndIndex is the high
+                fibLevel = new FibonacciLevel(
+                    orderFlow.IndexLow,  // Start at the low index
+                    orderFlow.IndexHigh, // End at the high index
+                    orderFlow.Low,       // Start price (low)
+                    orderFlow.High,      // End price (high)
+                    orderFlow.LowTime,   // Start time
+                    orderFlow.HighTime,  // End time
+                    FibType.CISD
+                );
+            }
+            else // Bearish CISD (bullish orderflow)
+            {
+                // For bearish CISD, the bullish orderflow goes from high to low
+                // StartIndex is the high, EndIndex is the low
+                fibLevel = new FibonacciLevel(
+                    orderFlow.IndexHigh, // Start at the high index
+                    orderFlow.IndexLow,  // End at the low index
+                    orderFlow.High,      // Start price (high)
+                    orderFlow.Low,       // End price (low)
+                    orderFlow.HighTime,  // Start time
+                    orderFlow.LowTime,   // End time
+                    FibType.CISD
+                );
+            }
+            
+            if (fibLevel != null)
+            {
+                // Generate unique ID for this CISD Fibonacci level
+                fibLevel.FibonacciId = $"cisd_fib_{cisd.Id}";
+                
+                // Add to the CISD Fibonacci levels collection
+                _fibonacciService?.AddCisdFibonacciLevel(fibLevel);
+                
+                // Draw the Fibonacci levels on the chart
+                // The visualizer will draw them when DrawFibonacciLevels is called
             }
         }
         
