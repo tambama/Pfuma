@@ -285,8 +285,8 @@ namespace Pfuma
             _notificationService = new NotificationService(
                 EnableLog, 
                 EnableTelegram, 
-                "5631623580", // chatId - empty for now
-                "7507336625:AAHM4oYlg_5XIjzzCNFCR_oyLu1Y69qkvns", // token - empty for now  
+                _settings.Notifications.TelegramChatId, 
+                _settings.Notifications.TelegramToken,  
                 Symbol.Name, 
                 _settings.Time.UtcOffset, 
                 EnableLog ? Print : null);
