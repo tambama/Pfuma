@@ -9,6 +9,7 @@ public class PatternDetectionSettings
         
     // FVG
     public bool ShowFVG { get; set; } = false;
+    public bool ShowGauntlet { get; set; } = false;
     public bool ShowHtfFvg { get; set; } = false;
         
     // CISD

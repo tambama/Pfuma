@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
 using Pfuma.Core.Events;
@@ -17,6 +18,8 @@ namespace Pfuma.Detectors
     public class FvgDetector : BasePatternDetector<Level>
     {
         private readonly IVisualization<Level> _visualizer;
+        private readonly List<Level> _gauntlets; // Track the 2 most recent FVGs
+        private bool _showGauntlet;
         
         public FvgDetector(
             Chart chart,
@@ -29,6 +32,8 @@ namespace Pfuma.Detectors
             : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
+            _showGauntlet = settings?.Patterns?.ShowGauntlet ?? false;
+            _gauntlets = new List<Level>();
         }
         
         protected override int GetMinimumBarsRequired()
@@ -40,37 +45,46 @@ namespace Pfuma.Detectors
         {
             var detectedFvgs = new List<Level>();
             
-            // Need at least 3 candles to detect a FVG
-            if (currentIndex < 2)
+            // Need at least 3 completed candles to detect a FVG (plus current forming candle)
+            if (currentIndex < 3)
                 return detectedFvgs;
             
-            // Get the three consecutive candles
-            var candle1 = CandleManager.GetCandle(currentIndex - 2); // First candle
-            var candle2 = CandleManager.GetCandle(currentIndex - 1); // Middle candle
-            var candle3 = CandleManager.GetCandle(currentIndex);     // Last candle
+            // Get the three consecutive COMPLETED candles (not including current forming candle)
+            var candle1 = CandleManager.GetCandle(currentIndex - 3); // First candle
+            var candle2 = CandleManager.GetCandle(currentIndex - 2); // Middle candle
+            var candle3 = CandleManager.GetCandle(currentIndex - 1); // Last completed candle
             
             if (candle1 == null || candle2 == null || candle3 == null)
                 return detectedFvgs;
             
             
-            // Check for bullish FVG
-            var bullishFvg = DetectBullishFvg(candle1, candle2, candle3, currentIndex);
+            // Check for bullish FVG (passing currentIndex - 1 as the detection index)
+            var bullishFvg = DetectBullishFvg(candle1, candle2, candle3, currentIndex - 1);
             if (bullishFvg != null)
             {
                 detectedFvgs.Add(bullishFvg);
             }
             
-            // Check for bearish FVG
-            var bearishFvg = DetectBearishFvg(candle1, candle2, candle3, currentIndex);
+            // Check for bearish FVG (passing currentIndex - 1 as the detection index)
+            var bearishFvg = DetectBearishFvg(candle1, candle2, candle3, currentIndex - 1);
             if (bearishFvg != null)
             {
                 detectedFvgs.Add(bearishFvg);
             }
             
+            // Process gauntlets if enabled
+            if (_showGauntlet && detectedFvgs.Count > 0)
+            {
+                foreach (var fvg in detectedFvgs)
+                {
+                    ProcessGauntlet(fvg, currentIndex - 1);
+                }
+            }
+            
             return detectedFvgs;
         }
         
-        private Level DetectBullishFvg(Candle candle1, Candle candle2, Candle candle3, int currentIndex)
+        private Level DetectBullishFvg(Candle candle1, Candle candle2, Candle candle3, int detectionIndex)
         {
             // Bullish FVG: candle1's high must be lower than candle3's low (gap condition)
             if (candle1.High >= candle3.Low)
@@ -93,10 +107,10 @@ namespace Pfuma.Detectors
                 candle3.Time,           // End time reference
                 candle2.Time,           // Middle candle time
                 Direction.Up,           // Bullish direction
-                currentIndex - 2,       // Primary index reference (candle1)
-                currentIndex,           // High index (candle3 for bullish)
-                currentIndex - 2,       // Low index (candle1 for bullish)
-                currentIndex - 1,       // Middle index
+                detectionIndex - 2,     // Primary index reference (candle1)
+                detectionIndex,         // High index (candle3 for bullish)
+                detectionIndex - 2,     // Low index (candle1 for bullish)
+                detectionIndex - 1,     // Middle index
                 Zone.Premium            // Premium zone classification
             );
             
@@ -113,7 +127,7 @@ namespace Pfuma.Detectors
             return bullishFvg;
         }
         
-        private Level DetectBearishFvg(Candle candle1, Candle candle2, Candle candle3, int currentIndex)
+        private Level DetectBearishFvg(Candle candle1, Candle candle2, Candle candle3, int detectionIndex)
         {
             // Bearish FVG: candle1's low must be higher than candle3's high (gap condition)
             if (candle1.Low <= candle3.High)
@@ -136,10 +150,10 @@ namespace Pfuma.Detectors
                 candle1.Time,           // End time reference (reversed for bearish)
                 candle2.Time,           // Middle candle time
                 Direction.Down,         // Bearish direction
-                currentIndex - 2,       // Primary index reference (candle1)
-                currentIndex - 2,       // High index (candle1 for bearish)
-                currentIndex,           // Low index (candle3 for bearish)
-                currentIndex - 1,       // Middle index
+                detectionIndex - 2,     // Primary index reference (candle1)
+                detectionIndex - 2,     // High index (candle1 for bearish)
+                detectionIndex,         // Low index (candle3 for bearish)
+                detectionIndex - 1,     // Middle index
                 Zone.Discount           // Discount zone classification
             );
             
@@ -187,7 +201,7 @@ namespace Pfuma.Detectors
         {
             if (Settings.Notifications.EnableLog)
             {
-                Logger($"FVG detected: {fvg.Direction} at index {currentIndex}, " +
+                Logger($"FVG detected: {fvg.Direction} at index {fvg.Index}, " +
                        $"Range: {fvg.Low:F5} - {fvg.High:F5}, " +
                        $"Gap Size: {(fvg.High - fvg.Low):F5}");
             }
@@ -223,6 +237,93 @@ namespace Pfuma.Detectors
             }
             
             return true;
+        }
+        
+        private void ProcessGauntlet(Level fvg, int detectionIndex)
+        {
+            // Check if we already have an FVG with the same index in the gauntlet collection
+            var existingFvgWithSameIndex = _gauntlets.FirstOrDefault(g => g.Index == fvg.Index);
+            if (existingFvgWithSameIndex != null)
+            {
+                // Remove the existing FVG with the same index
+                _gauntlets.Remove(existingFvgWithSameIndex);
+                RemoveGauntletVisualization(existingFvgWithSameIndex);
+            }
+            
+            // If we already have 2 gauntlets after removing duplicates, remove the oldest
+            if (_gauntlets.Count >= 2)
+            {
+                var oldestGauntlet = _gauntlets[0];
+                _gauntlets.RemoveAt(0);
+                RemoveGauntletVisualization(oldestGauntlet);
+            }
+            
+            // Add the new FVG to gauntlets
+            _gauntlets.Add(fvg);
+            
+            // Draw the gauntlet rectangle
+            DrawGauntletRectangle(fvg, detectionIndex);
+        }
+        
+        private void DrawGauntletRectangle(Level fvg, int detectionIndex)
+        {
+            if (Chart == null) return;
+            
+            // Determine colors based on FVG direction
+            Color rectangleColor = fvg.Direction == Direction.Up ? Color.Green : Color.Pink;
+            Color midlineColor = rectangleColor;
+            
+            // Calculate rectangle extension (10 candlesticks to the right from detection point)
+            int endIndex = detectionIndex + 10;
+            int startIndex = Math.Min(fvg.IndexHigh, fvg.IndexLow);
+            
+            // Draw the main rectangle
+            string rectId = $"gauntlet_rect_{fvg.Id}";
+            var rect = Chart.DrawRectangle(
+                rectId,
+                startIndex,    // Start index (where FVG was formed)
+                fvg.High,   // Top of FVG
+                endIndex,      // End index (10 candles to the right)
+                fvg.Low,    // Bottom of FVG
+                Color.FromArgb(30, rectangleColor),
+                2      // Thickness
+            );
+            
+            rect.IsFilled = true;
+            
+            // Draw the midline
+            double midPrice = (fvg.High + fvg.Low) / 2.0;
+            string midlineId = $"gauntlet_mid_{fvg.Id}";
+            Chart.DrawTrendLine(
+                midlineId,
+                startIndex,     // Start index
+                midPrice,    // Mid price
+                endIndex,       // End index
+                midPrice,    // Mid price
+                Color.FromArgb(60, midlineColor),
+                1,      // Thickness
+                LineStyle.Solid
+            );
+        }
+        
+        private void RemoveGauntletVisualization(Level gauntlet)
+        {
+            if (Chart == null) return;
+            
+            try
+            {
+                // Remove rectangle
+                string rectId = $"gauntlet_rect_{gauntlet.Id}";
+                Chart.RemoveObject(rectId);
+                
+                // Remove midline
+                string midlineId = $"gauntlet_mid_{gauntlet.Id}";
+                Chart.RemoveObject(midlineId);
+            }
+            catch
+            {
+                // Silently handle removal errors
+            }
         }
         
         protected override void SubscribeToEvents()

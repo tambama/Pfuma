@@ -340,7 +340,9 @@ namespace Pfuma.Visualization
             // Format common Fibonacci ratios with their standard names
             return ratio switch
             {
+                -5.0 => "5",
                 -4.0 => "-4",
+                -3.75 => "-3.75",
                 -3.5 => "-3.5",
                 -2.5 => "-2.5",
                 -2.0 => "-2",

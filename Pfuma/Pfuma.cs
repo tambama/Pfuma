@@ -28,6 +28,8 @@ namespace Pfuma
         [Parameter("Show FVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowFVG { get; set; }
         
+        [Parameter("Show Gauntlet", DefaultValue = false, Group = "Patterns")]
+        public bool ShowGauntlet { get; set; }
         
         [Parameter("Show Order Flow", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderFlow { get; set; }
@@ -243,6 +245,7 @@ namespace Pfuma
                 Patterns = new PatternDetectionSettings
                 {
                     ShowFVG = ShowFVG,  // Only for LTF FVG visualization
+                    ShowGauntlet = ShowGauntlet,  // Show the 2 most recent FVGs
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
                     ShowOrderFlow = ShowOrderFlow,  // Only for regular orderflow
                     ShowHtfOrderFlow = ShowHtfOrderFlow,  // Only for HTF orderflow
