@@ -103,6 +103,10 @@ namespace Pfuma.Detectors
             // Set TimeFrame from candle
             bullishFvg.TimeFrame = candle1.TimeFrame;
             
+            candle1.PositionInFvg = 1;
+            candle2.PositionInFvg = 2;
+            candle3.PositionInFvg = 3;
+            
             // Initialize quadrants for the bullish FVG
             bullishFvg.InitializeQuadrants();
             
@@ -141,6 +145,10 @@ namespace Pfuma.Detectors
             
             // Set TimeFrame from candle
             bearishFvg.TimeFrame = candle1.TimeFrame;
+
+            candle1.PositionInFvg = 1;
+            candle2.PositionInFvg = 2;
+            candle3.PositionInFvg = 3;
             
             // Initialize quadrants for the bearish FVG
             bearishFvg.InitializeQuadrants();

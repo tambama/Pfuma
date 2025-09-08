@@ -35,6 +35,9 @@ public class Candle
     // Timeframe tracking
     public TimeFrame TimeFrame { get; set; }
     
+    public int PositionInFvg { get; set; }
+    public int SweptKeyLevel { get; set; }
+    
     // Direction
     public Direction Direction => Close > Open ? Direction.Up : Direction.Down;
 }
