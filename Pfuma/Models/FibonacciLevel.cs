@@ -13,6 +13,9 @@ public class FibonacciLevel
 {
     public FibonacciLevel(int startIndex, int endIndex, double startPrice, double endPrice, DateTime startTime, DateTime endTime, FibType fibType = FibType.Cycle)
     {
+        // Generate unique ID for this Fibonacci level
+        Id = Guid.NewGuid().ToString();
+        
         // For drawing: always left to right (chronological)
         StartIndex = startIndex;
         EndIndex = endIndex;
@@ -56,7 +59,7 @@ public class FibonacciLevel
     
     public SessionType SessionType { get; set; } // Session this level belongs to
     public Direction Direction { get; set; } // Direction (up or down)
-    public string FibonacciId { get; set; } // ID of the Fibonacci object on the chart
+    public string Id { get; set; } // ID of the Fibonacci object on the chart
     public FibType FibType { get; set; } // Type of Fibonacci level (Cycle or CISD)
 
     // Levels dictionary - key is the ratio, value is the calculated price level

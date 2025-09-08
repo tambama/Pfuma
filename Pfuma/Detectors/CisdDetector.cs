@@ -322,7 +322,7 @@ namespace Pfuma.Detectors
         /// </summary>
         private void CreateCisdFibonacciLevels(Level cisd)
         {
-            if (cisd == null || cisd.OrderFlowId == Guid.Empty)
+            if (cisd == null || string.IsNullOrEmpty(cisd.OrderFlowId))
                 return;
             
             // Find the orderflow that created this CISD
@@ -336,13 +336,12 @@ namespace Pfuma.Detectors
             
             FibonacciLevel fibLevel = null;
             
-            if (cisd.Direction == Direction.Up) // Bullish CISD (bearish orderflow)
+            if (cisd.Direction == Direction.Up) // Bullish CISD
             {
-                // For bullish CISD, the bearish orderflow goes from low to high
-                // StartIndex is the low, EndIndex is the high
+                // For bullish CISD, use low to high of the bearish orderflow
                 fibLevel = new FibonacciLevel(
-                    orderFlow.IndexLow,  // Start at the low index
-                    orderFlow.IndexHigh, // End at the high index
+                    orderFlow.IndexLow,  // Start at the low
+                    orderFlow.IndexHigh, // End at the high
                     orderFlow.Low,       // Start price (low)
                     orderFlow.High,      // End price (high)
                     orderFlow.LowTime,   // Start time
@@ -350,13 +349,12 @@ namespace Pfuma.Detectors
                     FibType.CISD
                 );
             }
-            else // Bearish CISD (bullish orderflow)
+            else // Bearish CISD
             {
-                // For bearish CISD, the bullish orderflow goes from high to low
-                // StartIndex is the high, EndIndex is the low
+                // For bearish CISD, use high to low of the bullish orderflow
                 fibLevel = new FibonacciLevel(
-                    orderFlow.IndexHigh, // Start at the high index
-                    orderFlow.IndexLow,  // End at the low index
+                    orderFlow.IndexHigh, // Start at the high
+                    orderFlow.IndexLow,  // End at the low
                     orderFlow.High,      // Start price (high)
                     orderFlow.Low,       // End price (low)
                     orderFlow.HighTime,  // Start time
@@ -364,18 +362,12 @@ namespace Pfuma.Detectors
                     FibType.CISD
                 );
             }
-            
-            if (fibLevel != null)
-            {
-                // Generate unique ID for this CISD Fibonacci level
-                fibLevel.FibonacciId = $"cisd_fib_{cisd.Id}";
                 
-                // Add to the CISD Fibonacci levels collection
-                _fibonacciService?.AddCisdFibonacciLevel(fibLevel);
+            // Add to the CISD Fibonacci levels collection
+            _fibonacciService?.AddCisdFibonacciLevel(fibLevel);
                 
-                // Draw the Fibonacci levels on the chart
-                // The visualizer will draw them when DrawFibonacciLevels is called
-            }
+            // Draw the Fibonacci levels on the chart
+            // The visualizer will draw them when DrawFibonacciLevels is called
         }
         
         private void ManageMaxCisdCount(Direction direction)

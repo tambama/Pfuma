@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
 using Pfuma.Core.Interfaces;
+using Pfuma.Detectors;
 using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Services;
@@ -65,34 +66,34 @@ namespace Pfuma.Visualization
             // Subscribe to sweep/break events
             if (_eventAggregator != null)
             {
-                _eventAggregator.Subscribe<Services.FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
+                _eventAggregator.Subscribe<FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
             }
         }
         
         private void OnFibonacciLevelRemoved(FibonacciLevel removedLevel)
         {
-            if (removedLevel != null && !string.IsNullOrEmpty(removedLevel.FibonacciId))
+            if (removedLevel != null && !string.IsNullOrEmpty(removedLevel.Id))
             {
-                RemoveFibonacciDrawings(removedLevel.FibonacciId);
+                RemoveFibonacciDrawings(removedLevel.Id);
             }
         }
         
         private void OnFibonacciLevelFullySwept(FibonacciLevel sweptLevel)
         {
-            if (sweptLevel != null && !string.IsNullOrEmpty(sweptLevel.FibonacciId))
+            if (sweptLevel != null && !string.IsNullOrEmpty(sweptLevel.Id))
             {
                 // Remove all drawings for fully swept level (especially important for CISD levels)
-                RemoveFibonacciDrawings(sweptLevel.FibonacciId);
+                RemoveFibonacciDrawings(sweptLevel.Id);
             }
         }
         
-        private void OnFibonacciLevelSwept(Services.FibonacciLevelSweptEvent sweepEvent)
+        private void OnFibonacciLevelSwept(FibonacciLevelSweptEvent sweepEvent)
         {
             if (sweepEvent == null || sweepEvent.FibonacciLevel == null) 
                 return;
             
             var fibLevel = sweepEvent.FibonacciLevel;
-            string lineId = $"{fibLevel.FibonacciId}_line_{sweepEvent.SweptRatio:F3}";
+            string lineId = $"{fibLevel.Id}_line_{sweepEvent.SweptRatio:F3}";
             string labelId = $"{lineId}-label";
             
             if (sweepEvent.IsBreak)
@@ -154,6 +155,10 @@ namespace Pfuma.Visualization
             
             try
             {
+                // Now explicitly remove the original line to ensure it's gone
+                _chart.RemoveObject(lineId);
+                _chart.RemoveObject(labelId);
+                
                 // Redraw with extended endpoint and force remove existing
                 string labelText = GetFibonacciLabelText(ratio);
                 
@@ -174,14 +179,10 @@ namespace Pfuma.Visualization
                     true  // removeExisting = true to force cleanup
                 );
                 
-                // Now explicitly remove the original line to ensure it's gone
-                _chart.RemoveObject(lineId);
-                _chart.RemoveObject(labelId);
-                
                 // Remove old IDs from regular tracking
-                if (_drawnObjects.ContainsKey(fibLevel.FibonacciId))
+                if (_drawnObjects.ContainsKey(fibLevel.Id))
                 {
-                    var objectList = _drawnObjects[fibLevel.FibonacciId];
+                    var objectList = _drawnObjects[fibLevel.Id];
                     objectList.Remove(lineId);
                     objectList.Remove(labelId);
                 }
@@ -239,21 +240,56 @@ namespace Pfuma.Visualization
         
         private void DrawFibonacciLevel(FibonacciLevel fibLevel)
         {
-            if (fibLevel == null || string.IsNullOrEmpty(fibLevel.FibonacciId)) return;
+            if (fibLevel == null || string.IsNullOrEmpty(fibLevel.Id)) return;
             
-            // Clean up old drawings for this Fibonacci level if they exist
-            RemoveFibonacciDrawings(fibLevel.FibonacciId);
+            // Don't clear all drawings - only draw what needs to be drawn
+            // This preserves extended lines that have already been drawn for swept levels
             
             var objectIds = new List<string>();
             
-            // Draw each Fibonacci ratio level
+            // Get existing tracked objects for this fibonacci level
+            if (_drawnObjects.ContainsKey(fibLevel.Id))
+            {
+                objectIds = _drawnObjects[fibLevel.Id];
+            }
+            else
+            {
+                _drawnObjects[fibLevel.Id] = objectIds;
+            }
+            
+            // Draw each Fibonacci ratio level that hasn't been swept
             foreach (var kvp in fibLevel.Levels)
             {
                 double ratio = kvp.Key;
                 double price = kvp.Value;
                 
+                // Check if this ratio has been swept - if so, skip drawing it
+                if (fibLevel.SweptLevels.ContainsKey(ratio) && fibLevel.SweptLevels[ratio])
+                {
+                    // This ratio has been swept - it should either be extended or removed
+                    // Don't draw the original line
+                    continue;
+                }
+                
                 // Generate unique ID for this line
-                string lineId = $"{fibLevel.FibonacciId}_line_{ratio:F3}";
+                string lineId = $"{fibLevel.Id}_line_{ratio:F3}";
+                string labelId = $"{lineId}-label";
+                
+                // Check if an extended version exists - if so, skip drawing the original
+                string extendedLineId = lineId + "-extended";
+                if (_extendedLineIds.Contains(extendedLineId))
+                {
+                    // Extended line exists, don't draw the original
+                    continue;
+                }
+                
+                // Check if this line is already drawn
+                if (objectIds.Contains(lineId))
+                {
+                    // Line already exists, skip redrawing
+                    continue;
+                }
+                
                 string labelText = GetFibonacciLabelText(ratio);
                 
                 // Draw the horizontal line with label
@@ -270,13 +306,16 @@ namespace Pfuma.Visualization
                     false  // removeExisting = false
                 );
                 
-                // Add both the line ID and the label ID (created by DrawStraightLine)
-                objectIds.Add(lineId);
-                objectIds.Add($"{lineId}-label");  // DrawStraightLine creates label with this ID
+                // Add both the line ID and the label ID to tracking
+                if (!objectIds.Contains(lineId))
+                {
+                    objectIds.Add(lineId);
+                }
+                if (!objectIds.Contains(labelId))
+                {
+                    objectIds.Add(labelId);
+                }
             }
-            
-            // Store the object IDs for later cleanup
-            _drawnObjects[fibLevel.FibonacciId] = objectIds;
         }
         
         private string GetFibonacciLabelText(double ratio)
@@ -301,9 +340,9 @@ namespace Pfuma.Visualization
         {
             if (_chart == null || fibLevel == null) return;
             
-            if (_drawnObjects.ContainsKey(fibLevel.FibonacciId))
+            if (_drawnObjects.ContainsKey(fibLevel.Id))
             {
-                var objectIds = _drawnObjects[fibLevel.FibonacciId];
+                var objectIds = _drawnObjects[fibLevel.Id];
                 var objectsToRemove = new List<string>();
                 
                 // Identify which objects correspond to non-swept ratios
@@ -314,7 +353,7 @@ namespace Pfuma.Visualization
                     // If this ratio was not swept, remove its visual elements
                     if (!fibLevel.SweptLevels.ContainsKey(ratio) || !fibLevel.SweptLevels[ratio])
                     {
-                        string lineId = $"{fibLevel.FibonacciId}_line_{ratio:F3}";
+                        string lineId = $"{fibLevel.Id}_line_{ratio:F3}";
                         string labelId = $"{lineId}-label";
                         
                         objectsToRemove.Add(lineId);
@@ -339,7 +378,7 @@ namespace Pfuma.Visualization
                 // If no objects remain for this Fibonacci ID, remove the key entirely
                 if (objectIds.Count == 0)
                 {
-                    _drawnObjects.Remove(fibLevel.FibonacciId);
+                    _drawnObjects.Remove(fibLevel.Id);
                 }
                 
             }
@@ -350,9 +389,9 @@ namespace Pfuma.Visualization
             if (_chart == null || fibLevel == null) return;
             
             // Remove all objects that are tracked in _drawnObjects for this fibonacci level
-            if (_drawnObjects.ContainsKey(fibLevel.FibonacciId))
+            if (_drawnObjects.ContainsKey(fibLevel.Id))
             {
-                var trackedObjects = _drawnObjects[fibLevel.FibonacciId].ToList();
+                var trackedObjects = _drawnObjects[fibLevel.Id].ToList();
                 foreach (var objectId in trackedObjects)
                 {
                     try
@@ -364,7 +403,7 @@ namespace Pfuma.Visualization
                         // Silently handle if object doesn't exist
                     }
                 }
-                _drawnObjects.Remove(fibLevel.FibonacciId);
+                _drawnObjects.Remove(fibLevel.Id);
             }
             
             // Also attempt to remove all possible line IDs for this fibonacci level
@@ -372,7 +411,7 @@ namespace Pfuma.Visualization
             foreach (var kvp in fibLevel.Levels)
             {
                 double ratio = kvp.Key;
-                string lineId = $"{fibLevel.FibonacciId}_line_{ratio:F3}";
+                string lineId = $"{fibLevel.Id}_line_{ratio:F3}";
                 string labelId = $"{lineId}-label";
                 
                 try
@@ -390,7 +429,7 @@ namespace Pfuma.Visualization
             var extendedLinesToRemove = new List<string>();
             foreach (var extendedId in _extendedLineIds)
             {
-                if (extendedId.Contains(fibLevel.FibonacciId))
+                if (extendedId.Contains(fibLevel.Id))
                 {
                     extendedLinesToRemove.Add(extendedId);
                     try
@@ -437,9 +476,9 @@ namespace Pfuma.Visualization
             var cycleLevels = _fibonacciService.GetFibonacciLevels();
             foreach (var fibLevel in cycleLevels)
             {
-                if (!string.IsNullOrEmpty(fibLevel.FibonacciId))
+                if (!string.IsNullOrEmpty(fibLevel.Id))
                 {
-                    RemoveFibonacciDrawings(fibLevel.FibonacciId);
+                    RemoveFibonacciDrawings(fibLevel.Id);
                 }
             }
         }
@@ -449,9 +488,9 @@ namespace Pfuma.Visualization
             var cisdLevels = _fibonacciService.GetCisdFibonacciLevels();
             foreach (var fibLevel in cisdLevels)
             {
-                if (!string.IsNullOrEmpty(fibLevel.FibonacciId))
+                if (!string.IsNullOrEmpty(fibLevel.Id))
                 {
-                    RemoveFibonacciDrawings(fibLevel.FibonacciId);
+                    RemoveFibonacciDrawings(fibLevel.Id);
                 }
             }
         }
@@ -483,7 +522,7 @@ namespace Pfuma.Visualization
             
             if (_eventAggregator != null)
             {
-                _eventAggregator.Unsubscribe<Services.FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
+                _eventAggregator.Unsubscribe<FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
             }
             
             // Clear all regular drawings

@@ -97,7 +97,7 @@ namespace Pfuma.Services
             );
             
             // Generate unique ID for this Fibonacci level
-            fibLevel.FibonacciId = $"cycle_fib_{startTime.Ticks}_{endTime.Ticks}";
+            // Id is already set in the FibonacciLevel constructor
             
             // Check if we need to remove old levels (keep only 2)
             if (_fibonacciLevels.Count >= MaxLevels)

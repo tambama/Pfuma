@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
 using Pfuma.Models;
+using Pfuma.Services;
 
-namespace Pfuma.Services
+namespace Pfuma.Detectors
 {
     public interface IFibonacciSweepDetector
     {
@@ -44,7 +44,7 @@ namespace Pfuma.Services
             
             // Determine if bullish or bearish based on SwingType
             // HH and H are swing highs (bullish), LL and L are swing lows (bearish)
-            bool isBullish = swingPoint.SwingType == SwingType.HH || swingPoint.SwingType == SwingType.H;
+            bool isBullish = swingPoint.Direction == Direction.Up;
             
             foreach (var fibLevel in fibLevels)
             {
