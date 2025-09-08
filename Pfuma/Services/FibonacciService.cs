@@ -9,6 +9,7 @@ namespace Pfuma.Services
 {
     public interface IFibonacciService
     {
+        List<FibonacciLevel> GetAllFibonacciLevels();
         List<FibonacciLevel> GetFibonacciLevels();
         List<FibonacciLevel> GetCisdFibonacciLevels();
         FibonacciLevel GetLatestLevel();
@@ -122,10 +123,10 @@ namespace Pfuma.Services
             var swingPoint = swingPointEvent.SwingPoint;
             
             // Check if this swing point sweeps any CISD Fibonacci levels
-            CheckCisdFibonacciSweep(swingPoint);
+            CheckCisdFibonacciInvalidation(swingPoint);
         }
         
-        private void CheckCisdFibonacciSweep(SwingPoint swingPoint)
+        private void CheckCisdFibonacciInvalidation(SwingPoint swingPoint)
         {
             var levelsToRemove = new List<FibonacciLevel>();
             
@@ -168,6 +169,13 @@ namespace Pfuma.Services
                 _cisdFibonacciLevels.Remove(levelToRemove);
                 LevelFullySwept?.Invoke(levelToRemove);
             }
+        }
+        
+        public List<FibonacciLevel> GetAllFibonacciLevels()
+        {
+            var levels = new List<FibonacciLevel>(_fibonacciLevels);
+            levels.AddRange(_cisdFibonacciLevels);
+            return new List<FibonacciLevel>(levels);
         }
         
         public List<FibonacciLevel> GetFibonacciLevels()

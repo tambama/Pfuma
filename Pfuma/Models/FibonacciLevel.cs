@@ -33,7 +33,7 @@ public class FibonacciLevel
         }
         else if (fibType == FibType.CISD)
         {
-            TrackedRatios = new double[] { -2.0, -4.0 };
+            TrackedRatios = new double[] { -2.0, -4.0, -5.0 };
         }
         
         // For calculation: always low to high (price order)

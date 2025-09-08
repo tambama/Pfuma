@@ -39,7 +39,7 @@ namespace Pfuma.Detectors
         {
             if (swingPoint == null || candle == null) return;
             
-            var fibLevels = _fibonacciService.GetFibonacciLevels();
+            var fibLevels = _fibonacciService.GetAllFibonacciLevels();
             if (fibLevels == null || fibLevels.Count == 0) return;
             
             // Determine if bullish or bearish based on SwingType
@@ -61,7 +61,7 @@ namespace Pfuma.Detectors
         
         private void ProcessBullishSwingPoint(SwingPoint swingPoint, Candle candle, FibonacciLevel fibLevel)
         {
-            var sweptLevels = new List<(double ratio, double price, bool isSweep, bool isBreak)>();
+            var sweptLevels = new List<(double ratio, double price, bool isSweep, bool isBreak, string id, FibType fibType)>();
             
             foreach (var level in fibLevel.Levels)
             {
@@ -92,18 +92,18 @@ namespace Pfuma.Detectors
                 
                 if (isSweep || isBreak)
                 {
-                    sweptLevels.Add((ratio, price, isSweep, isBreak));
+                    sweptLevels.Add((ratio, price, isSweep, isBreak, fibLevel.Id, fibLevel.FibType));
                 }
             }
             
             // Process swept/broken levels
-            foreach (var (ratio, price, isSweep, isBreak) in sweptLevels)
+            foreach (var (ratio, price, isSweep, isBreak, id, type) in sweptLevels)
             {
                 if (isSweep)
                 {
                     // Mark as swept
                     swingPoint.SweptFib = true;
-                    swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio));
+                    swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
                     
                     // Update the FibonacciLevel tracking
                     fibLevel.SweptLevelLineIds[ratio] = "SWEPT";
@@ -126,7 +126,7 @@ namespace Pfuma.Detectors
         
         private void ProcessBearishSwingPoint(SwingPoint swingPoint, Candle candle, FibonacciLevel fibLevel)
         {
-            var sweptLevels = new List<(double ratio, double price, bool isSweep, bool isBreak)>();
+            var sweptLevels = new List<(double ratio, double price, bool isSweep, bool isBreak, string id, FibType type)>();
             
             foreach (var level in fibLevel.Levels)
             {
@@ -157,18 +157,18 @@ namespace Pfuma.Detectors
                 
                 if (isSweep || isBreak)
                 {
-                    sweptLevels.Add((ratio, price, isSweep, isBreak));
+                    sweptLevels.Add((ratio, price, isSweep, isBreak, fibLevel.Id, fibLevel.FibType));
                 }
             }
             
             // Process swept/broken levels
-            foreach (var (ratio, price, isSweep, isBreak) in sweptLevels)
+            foreach (var (ratio, price, isSweep, isBreak, id, type) in sweptLevels)
             {
                 if (isSweep)
                 {
                     // Mark as swept
                     swingPoint.SweptFib = true;
-                    swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio));
+                    swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
                     
                     // Update the FibonacciLevel tracking
                     fibLevel.SweptLevelLineIds[ratio] = "SWEPT";

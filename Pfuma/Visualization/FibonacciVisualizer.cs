@@ -19,6 +19,7 @@ namespace Pfuma.Visualization
         private bool _showCycleFibLevels;
         private bool _showCISDFibLevels;
         private bool _showExtendedFib;
+        private bool _removeFibExtensions;
         private readonly Dictionary<string, List<string>> _drawnObjects;
         private readonly List<string> _extendedLineIds; // Separate tracking for extended lines
         private readonly CandleManager _candleManager;
@@ -42,7 +43,7 @@ namespace Pfuma.Visualization
             set => _showExtendedFib = value;
         }
         
-        public FibonacciVisualizer(Chart chart, IFibonacciService fibonacciService, IEventAggregator eventAggregator, CandleManager candleManager, bool showCycleFibLevels, bool showCISDFibLevels, bool showExtendedFib, Action<string> log = null)
+        public FibonacciVisualizer(Chart chart, IFibonacciService fibonacciService, IEventAggregator eventAggregator, CandleManager candleManager, bool showCycleFibLevels, bool showCISDFibLevels, bool showExtendedFib, bool removeFibExtensions = false, Action<string> log = null)
         {
             _chart = chart;
             _fibonacciService = fibonacciService;
@@ -51,6 +52,7 @@ namespace Pfuma.Visualization
             _showCycleFibLevels = showCycleFibLevels;
             _showCISDFibLevels = showCISDFibLevels;
             _showExtendedFib = showExtendedFib;
+            _removeFibExtensions = removeFibExtensions;
             _log = log;
             _drawnObjects = new Dictionary<string, List<string>>();
             _extendedLineIds = new List<string>();
@@ -75,6 +77,12 @@ namespace Pfuma.Visualization
             if (removedLevel != null && !string.IsNullOrEmpty(removedLevel.Id))
             {
                 RemoveFibonacciDrawings(removedLevel.Id);
+                
+                // If removeFibExtensions is true, also cleanup extended lines for this level
+                if (_removeFibExtensions)
+                {
+                    RemoveExtendedLinesForLevel(removedLevel.Id);
+                }
             }
         }
         
@@ -84,6 +92,12 @@ namespace Pfuma.Visualization
             {
                 // Remove all drawings for fully swept level (especially important for CISD levels)
                 RemoveFibonacciDrawings(sweptLevel.Id);
+                
+                // If removeFibExtensions is true, also cleanup extended lines for this level
+                if (_removeFibExtensions)
+                {
+                    RemoveExtendedLinesForLevel(sweptLevel.Id);
+                }
             }
         }
         
@@ -164,6 +178,7 @@ namespace Pfuma.Visualization
                 
                 string extendedLineId = lineId + "-extended";
                 string extendedLabelId = extendedLineId + "-label";
+                Color color = fibLevel.FibType == FibType.CISD ? Color.Pink : Color.Gray;
                 
                 // Use removeExisting=true to force removal of any conflicting objects
                 _chart.DrawStraightLine(
@@ -174,9 +189,10 @@ namespace Pfuma.Visualization
                     price,
                     labelText,
                     LineStyle.Dots,
-                    Color.Wheat,  // Change color to indicate swept level
+                    color,  // Change color to indicate swept level
                     true,
-                    true  // removeExisting = true to force cleanup
+                    true,  // removeExisting = true to force cleanup,
+                    labelOnRight:false
                 );
                 
                 // Remove old IDs from regular tracking
@@ -291,6 +307,7 @@ namespace Pfuma.Visualization
                 }
                 
                 string labelText = GetFibonacciLabelText(ratio);
+                Color color = fibLevel.FibType == FibType.CISD ? Color.Pink : Color.Gray;
                 
                 // Draw the horizontal line with label
                 _chart.DrawStraightLine(
@@ -301,7 +318,7 @@ namespace Pfuma.Visualization
                     price,
                     labelText,
                     LineStyle.Solid,
-                    Color.Gray,
+                    color,
                     true,  // hasLabel = true
                     false  // removeExisting = false
                 );
@@ -323,16 +340,19 @@ namespace Pfuma.Visualization
             // Format common Fibonacci ratios with their standard names
             return ratio switch
             {
-                -2.0 => "-200%",
-                -1.5 => "-150%",
-                -1.0 => "-100%",
-                -0.5 => "-50%",
-                -0.25 => "-25%",
-                0.0 => "0%",
-                0.114 => "11.4%",
-                0.886 => "88.6%",
-                1.0 => "100%",
-                _ => $"{ratio * 100:F1}%"
+                -4.0 => "-4",
+                -3.5 => "-3.5",
+                -2.5 => "-2.5",
+                -2.0 => "-2",
+                -1.5 => "-1.5",
+                -1.0 => "-1",
+                -0.5 => "-0.5",
+                -0.25 => "-0.25",
+                0.0 => "0",
+                0.114 => "0.114",
+                0.886 => "0.886",
+                1.0 => "1",
+                _ => $"-{ratio:F2}"
             };
         }
         
@@ -468,6 +488,36 @@ namespace Pfuma.Visualization
                     }
                 }
                 _drawnObjects.Remove(fibonacciId);
+            }
+        }
+        
+        private void RemoveExtendedLinesForLevel(string fibonacciId)
+        {
+            if (_chart == null) return;
+            
+            // Find and remove all extended lines that belong to this Fibonacci level
+            var extendedLinesToRemove = new List<string>();
+            
+            foreach (var extendedId in _extendedLineIds)
+            {
+                if (extendedId.Contains(fibonacciId))
+                {
+                    extendedLinesToRemove.Add(extendedId);
+                    try
+                    {
+                        _chart.RemoveObject(extendedId);
+                    }
+                    catch
+                    {
+                        // Silently handle if object doesn't exist
+                    }
+                }
+            }
+            
+            // Remove from tracking
+            foreach (var extendedId in extendedLinesToRemove)
+            {
+                _extendedLineIds.Remove(extendedId);
             }
         }
         

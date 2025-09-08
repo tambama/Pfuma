@@ -84,6 +84,9 @@ namespace Pfuma
         [Parameter("Show Extended Fib", DefaultValue = true, Group = "Fibonacci")]
         public bool ShowExtendedFib { get; set; }
         
+        [Parameter("Remove Fib Extensions", DefaultValue = false, Group = "Fibonacci")]
+        public bool RemoveFibExtensions { get; set; }
+        
         [Parameter("UTC Offset", DefaultValue = -4, Group = "Time")]
         public int UtcOffset { get; set; }
         
@@ -334,7 +337,7 @@ namespace Pfuma
             
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
-            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowCycleFibLevels, ShowCISDFibLevels, ShowExtendedFib, EnableLog ? Print : null);
+            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowCycleFibLevels, ShowCISDFibLevels, ShowExtendedFib, RemoveFibExtensions, EnableLog ? Print : null);
             _fibonacciSweepDetector = new FibonacciSweepDetector(_fibonacciService, _eventAggregator, EnableLog ? Print : null);
             
         }

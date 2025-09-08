@@ -68,7 +68,7 @@ public class SwingPoint
     
     // Fibonacci sweep tracking
     public bool SweptFib { get; set; }
-    public List<(int Index, double Price, double Ratio)> SweptFibLevels { get; set; } = new List<(int, double, double)>();
+    public List<(int Index, double Price, double Ratio, string Id, FibType Type)> SweptFibLevels { get; set; } = new List<(int, double, double, string, FibType)>();
     
     // Score
     public int Score
