@@ -34,6 +34,7 @@ public class OrderBlockDetector : BasePatternDetector<Level>
 {
     private readonly IVisualization<Level> _visualizer;
     private readonly SwingPointManager _swingPointManager;
+    private readonly IRepository<SwingPoint> _swingPointRepository;
     private readonly HashSet<string> _detectedOrderBlockSignatures;
         
     public OrderBlockDetector(
@@ -43,12 +44,14 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         IRepository<Level> repository,
         IVisualization<Level> visualizer,
         SwingPointManager swingPointManager,
+        IRepository<SwingPoint> swingPointRepository,
         IndicatorSettings settings,
         Action<string> logger = null)
         : base(chart, candleManager, eventAggregator, repository, settings, logger)
     {
         _visualizer = visualizer;
         _swingPointManager = swingPointManager;
+        _swingPointRepository = swingPointRepository;
         _detectedOrderBlockSignatures = new HashSet<string>();
     }
         
@@ -151,10 +154,15 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                     previousLow.Index,
                     0,
                     Zone.Equilibrium,
-                    3, // High score for breaking structure
                     null,
                     true // isConfirmed
                 );
+
+                // For bearish order blocks, copy properties from the high index swing point (currentHigh)
+                orderBlock.SweptLiquidity = currentHigh.SweptLiquidity;
+                orderBlock.SweptFib = currentHigh.SweptFib;
+                orderBlock.InsidePda = currentHigh.InsidePda;
+                orderBlock.InsideMacro = currentHigh.InsideMacro;
 
                 // Mark this configuration as detected
                 _detectedOrderBlockSignatures.Add(orderBlockSignature);
@@ -255,10 +263,15 @@ public class OrderBlockDetector : BasePatternDetector<Level>
                     currentLow.Index,
                     0,
                     Zone.Equilibrium,
-                    3, // High score for breaking structure
                     null,
                     true // isConfirmed
                 );
+
+                // For bullish order blocks, copy properties from the low index swing point (currentLow)
+                orderBlock.SweptLiquidity = currentLow.SweptLiquidity;
+                orderBlock.SweptFib = currentLow.SweptFib;
+                orderBlock.InsidePda = currentLow.InsidePda;
+                orderBlock.InsideMacro = currentLow.InsideMacro;
 
                 // Mark this configuration as detected
                 _detectedOrderBlockSignatures.Add(orderBlockSignature);

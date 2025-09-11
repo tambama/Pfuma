@@ -26,6 +26,7 @@ namespace Pfuma.Detectors
         private readonly SwingPointManager _swingPointManager;
         private readonly IEventAggregator _eventAggregator;
         private readonly CandleManager _candleManager;
+        private readonly TimeManager _timeManager;
 
         // Reference to the last high and low swing points
         private SwingPoint _lastHighSwingPoint;
@@ -44,11 +45,12 @@ namespace Pfuma.Detectors
         public event LiquiditySweptEventHandler LiquiditySwept;
 
         public SwingPointDetector(SwingPointManager swingPointManager, 
-            CandleManager candleManager, IEventAggregator eventAggregator = null)
+            CandleManager candleManager, IEventAggregator eventAggregator = null, TimeManager timeManager = null)
         {
             _swingPointManager = swingPointManager;
             _candleManager = candleManager;
             _eventAggregator = eventAggregator;
+            _timeManager = timeManager;
         }
         
         /// <summary>
@@ -60,12 +62,26 @@ namespace Pfuma.Detectors
         }
         
         /// <summary>
+        /// Sets the InsideMacro property for a swing point based on its time
+        /// </summary>
+        private void SetInsideMacroStatus(SwingPoint swingPoint)
+        {
+            if (swingPoint == null || _timeManager == null)
+                return;
+                
+            swingPoint.InsideMacro = _timeManager.IsInsideMacroTime(swingPoint.Time);
+        }
+        
+        /// <summary>
         /// Adds swing point to collection and publishes event
         /// </summary>
         private void AddSwingPointAndPublish(SwingPoint swingPoint)
         {
             if (swingPoint == null)
                 return;
+            
+            // Set the InsideMacro property based on whether the swing point is in macro time
+            SetInsideMacroStatus(swingPoint);
                 
             _swingPointManager.AddSwingPoint(swingPoint);
             PublishSwingPointDetected(swingPoint);
@@ -174,6 +190,34 @@ namespace Pfuma.Detectors
                             LiquidityType.Normal,
                             Direction.Down
                         );
+                        
+                        // Check conditions for copying SweptLiquidity and SweptFib properties
+                        if (removedPoint != null)
+                        {
+                            bool shouldCopyProperties = false;
+                            
+                            // Original condition: current candle closes above the low of the removed swing point
+                            if (close > removedPoint.Bar.Low)
+                            {
+                                shouldCopyProperties = true;
+                            }
+                            // Additional condition: if candle closes below the bearish swing point but its high 
+                            // is above the swept liquidity price or swept fib price
+                            else if (close < removedPoint.Price && 
+                                    ((removedPoint.SweptLiquidityPrice.HasValue && high > removedPoint.SweptLiquidityPrice.Value) ||
+                                     (removedPoint.SweptFibPrice.HasValue && high > removedPoint.SweptFibPrice.Value)))
+                            {
+                                shouldCopyProperties = true;
+                            }
+                            
+                            if (shouldCopyProperties)
+                            {
+                                // Copy SweptLiquidity and SweptFib properties from the removed swing point
+                                lowSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
+                                lowSwingPoint.SweptFib = removedPoint.SweptFib;
+                            }
+                        }
+                        
                         lowSwingPoint.Number = ++_currentSwingPointNumber;
                         AddSwingPointAndPublish(lowSwingPoint);
                         _lastLowSwingPoint = lowSwingPoint;
@@ -282,6 +326,15 @@ namespace Pfuma.Detectors
                             LiquidityType.Normal,
                             Direction.Up
                         );
+                        
+                        // Check if current candle closes below the high of the removed swing point
+                        if (removedPoint != null && close < removedPoint.Price)
+                        {
+                            // Copy SweptLiquidity and SweptFib properties from the removed swing point
+                            highSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
+                            highSwingPoint.SweptFib = removedPoint.SweptFib;
+                        }
+                        
                         highSwingPoint.Number = ++_currentSwingPointNumber;
                         AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
@@ -369,6 +422,15 @@ namespace Pfuma.Detectors
                         LiquidityType.Normal,
                         Direction.Up
                     );
+                    
+                    // Check if current candle closes below the high of the removed swing point
+                    if (removedPoint != null && close < removedPoint.Price)
+                    {
+                        // Copy SweptLiquidity and SweptFib properties from the removed swing point
+                        highSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
+                        highSwingPoint.SweptFib = removedPoint.SweptFib;
+                    }
+                    
                     highSwingPoint.Number = ++_currentSwingPointNumber;
                     AddSwingPointAndPublish(highSwingPoint);
                     _lastHighSwingPoint = highSwingPoint;
@@ -461,6 +523,34 @@ namespace Pfuma.Detectors
                         LiquidityType.Normal,
                         Direction.Down
                     );
+                    
+                    // Check conditions for copying SweptLiquidity and SweptFib properties
+                    if (removedPoint != null)
+                    {
+                        bool shouldCopyProperties = false;
+                        
+                        // Original condition: current candle closes above the low of the removed swing point
+                        if (close > removedPoint.Bar.Low)
+                        {
+                            shouldCopyProperties = true;
+                        }
+                        // Additional condition: if candle closes below the bearish swing point but its high 
+                        // is above the swept liquidity price or swept fib price
+                        else if (close < removedPoint.Price && 
+                                ((removedPoint.SweptLiquidityPrice.HasValue && high > removedPoint.SweptLiquidityPrice.Value) ||
+                                 (removedPoint.SweptFibPrice.HasValue && high > removedPoint.SweptFibPrice.Value)))
+                        {
+                            shouldCopyProperties = true;
+                        }
+                        
+                        if (shouldCopyProperties)
+                        {
+                            // Copy SweptLiquidity and SweptFib properties from the removed swing point
+                            lowSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
+                            lowSwingPoint.SweptFib = removedPoint.SweptFib;
+                        }
+                    }
+                    
                     lowSwingPoint.Number = ++_currentSwingPointNumber;
                     AddSwingPointAndPublish(lowSwingPoint);
                     _lastLowSwingPoint = lowSwingPoint;

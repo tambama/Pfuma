@@ -57,6 +57,39 @@ namespace Pfuma.Services
         }
 
         /// <summary>
+        /// Check if a given time is inside any macro time range
+        /// </summary>
+        public bool IsInsideMacroTime(DateTime time)
+        {
+            DateTime marketTime = time.AddHours(_utcOffset);
+            TimeSpan timeOfDay = marketTime.TimeOfDay;
+            
+            // Get macro ranges from the macro time manager
+            var macroRanges = _macroTimeManager?.GetMacroRanges();
+            if (macroRanges == null)
+                return false;
+            
+            // Check if the time falls within any macro range
+            foreach (var macro in macroRanges)
+            {
+                // Handle ranges that don't cross midnight
+                if (macro.StartTime < macro.EndTime)
+                {
+                    if (timeOfDay >= macro.StartTime && timeOfDay <= macro.EndTime)
+                        return true;
+                }
+                // Handle ranges that cross midnight (e.g., 23:50 to 00:10)
+                else
+                {
+                    if (timeOfDay >= macro.StartTime || timeOfDay <= macro.EndTime)
+                        return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /// <summary>
         /// Process a bar for all time-related features
         /// </summary>
         public void ProcessBar(int index, DateTime time)

@@ -22,6 +22,7 @@ namespace Pfuma.Detectors
         private readonly IVisualization<Level> _visualizer;
         private readonly IFibonacciService _fibonacciService;
         private readonly FibonacciVisualizer _fibonacciVisualizer;
+        private readonly IRepository<SwingPoint> _swingPointRepository;
         private readonly int _maxCisdsPerDirection;
         
         public CisdDetector(
@@ -32,6 +33,7 @@ namespace Pfuma.Detectors
             IVisualization<Level> visualizer,
             IFibonacciService fibonacciService,
             FibonacciVisualizer fibonacciVisualizer,
+            IRepository<SwingPoint> swingPointRepository,
             IndicatorSettings settings,
             Action<string> logger = null)
             : base(chart, candleManager, eventAggregator, repository, settings, logger)
@@ -39,6 +41,7 @@ namespace Pfuma.Detectors
             _visualizer = visualizer;
             _fibonacciService = fibonacciService;
             _fibonacciVisualizer = fibonacciVisualizer;
+            _swingPointRepository = swingPointRepository;
             _maxCisdsPerDirection = settings.Patterns.MaxCisdsPerDirection;
         }
         
@@ -75,6 +78,28 @@ namespace Pfuma.Detectors
             
             if (cisdLevel != null)
             {
+                // Copy properties from the boundary swing point of the order flow
+                SwingPoint boundarySwingPoint = null;
+                
+                if (cisdLevel.Direction == Direction.Up) // Bullish CISD
+                {
+                    // Copy properties from low boundary swing point of the order flow
+                    boundarySwingPoint = FindSwingPointAtIndex(orderflow.IndexLow);
+                }
+                else if (cisdLevel.Direction == Direction.Down) // Bearish CISD
+                {
+                    // Copy properties from high boundary swing point of the order flow
+                    boundarySwingPoint = FindSwingPointAtIndex(orderflow.IndexHigh);
+                }
+                
+                if (boundarySwingPoint != null)
+                {
+                    cisdLevel.SweptLiquidity = boundarySwingPoint.SweptLiquidity;
+                    cisdLevel.SweptFib = boundarySwingPoint.SweptFib;
+                    cisdLevel.InsidePda = boundarySwingPoint.InsidePda;
+                    cisdLevel.InsideMacro = boundarySwingPoint.InsideMacro;
+                }
+                
                 // Associate with orderflow
                 orderflow.CISDLevel = cisdLevel;
                 
@@ -443,6 +468,28 @@ namespace Pfuma.Detectors
         private void OnSwingPointDetected(SwingPointDetectedEvent evt)
         {
             CheckCisdConfirmation(evt.SwingPoint);
+        }
+        
+        /// <summary>
+        /// Helper method to find swing point at a specific index with tolerance
+        /// </summary>
+        private SwingPoint FindSwingPointAtIndex(int targetIndex)
+        {
+            // Try exact match first
+            var exactMatch = _swingPointRepository
+                .Find(sp => sp.Index == targetIndex)
+                .FirstOrDefault();
+
+            if (exactMatch != null)
+                return exactMatch;
+
+            // If no exact match, look within a small range (±2 indices)
+            var toleranceMatch = _swingPointRepository
+                .Find(sp => Math.Abs(sp.Index - targetIndex) <= 2)
+                .OrderBy(sp => Math.Abs(sp.Index - targetIndex))
+                .FirstOrDefault();
+
+            return toleranceMatch;
         }
     }
 }

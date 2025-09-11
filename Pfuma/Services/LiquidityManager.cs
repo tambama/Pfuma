@@ -123,7 +123,7 @@ namespace Pfuma.Services
         /// </summary>
         private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
         {
-            if (evt?.OrderBlock == null || !_settings.Patterns.ShowInsideKeyLevel)
+            if (evt?.OrderBlock == null)
                 return;
 
             var orderBlock = evt.OrderBlock;
@@ -147,7 +147,7 @@ namespace Pfuma.Services
         /// </summary>
         private void OnCisdConfirmed(CisdConfirmedEvent evt)
         {
-            if (evt?.CisdLevel == null || !_settings.Patterns.ShowInsideKeyLevel)
+            if (evt?.CisdLevel == null)
                 return;
 
             var cisdLevel = evt.CisdLevel;
@@ -189,8 +189,8 @@ namespace Pfuma.Services
                     if (sweptQuadrants.Any())
                     {
                         // Mark swing point as inside HTF FVG key level
-                        bullishSwingPoint.InsideKeyLevel = true;
-                        bullishSwingPoint.SweptKeyLevel = htfFvg;
+                        bullishSwingPoint.InsidePda = true;
+                        bullishSwingPoint.Pda = htfFvg;
                         
                         // Draw a dot on the swing point to indicate it's inside a key level
                         DrawInsideKeyLevelDot(bullishSwingPoint);
@@ -238,8 +238,8 @@ namespace Pfuma.Services
                     if (sweptQuadrants.Any())
                     {
                         // Mark swing point as inside HTF FVG key level
-                        bearishSwingPoint.InsideKeyLevel = true;
-                        bearishSwingPoint.SweptKeyLevel = htfFvg;
+                        bearishSwingPoint.InsidePda = true;
+                        bearishSwingPoint.Pda = htfFvg;
                         
                         // Draw a dot on the swing point to indicate it's inside a key level
                         DrawInsideKeyLevelDot(bearishSwingPoint);
@@ -564,6 +564,10 @@ namespace Pfuma.Services
                         sessionDailyHigh.Swept = true;
                         sessionDailyHigh.IndexOfSweepingCandle = bullishSwingPoint.Index;
                         
+                        // Mark the bullish swing point as having swept liquidity
+                        bullishSwingPoint.SweptLiquidity = true;
+                        bullishSwingPoint.SweptLiquidityPrice = sessionDailyHigh.Price;
+                        
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bullishSwingPoint);
                         
@@ -612,6 +616,10 @@ namespace Pfuma.Services
                         sessionDailyLow.Swept = true;
                         sessionDailyLow.IndexOfSweepingCandle = bearishSwingPoint.Index;
                         
+                        // Mark the bearish swing point as having swept liquidity
+                        bearishSwingPoint.SweptLiquidity = true;
+                        bearishSwingPoint.SweptLiquidityPrice = sessionDailyLow.Price;
+                        
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyLow, bearishSwingPoint);
                         
@@ -639,8 +647,7 @@ namespace Pfuma.Services
         {
             try
             {
-                if (!_settings.Patterns.ShowInsideKeyLevel)
-                    return;
+                // Always perform detection logic, only skip visualization if disabled
 
                 // Get all active bearish order blocks that contain this swing point
                 var containingOrderBlocks = _levelRepository
@@ -660,11 +667,14 @@ namespace Pfuma.Services
                         .First();
 
                     // Mark swing point as inside key level
-                    bullishSwingPoint.InsideKeyLevel = true;
-                    bullishSwingPoint.SweptKeyLevel = mostRecentOrderBlock;
+                    bullishSwingPoint.InsidePda = true;
+                    bullishSwingPoint.Pda = mostRecentOrderBlock;
                     
-                    // Draw a dot on the swing point
-                    DrawInsideKeyLevelDot(bullishSwingPoint);
+                    // Draw a dot on the swing point only if visualization is enabled
+                    if (_settings.Patterns.ShowInsideKeyLevel)
+                    {
+                        DrawInsideKeyLevelDot(bullishSwingPoint);
+                    }
 
                     // Swing point is inside order block
                 }
@@ -683,8 +693,7 @@ namespace Pfuma.Services
         {
             try
             {
-                if (!_settings.Patterns.ShowInsideKeyLevel)
-                    return;
+                // Always perform detection logic, only skip visualization if disabled
 
                 // Get all active bullish order blocks that contain this swing point
                 var containingOrderBlocks = _levelRepository
@@ -704,11 +713,14 @@ namespace Pfuma.Services
                         .First();
 
                     // Mark swing point as inside key level
-                    bearishSwingPoint.InsideKeyLevel = true;
-                    bearishSwingPoint.SweptKeyLevel = mostRecentOrderBlock;
+                    bearishSwingPoint.InsidePda = true;
+                    bearishSwingPoint.Pda = mostRecentOrderBlock;
                     
-                    // Draw a dot on the swing point
-                    DrawInsideKeyLevelDot(bearishSwingPoint);
+                    // Draw a dot on the swing point only if visualization is enabled
+                    if (_settings.Patterns.ShowInsideKeyLevel)
+                    {
+                        DrawInsideKeyLevelDot(bearishSwingPoint);
+                    }
 
                     // Swing point is inside order block
                 }
@@ -727,8 +739,7 @@ namespace Pfuma.Services
         {
             try
             {
-                if (!_settings.Patterns.ShowInsideKeyLevel)
-                    return;
+                // Always perform detection logic, only skip visualization if disabled
 
                 // Get all confirmed and active bearish CISDs that contain this swing point
                 var containingCisds = _levelRepository
@@ -749,11 +760,14 @@ namespace Pfuma.Services
                         .First();
 
                     // Mark swing point as inside key level
-                    bullishSwingPoint.InsideKeyLevel = true;
-                    bullishSwingPoint.SweptKeyLevel = mostRecentCisd;
+                    bullishSwingPoint.InsidePda = true;
+                    bullishSwingPoint.Pda = mostRecentCisd;
                     
-                    // Draw a dot on the swing point
-                    DrawInsideKeyLevelDot(bullishSwingPoint);
+                    // Draw a dot on the swing point only if visualization is enabled
+                    if (_settings.Patterns.ShowInsideKeyLevel)
+                    {
+                        DrawInsideKeyLevelDot(bullishSwingPoint);
+                    }
 
                     // Swing point is inside CISD
                 }
@@ -772,8 +786,7 @@ namespace Pfuma.Services
         {
             try
             {
-                if (!_settings.Patterns.ShowInsideKeyLevel)
-                    return;
+                // Always perform detection logic, only skip visualization if disabled
 
                 // Get all confirmed and active bullish CISDs that contain this swing point
                 var containingCisds = _levelRepository
@@ -794,11 +807,14 @@ namespace Pfuma.Services
                         .First();
 
                     // Mark swing point as inside key level
-                    bearishSwingPoint.InsideKeyLevel = true;
-                    bearishSwingPoint.SweptKeyLevel = mostRecentCisd;
+                    bearishSwingPoint.InsidePda = true;
+                    bearishSwingPoint.Pda = mostRecentCisd;
                     
-                    // Draw a dot on the swing point
-                    DrawInsideKeyLevelDot(bearishSwingPoint);
+                    // Draw a dot on the swing point only if visualization is enabled
+                    if (_settings.Patterns.ShowInsideKeyLevel)
+                    {
+                        DrawInsideKeyLevelDot(bearishSwingPoint);
+                    }
 
                     // Swing point is inside CISD
                 }
@@ -830,25 +846,25 @@ namespace Pfuma.Services
                                sp.Index >= orderBlock.IndexLow - 5 && sp.Index <= orderBlock.IndexLow + 5)
                     .FirstOrDefault();
 
-                if (swingLow == null || !swingLow.InsideKeyLevel || swingLow.SweptKeyLevel == null)
+                if (swingLow == null || !swingLow.InsidePda || swingLow.Pda == null)
                     return;
 
                 // Check if the swept key level is an HTF FVG
-                if (swingLow.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingLow.SweptKeyLevel.TimeFrame != null)
+                if (swingLow.Pda.LevelType == LevelType.FairValueGap && swingLow.Pda.TimeFrame != null)
                 {
                     // Extend the HTF FVG to include the swing point's candle
-                    ExtendHtfFvg(swingLow.SweptKeyLevel, swingLow);
+                    ExtendHtfFvg(swingLow.Pda, swingLow);
                     // HTF FVG extended from order block
                 }
                 else
                 {
                     // Extend the regular key level to include the swing point's candle
-                    ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
+                    ExtendKeyLevel(swingLow.Pda, swingLow);
                     // Key level extended from order block
                 }
                 
                 // Send Telegram notification about order block formed inside key level
-                _notificationService.NotifyOrderBlockInsideKeyLevel(orderBlock, swingLow.SweptKeyLevel);
+                _notificationService.NotifyOrderBlockInsideKeyLevel(orderBlock, swingLow.Pda);
             }
             catch (Exception ex)
             {
@@ -877,25 +893,25 @@ namespace Pfuma.Services
                                sp.Index >= orderBlock.IndexHigh - 5 && sp.Index <= orderBlock.IndexHigh + 5)
                     .FirstOrDefault();
 
-                if (swingHigh == null || !swingHigh.InsideKeyLevel || swingHigh.SweptKeyLevel == null)
+                if (swingHigh == null || !swingHigh.InsidePda || swingHigh.Pda == null)
                     return;
 
                 // Check if the swept key level is an HTF FVG
-                if (swingHigh.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingHigh.SweptKeyLevel.TimeFrame != null)
+                if (swingHigh.Pda.LevelType == LevelType.FairValueGap && swingHigh.Pda.TimeFrame != null)
                 {
                     // Extend the HTF FVG to include the swing point's candle
-                    ExtendHtfFvg(swingHigh.SweptKeyLevel, swingHigh);
+                    ExtendHtfFvg(swingHigh.Pda, swingHigh);
                     // HTF FVG extended from order block
                 }
                 else
                 {
                     // Extend the regular key level to include the swing point's candle
-                    ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
+                    ExtendKeyLevel(swingHigh.Pda, swingHigh);
                     // Key level extended from order block
                 }
                 
                 // Send Telegram notification about order block formed inside key level
-                _notificationService.NotifyOrderBlockInsideKeyLevel(orderBlock, swingHigh.SweptKeyLevel);
+                _notificationService.NotifyOrderBlockInsideKeyLevel(orderBlock, swingHigh.Pda);
             }
             catch (Exception ex)
             {
@@ -916,25 +932,25 @@ namespace Pfuma.Services
                     .Find(sp => sp.Index == cisdLevel.IndexHigh)
                     .FirstOrDefault();
 
-                if (swingHigh == null || !swingHigh.InsideKeyLevel || swingHigh.SweptKeyLevel == null)
+                if (swingHigh == null || !swingHigh.InsidePda || swingHigh.Pda == null)
                     return;
 
                 // Check if the swept key level is an HTF FVG
-                if (swingHigh.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingHigh.SweptKeyLevel.TimeFrame != null)
+                if (swingHigh.Pda.LevelType == LevelType.FairValueGap && swingHigh.Pda.TimeFrame != null)
                 {
                     // Extend the HTF FVG to include the CISD swing high candle
-                    ExtendHtfFvg(swingHigh.SweptKeyLevel, swingHigh);
+                    ExtendHtfFvg(swingHigh.Pda, swingHigh);
                     // HTF FVG extended from CISD
                 }
                 else
                 {
                     // Extend the regular key level to include the CISD swing high candle
-                    ExtendKeyLevel(swingHigh.SweptKeyLevel, swingHigh);
+                    ExtendKeyLevel(swingHigh.Pda, swingHigh);
                     // Key level extended from CISD
                 }
                 
                 // Send Telegram notification about CISD confirmed inside key level
-                _notificationService.NotifyCisdInsideKeyLevel(cisdLevel, swingHigh.SweptKeyLevel);
+                _notificationService.NotifyCisdInsideKeyLevel(cisdLevel, swingHigh.Pda);
             }
             catch (Exception ex)
             {
@@ -955,25 +971,25 @@ namespace Pfuma.Services
                     .Find(sp => sp.Index == cisdLevel.IndexLow)
                     .FirstOrDefault();
 
-                if (swingLow == null || !swingLow.InsideKeyLevel || swingLow.SweptKeyLevel == null)
+                if (swingLow == null || !swingLow.InsidePda || swingLow.Pda == null)
                     return;
 
                 // Check if the swept key level is an HTF FVG
-                if (swingLow.SweptKeyLevel.LevelType == LevelType.FairValueGap && swingLow.SweptKeyLevel.TimeFrame != null)
+                if (swingLow.Pda.LevelType == LevelType.FairValueGap && swingLow.Pda.TimeFrame != null)
                 {
                     // Extend the HTF FVG to include the CISD swing low candle
-                    ExtendHtfFvg(swingLow.SweptKeyLevel, swingLow);
+                    ExtendHtfFvg(swingLow.Pda, swingLow);
                     // HTF FVG extended from CISD
                 }
                 else
                 {
                     // Extend the regular key level to include the CISD swing low candle
-                    ExtendKeyLevel(swingLow.SweptKeyLevel, swingLow);
+                    ExtendKeyLevel(swingLow.Pda, swingLow);
                     // Key level extended from CISD
                 }
                 
                 // Send Telegram notification about CISD confirmed inside key level
-                _notificationService.NotifyCisdInsideKeyLevel(cisdLevel, swingLow.SweptKeyLevel);
+                _notificationService.NotifyCisdInsideKeyLevel(cisdLevel, swingLow.Pda);
             }
             catch (Exception ex)
             {

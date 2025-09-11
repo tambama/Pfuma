@@ -7,7 +7,7 @@ namespace Pfuma.Models
 {
     public class Level
     {
-        public Level(LevelType levelType, double low, double high, DateTime lowTime, DateTime highTime, DateTime? midTime = null, Direction direction = Direction.Up, int index = 0, int indexHigh = 0, int indexLow = 0, int indexMid = 0, Zone zone = Zone.Equilibrium, int score = 1, DateTime? stretchTo = null, bool isConfirmed = false, double? entry = 0)
+        public Level(LevelType levelType, double low, double high, DateTime lowTime, DateTime highTime, DateTime? midTime = null, Direction direction = Direction.Up, int index = 0, int indexHigh = 0, int indexLow = 0, int indexMid = 0, Zone zone = Zone.Equilibrium, DateTime? stretchTo = null, bool isConfirmed = false, double? entry = 0)
         {
             Id = Guid.NewGuid().ToString();
             LevelType = levelType;
@@ -22,7 +22,6 @@ namespace Pfuma.Models
             IndexLow = indexLow;
             IndexMid = indexMid;
             Zone = zone;
-            Score = score;
             StretchTo = stretchTo;
             IsConfirmed = isConfirmed;
             Entry = entry;
@@ -44,7 +43,6 @@ namespace Pfuma.Models
         public int IndexHigh { get; set; }
         public int IndexLow { get; set; }
         public int IndexMid { get; set; } // Added to track the middle candle
-        public int Score { get; set; }
         public bool Activated { get; set; }
         public int ActivationIndex { get; set; }
         public bool IsInverted { get; set; }
@@ -82,6 +80,36 @@ namespace Pfuma.Models
         
         // Whether this level has been extended (rectangle extended to include swing point candle)
         public bool IsExtended { get; set; } = false;
+
+        // Properties inherited from boundary swing point
+        public bool SweptLiquidity { get; set; } = false;
+        public bool SweptFib { get; set; } = false;
+        public bool InsidePda { get; set; } = false;
+        public bool InsideMacro { get; set; } = false;
+        
+        // Score
+        public int Score
+        {
+            get
+            {
+                var score = 0;
+
+                if (SweptLiquidity)
+                    score += 1;
+            
+                if (SweptFib)
+                    score += 1;
+            
+                if (InsidePda)
+                    score += 1;
+            
+                if (InsideMacro)
+                    score += 1;
+            
+            
+                return score;
+            }
+        }
 
         // Whether this level is active (not liquidity swept and, if has quadrants, at least one quadrant is not swept)
         public bool IsActive => !IsLiquiditySwept && (Quadrants.Count == 0 || Quadrants.Any(q => !q.IsSwept));
@@ -153,6 +181,62 @@ namespace Pfuma.Models
             }
     
             return sweptQuadrants;
+        }
+
+        /// <summary>
+        /// Sets the Level properties based on the associated swing point properties
+        /// Only applies to non-FVG levels
+        /// </summary>
+        /// <param name="swingPointRepository">Repository to lookup swing points</param>
+        public void SetPropertiesFromSwingPoint(Core.Interfaces.IRepository<SwingPoint> swingPointRepository)
+        {
+            // Skip FVGs as per requirements
+            if (LevelType == LevelType.FairValueGap)
+                return;
+
+            SwingPoint boundarySwingPoint = null;
+
+            // For bullish levels, check the low index swing point
+            if (Direction == Direction.Up)
+            {
+                boundarySwingPoint = FindSwingPointAtIndex(swingPointRepository, IndexLow);
+            }
+            // For bearish levels, check the high index swing point  
+            else if (Direction == Direction.Down)
+            {
+                boundarySwingPoint = FindSwingPointAtIndex(swingPointRepository, IndexHigh);
+            }
+
+            // If we found the boundary swing point, copy its properties
+            if (boundarySwingPoint != null)
+            {
+                SweptLiquidity = boundarySwingPoint.SweptLiquidity;
+                SweptFib = boundarySwingPoint.SweptFib;
+                InsidePda = boundarySwingPoint.InsidePda;
+                InsideMacro = boundarySwingPoint.InsideMacro;
+            }
+        }
+
+        /// <summary>
+        /// Helper method to find swing point at a specific index with tolerance
+        /// </summary>
+        private SwingPoint FindSwingPointAtIndex(Core.Interfaces.IRepository<SwingPoint> swingPointRepository, int targetIndex)
+        {
+            // Try exact match first
+            var exactMatch = swingPointRepository
+                .Find(sp => sp.Index == targetIndex)
+                .FirstOrDefault();
+
+            if (exactMatch != null)
+                return exactMatch;
+
+            // If no exact match, look within a small range (±2 indices)
+            var toleranceMatch = swingPointRepository
+                .Find(sp => Math.Abs(sp.Index - targetIndex) <= 2)
+                .OrderBy(sp => Math.Abs(sp.Index - targetIndex))
+                .FirstOrDefault();
+
+            return toleranceMatch;
         }
     }
 }

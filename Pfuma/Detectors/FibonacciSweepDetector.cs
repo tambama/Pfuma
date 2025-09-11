@@ -103,6 +103,7 @@ namespace Pfuma.Detectors
                 {
                     // Mark as swept
                     swingPoint.SweptFib = true;
+                    swingPoint.SweptFibPrice = price;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
                     
                     // Update the FibonacciLevel tracking
@@ -168,6 +169,7 @@ namespace Pfuma.Detectors
                 {
                     // Mark as swept
                     swingPoint.SweptFib = true;
+                    swingPoint.SweptFibPrice = price;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
                     
                     // Update the FibonacciLevel tracking

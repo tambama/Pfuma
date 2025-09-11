@@ -205,12 +205,12 @@ namespace Pfuma.Detectors
                 {
                     sweptPoint.Swept = true;
                     sweptPoint.SweptLiquidity = true;
+                    sweptPoint.SweptLiquidityPrice = sweptPoint.Price;
                     sweptPoint.IndexOfSweepingCandle = sweepingCandleIndex;
                     orderflow.SweptSwingPoints.Add(sweptPoint);
                 }
                 
                 orderflow.SweptSwingPoint = highestSweptPoint;
-                orderflow.Score += Math.Min(3, sweptHighs.Count);
             }
         }
         
@@ -237,12 +237,12 @@ namespace Pfuma.Detectors
                 {
                     sweptPoint.Swept = true;
                     sweptPoint.SweptLiquidity = true;
+                    sweptPoint.SweptLiquidityPrice = sweptPoint.Price;
                     sweptPoint.IndexOfSweepingCandle = sweepingCandleIndex;
                     orderflow.SweptSwingPoints.Add(sweptPoint);
                 }
                 
                 orderflow.SweptSwingPoint = lowestSweptPoint;
-                orderflow.Score += Math.Min(3, sweptLows.Count);
             }
         }
         

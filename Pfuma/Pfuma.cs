@@ -327,13 +327,16 @@ namespace Pfuma
             // Initialize swing point manager
             _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);
             
-            // Initialize swing point detector
+            // Initialize swing point detector (without TimeManager initially)
             _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator);
             
             // Initialize time manager
             _timeManager = new TimeManager(
                 Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
+            
+            // Now pass TimeManager to SwingPointDetector
+            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager);
             
             // Initialize liquidity manager
             _liquidityManager = new LiquidityManager(Chart, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
@@ -362,14 +365,14 @@ namespace Pfuma
                 Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
             _orderBlockDetector = new OrderBlockDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointManager, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _orderBlockVisualizer, _swingPointManager, _swingPointRepository, _settings, EnableLog ? Print : null);
             
             
             _breakerBlockDetector = new BreakerBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
             
             _cisdDetector = new CisdDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _fibonacciService, _fibonacciVisualizer, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _fibonacciService, _fibonacciVisualizer, _swingPointRepository, _settings, EnableLog ? Print : null);
             
             _unicornDetector = new UnicornDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
@@ -405,6 +408,8 @@ namespace Pfuma
             
             // Subscribe to swing point detection for repository management
             _eventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
+            _eventAggregator.Subscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
+            _eventAggregator.Subscribe<CisdConfirmedEvent>(OnCISDDetected);
         }
         
         #endregion
@@ -587,10 +592,10 @@ namespace Pfuma
                     // Check if swing point sweeps any quadrants
                     var sweptQuadrants = pdArray.CheckForSweptQuadrants(swingPoint);
                     
-                    if (sweptQuadrants.Count > 0 && !swingPoint.InsideKeyLevel)
+                    if (sweptQuadrants.Count > 0 && !swingPoint.InsidePda)
                     {
-                        swingPoint.InsideKeyLevel = true;
-                        swingPoint.SweptKeyLevel = pdArray;
+                        swingPoint.InsidePda = true;
+                        swingPoint.Pda = pdArray;
                     }
                 }
             }
@@ -600,6 +605,13 @@ namespace Pfuma
         {
             var color = swingPoint.Direction == Direction.Up ? Color.Green : Color.Red;
             Chart.DrawIcon($"kl-{swingPoint.Time}", ChartIconType.Circle, 
+                          swingPoint.Time, swingPoint.Price, color);
+        }
+        
+        private void DrawInsideMacroIcon(SwingPoint swingPoint)
+        {
+            var color = swingPoint.Direction == Direction.Up ? Color.Gold : Color.Orange;
+            Chart.DrawIcon($"macro-{swingPoint.Time}", ChartIconType.Square, 
                           swingPoint.Time, swingPoint.Price, color);
         }
         
@@ -624,6 +636,37 @@ namespace Pfuma
             {
                 _swingPointRepository.Add(evt.SwingPoint);
                 
+                // Draw icon if swing point is inside macro time
+                if (evt.SwingPoint.InsideMacro)
+                {
+                    //DrawInsideMacroIcon(evt.SwingPoint);
+                }
+            }
+        }
+
+        private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
+        {
+            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 2)
+            {
+                var orderBlock = evt.OrderBlock;
+                var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
+                var price = orderBlock.Direction == Direction.Up ? orderBlock.Low : orderBlock.High;
+                var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
+                Chart.DrawIcon($"macro-{time}", ChartIconType.Square, 
+                    time, price, color);
+            }
+        }
+        
+        private void OnCISDDetected(CisdConfirmedEvent evt)
+        {
+            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 2)
+            {
+                var orderBlock = evt.CisdLevel;
+                var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
+                var price = orderBlock.Direction == Direction.Up ? orderBlock.Low : orderBlock.High;
+                var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
+                Chart.DrawIcon($"macro-{time}", ChartIconType.Square, 
+                    time, price, color);
             }
         }
         

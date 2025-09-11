@@ -11,7 +11,6 @@ public class SwingPoint
     public int Number { get; set; }
     public int PreviousIndex { get; set; }
     public int NextIndex { get; set; }
-    public int IndexThatBrokeSwing { get; set; }
 
     public double Price { get; set; }
     public DateTime Time { get; set; }
@@ -29,46 +28,28 @@ public class SwingPoint
     // ICT Concepts
     public LiquidityType LiquidityType { get; set; }
     public LiquidityName LiquidityName { get; set; }
-
-    public int PassCount { get; set; }
-    public int BrokenCount { get; set; }
-
-    public bool IsRejectionBlock { get; set; }
-    public bool IsInversion { get; set; }
-
-    public bool IsPotentialChoCh { get; set; }
     
     // Track activated FVGs and Order Blocks
     public bool ActivatedFVG { get; set; }
     public bool ActivatedRejectionBlock { get; set; }
-    public bool IsInFVG { get; set; }
-    public bool IsInRejectionBlock { get; set; }
     public bool ActivatedStdv { get; set; }
     public bool SweptLiquidity { get; set; }
     public bool ActivatedUnicorn { get; set; }
     
+    // Track if swing point was created during macro time
+    public bool InsideMacro { get; set; }
+    
     // Simple boolean flag for quadrant sweeping
-    public bool InsideKeyLevel { get; set; }
-    public Level SweptKeyLevel { get; set; }
-    
-    // References to the activated levels
-    public Level ActivatedFVGLevel { get; set; }
-    public Level ActivatedRejectionBlockLevel { get; set; }
-    public bool ActivatedCISD { get; set; }
-    public Level ActivatedCISDLevel { get; set; }
-    
-    // Standard Deviations
-    public StandardDeviation SweptDeviation { get; set; }
-    public bool SweptMinusTwo { get; set; }  // To track which level was swept (MinusTwo or MinusFour)
-    
-    
-    
-    // Special liquidity tracking  
-    public bool IsSpecialLiquidity { get; set; }
+    public bool InsidePda { get; set; }
+    public Level Pda { get; set; }
     
     // Fibonacci sweep tracking
     public bool SweptFib { get; set; }
     public List<(int Index, double Price, double Ratio, string Id, FibType Type)> SweptFibLevels { get; set; } = new List<(int, double, double, string, FibType)>();
+    
+    // Swept price tracking for property copying conditions
+    public double? SweptLiquidityPrice { get; set; }
+    public double? SweptFibPrice { get; set; }
     
     // Score
     public int Score
@@ -86,6 +67,7 @@ public class SwingPoint
             if (ActivatedStdv)
                 score += 1;
             
+            
             if (SweptLiquidity)
                 score += 1;
             
@@ -95,10 +77,6 @@ public class SwingPoint
             
             return score;
         }
-    }
-
-    public SwingPoint()
-    {
     }
 
     public SwingPoint(int index, double price, DateTime time, Candle bar, SwingType swingType,

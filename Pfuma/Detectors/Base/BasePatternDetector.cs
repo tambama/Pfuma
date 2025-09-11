@@ -55,6 +55,9 @@ public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializab
             {
                 if (PostDetectionValidation(pattern, currentIndex))
                 {
+                    // Set additional properties if applicable
+                    SetAdditionalProperties(pattern);
+                    
                     // Store the pattern
                     Repository.Add(pattern);
                         
@@ -91,6 +94,14 @@ public abstract class BasePatternDetector<T> : IPatternDetector<T>, IInitializab
     protected virtual bool PostDetectionValidation(T pattern, int currentIndex)
     {
         return pattern != null;
+    }
+    
+    /// <summary>
+    /// Override to set additional properties on the pattern after creation
+    /// </summary>
+    protected virtual void SetAdditionalProperties(T pattern)
+    {
+        // Base implementation does nothing - override in derived classes as needed
     }
         
     /// <summary>
