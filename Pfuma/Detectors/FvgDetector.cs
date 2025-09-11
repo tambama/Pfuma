@@ -241,13 +241,18 @@ namespace Pfuma.Detectors
         
         private void ProcessGauntlet(Level fvg, int detectionIndex)
         {
+            // First, clear all existing gauntlet visualizations from the current collection
+            foreach (var gauntlet in _gauntlets.ToList()) // Use ToList() to create a copy for safe iteration
+            {
+                RemoveGauntletVisualization(gauntlet);
+            }
+            
             // Check if we already have an FVG with the same index in the gauntlet collection
             var existingFvgWithSameIndex = _gauntlets.FirstOrDefault(g => g.Index == fvg.Index);
             if (existingFvgWithSameIndex != null)
             {
                 // Remove the existing FVG with the same index
                 _gauntlets.Remove(existingFvgWithSameIndex);
-                RemoveGauntletVisualization(existingFvgWithSameIndex);
             }
             
             // If we already have 2 gauntlets after removing duplicates, remove the oldest
@@ -255,14 +260,16 @@ namespace Pfuma.Detectors
             {
                 var oldestGauntlet = _gauntlets[0];
                 _gauntlets.RemoveAt(0);
-                RemoveGauntletVisualization(oldestGauntlet);
             }
             
             // Add the new FVG to gauntlets
             _gauntlets.Add(fvg);
             
-            // Draw the gauntlet rectangle
-            DrawGauntletRectangle(fvg, detectionIndex);
+            // Now redraw all gauntlets in the updated collection
+            foreach (var gauntlet in _gauntlets)
+            {
+                DrawGauntletRectangle(gauntlet, detectionIndex);
+            }
         }
         
         private void DrawGauntletRectangle(Level fvg, int detectionIndex)
