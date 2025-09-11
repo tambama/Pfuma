@@ -23,6 +23,7 @@ namespace Pfuma.Detectors
         private readonly IFibonacciService _fibonacciService;
         private readonly FibonacciVisualizer _fibonacciVisualizer;
         private readonly IRepository<SwingPoint> _swingPointRepository;
+        private readonly TimeManager _timeManager;
         private readonly int _maxCisdsPerDirection;
         
         public CisdDetector(
@@ -34,6 +35,7 @@ namespace Pfuma.Detectors
             IFibonacciService fibonacciService,
             FibonacciVisualizer fibonacciVisualizer,
             IRepository<SwingPoint> swingPointRepository,
+            TimeManager timeManager,
             IndicatorSettings settings,
             Action<string> logger = null)
             : base(chart, candleManager, eventAggregator, repository, settings, logger)
@@ -42,6 +44,7 @@ namespace Pfuma.Detectors
             _fibonacciService = fibonacciService;
             _fibonacciVisualizer = fibonacciVisualizer;
             _swingPointRepository = swingPointRepository;
+            _timeManager = timeManager;
             _maxCisdsPerDirection = settings.Patterns.MaxCisdsPerDirection;
         }
         
@@ -285,6 +288,9 @@ namespace Pfuma.Detectors
                     cisd.IsConfirmed = true;
                     cisd.IndexOfConfirmingCandle = swingPoint.Index;
                     
+                    // Check if CISD time range overlaps with macro time
+                    CheckCisdMacroTimeOverlap(cisd, swingPoint);
+                    
                     // Create Fibonacci levels for the confirmed CISD
                     CreateCisdFibonacciLevels(cisd);
                     
@@ -340,6 +346,73 @@ namespace Pfuma.Detectors
                     _visualizer?.Update(cisd);
                 }
             }
+        }
+        
+        /// <summary>
+        /// Checks if the CISD confirmation time range overlaps with macro time
+        /// </summary>
+        private void CheckCisdMacroTimeOverlap(Level cisd, SwingPoint confirmingSwingPoint)
+        {
+            if (cisd == null || confirmingSwingPoint == null || string.IsNullOrEmpty(cisd.OrderFlowId))
+                return;
+            
+            // Find the orderflow that created this CISD
+            var orderFlow = Repository.Find(level => 
+                level.Id == cisd.OrderFlowId && 
+                level.LevelType == LevelType.Orderflow)
+                .FirstOrDefault();
+            
+            if (orderFlow == null)
+                return;
+            
+            DateTime orderFlowBoundaryTime;
+            DateTime confirmingTime = confirmingSwingPoint.Time;
+            
+            if (cisd.Direction == Direction.Up) // Bullish CISD
+            {
+                // For bullish CISD, use HighTime of the bearish orderflow
+                orderFlowBoundaryTime = orderFlow.HighTime;
+            }
+            else // Bearish CISD
+            {
+                // For bearish CISD, use LowTime of the bullish orderflow
+                orderFlowBoundaryTime = orderFlow.LowTime;
+            }
+            
+            // Check if the time range between orderflow boundary and confirmation overlaps with macro time
+            if (_timeManager != null && DoesTimeRangeOverlapMacro(orderFlowBoundaryTime, confirmingTime))
+            {
+                cisd.InsideMacro = true;
+            }
+        }
+        
+        /// <summary>
+        /// Checks if a time range overlaps with any macro time periods
+        /// </summary>
+        private bool DoesTimeRangeOverlapMacro(DateTime startTime, DateTime endTime)
+        {
+            if (_timeManager == null)
+                return false;
+            
+            // Ensure start is before end
+            if (startTime > endTime)
+            {
+                (startTime, endTime) = (endTime, startTime);
+            }
+            
+            // Check each time point in the range to see if any falls within macro time
+            var current = startTime;
+            while (current <= endTime)
+            {
+                if (_timeManager.IsInsideMacroTime(current))
+                {
+                    return true;
+                }
+                // Check every minute in the range
+                current = current.AddMinutes(1);
+            }
+            
+            return false;
         }
         
         /// <summary>

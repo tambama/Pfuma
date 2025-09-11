@@ -372,7 +372,7 @@ namespace Pfuma
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _breakerBlockVisualizer, _settings, EnableLog ? Print : null);
             
             _cisdDetector = new CisdDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _fibonacciService, _fibonacciVisualizer, _swingPointRepository, _settings, EnableLog ? Print : null);
+                Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _fibonacciService, _fibonacciVisualizer, _swingPointRepository, _timeManager, _settings, EnableLog ? Print : null);
             
             _unicornDetector = new UnicornDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
@@ -646,7 +646,7 @@ namespace Pfuma
 
         private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
         {
-            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 2)
+            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 4)
             {
                 var orderBlock = evt.OrderBlock;
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
@@ -659,7 +659,7 @@ namespace Pfuma
         
         private void OnCISDDetected(CisdConfirmedEvent evt)
         {
-            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 2)
+            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 4)
             {
                 var orderBlock = evt.CisdLevel;
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
