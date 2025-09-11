@@ -1050,6 +1050,14 @@ namespace Pfuma.Services
                 if (keyLevel == null || swingPoint == null)
                     return;
 
+                // Only extend rectangles for CISD and OrderBlocks when ShowInsideKeyLevel is true
+                if ((keyLevel.LevelType == LevelType.CISD || keyLevel.LevelType == LevelType.OrderBlock) && 
+                    !_settings.Patterns.ShowInsideKeyLevel)
+                {
+                    // Rectangle extension disabled for CISD and OrderBlock when ShowInsideKeyLevel is false
+                    return;
+                }
+
                 // Only extend regular CISDs if ShowCISD is true
                 if (keyLevel.LevelType == LevelType.CISD && keyLevel.TimeFrame == null && !_settings.Patterns.ShowCISD)
                 {
