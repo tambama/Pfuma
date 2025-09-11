@@ -370,3 +370,7 @@ FodyWeavers.xsd
 test_periodicity.*
 *.algo
 *.algo.metadata
+
+# macOS system files
+.DS_Store
+**/.DS_Store
