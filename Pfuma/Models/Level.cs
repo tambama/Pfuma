@@ -65,6 +65,9 @@ namespace Pfuma.Models
     
         // CISD
         public Level CISDLevel { get; set; }
+        
+        // Propulsion Block
+        public bool HasPropulsionBlock { get; set; }
     
         // Quadrant tracking
         public List<Quadrant> Quadrants { get; set; } = new List<Quadrant>();
@@ -104,6 +107,9 @@ namespace Pfuma.Models
                     score += 1;
             
                 if (InsideMacro)
+                    score += 1;
+                
+                if (HasPropulsionBlock)
                     score += 1;
             
             

@@ -24,4 +24,6 @@ public enum LevelType
     RejectionBlock,
     [Description("Order Block")]
     OrderBlock,
+    [Description("Propulsion Block")]
+    PropulsionBlock,
 }

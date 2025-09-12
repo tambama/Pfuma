@@ -21,69 +21,72 @@ namespace Pfuma
         #region Parameters
         
         // Swing Points
-        [Parameter("Show Swing Points", DefaultValue = true, Group = "Swing Points")]
+        [Parameter("Swing Points", DefaultValue = true, Group = "Swing Points")]
         public bool ShowSwingPoints { get; set; }
         
         // Pattern Detection
-        [Parameter("Show FVG", DefaultValue = false, Group = "Patterns")]
+        [Parameter("FVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowFVG { get; set; }
         
-        [Parameter("Show Gauntlet", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Gauntlet", DefaultValue = false, Group = "Patterns")]
         public bool ShowGauntlet { get; set; }
         
-        [Parameter("Show Order Flow", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Order Flow", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderFlow { get; set; }
         
-        [Parameter("Show Liquidity Sweep", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Liquidity Sweep", DefaultValue = false, Group = "Patterns")]
         public bool ShowLiquiditySweep { get; set; }
         
-        [Parameter("Show Rejection Blocks", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Rejection Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowRejectionBlock { get; set; }
         
-        [Parameter("Show Order Blocks", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Order Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderBlock { get; set; }
         
-        [Parameter("Show Breaker Blocks", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Breaker Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowBreakerBlock { get; set; }
         
-        [Parameter("Show CISD", DefaultValue = false, Group = "Patterns")]
+        [Parameter("CISD", DefaultValue = false, Group = "Patterns")]
         public bool ShowCISD { get; set; }
         
-        [Parameter("Max CISD", DefaultValue = 2, Group = "Patterns")]
-        public int MaxCisdsPerDirection { get; set; }
+        //[Parameter("Max CISD", DefaultValue = 2, Group = "Patterns")]
+        public int MaxCisdsPerDirection { get; set; } = 1;
+        
+        [Parameter("Propulsion Blocks", DefaultValue = false, Group = "Patterns")]
+        public bool ShowPropulsionBlock { get; set; }
         
         
-        [Parameter("Show Unicorn", DefaultValue = false, Group = "Patterns")]
+        [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
         
         
         // Visualization
-        [Parameter("Show Quadrants", DefaultValue = false, Group = "Visualization")]
+        [Parameter("Quadrants", DefaultValue = false, Group = "Visualization")]
         public bool ShowQuadrants { get; set; }
         
-        [Parameter("Show Inside Key Level", DefaultValue = false, Group = "Visualization")]
+        [Parameter("Inside Key Level", DefaultValue = false, Group = "Visualization")]
         public bool ShowInsideKeyLevel { get; set; }
         
         // Time Management
-        [Parameter("Show Macros", DefaultValue = false, Group = "Time")]
+        [Parameter("Macros", DefaultValue = false, Group = "Time")]
         public bool ShowMacros { get; set; }
         
         [Parameter("Macro Filter", DefaultValue = false, Group = "Time")]
         public bool MacroFilter { get; set; }
         
-        [Parameter("Show Daily Levels", DefaultValue = true, Group = "Time")]
+        [Parameter("Daily Levels", DefaultValue = true, Group = "Time")]
         public bool ShowDailyLevels { get; set; }
         
-        [Parameter("Show Session Levels", DefaultValue = true, Group = "Time")]
+        [Parameter("Session Levels", DefaultValue = true, Group = "Time")]
         public bool ShowSessionLevels { get; set; }
         
-        [Parameter("Show Cycle Fib Levels", DefaultValue = false, Group = "Fibonacci")]
+        [Parameter("Cycle Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCycleFibLevels { get; set; }
         
-        [Parameter("Show CISD Fib Levels", DefaultValue = false, Group = "Fibonacci")]
+        [Parameter("CISD Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCISDFibLevels { get; set; }
         
-        [Parameter("Show Extended Fib", DefaultValue = true, Group = "Fibonacci")]
+        [Parameter("Extended Fib", DefaultValue = true, Group = "Fibonacci")]
         public bool ShowExtendedFib { get; set; }
         
         [Parameter("Remove Fib Extensions", DefaultValue = false, Group = "Fibonacci")]
@@ -112,16 +115,16 @@ namespace Pfuma
         [Parameter("Timeframes", DefaultValue = "H1", Group = "Multi-Timeframe")]
         public string Timeframes { get; set; }
         
-        [Parameter("Show High Timeframe Candle", DefaultValue = false, Group = "Multi-Timeframe")]
+        [Parameter("High Timeframe Candle", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHighTimeframeCandle { get; set; }
         
-        [Parameter("Show HTF Swing Points", DefaultValue = false, Group = "Multi-Timeframe")]
+        [Parameter("HTF Swing Points", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHtfSwingPoints { get; set; }
         
-        [Parameter("Show HTF FVG", DefaultValue = false, Group = "Multi-Timeframe")]
+        [Parameter("HTF FVG", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHtfFvg { get; set; }
         
-        [Parameter("Show HTF Order Flow", DefaultValue = false, Group = "Multi-Timeframe")]
+        [Parameter("HTF Order Flow", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHtfOrderFlow { get; set; }
         
         
@@ -184,6 +187,7 @@ namespace Pfuma
         private BreakerBlockDetector _breakerBlockDetector;
         private CisdDetector _cisdDetector;
         private UnicornDetector _unicornDetector;
+        private PropulsionBlockDetector _propulsionBlockDetector;
         
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
@@ -194,6 +198,7 @@ namespace Pfuma
         private IVisualization<Level> _breakerBlockVisualizer;
         private IVisualization<Level> _cisdVisualizer;
         private IVisualization<Level> _unicornVisualizer;
+        private IVisualization<Level> _propulsionBlockVisualizer;
         
         // Bar tracking
         private Bar _previousBar;
@@ -255,6 +260,7 @@ namespace Pfuma
                     ShowBreakerBlock = ShowBreakerBlock,
                     ShowCISD = ShowCISD,
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
+                    ShowPropulsionBlock = ShowPropulsionBlock,
                     ShowUnicorn = ShowUnicorn,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
@@ -317,6 +323,7 @@ namespace Pfuma
             _breakerBlockVisualizer = new BreakerBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
         }
         
         private void InitializeServicesAndAnalyzers()
@@ -377,6 +384,9 @@ namespace Pfuma
             _unicornDetector = new UnicornDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
             
+            _propulsionBlockDetector = new PropulsionBlockDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _propulsionBlockVisualizer, _swingPointRepository, _settings, EnableLog ? Print : null);
+            
             // HTF FVG detector (uses specialized HTF FVG visualizer)
             _htfFvgDetector = new HtfFvgDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _htfFvgVisualizer, _settings, EnableLog ? Print : null);
@@ -391,6 +401,7 @@ namespace Pfuma
             _breakerBlockDetector.Initialize();
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
+            _propulsionBlockDetector.Initialize();
             
             // Initialize liquidity manager and visualizers
             _liquidityManager.Initialize();
