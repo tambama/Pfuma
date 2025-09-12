@@ -36,7 +36,8 @@ public class Candle
     public TimeFrame TimeFrame { get; set; }
     
     public int PositionInFvg { get; set; }
-    public int SweptKeyLevel { get; set; }
+    public int SweptLiquidity { get; set; }
+    public int SweptFibonacci { get; set; }
     
     // Direction
     public Direction Direction => Close > Open ? Direction.Up : Direction.Down;

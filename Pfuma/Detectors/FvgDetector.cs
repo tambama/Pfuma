@@ -116,6 +116,8 @@ namespace Pfuma.Detectors
             
             // Set TimeFrame from candle
             bullishFvg.TimeFrame = candle1.TimeFrame;
+            bullishFvg.IndexHighPrice = candle3.High;
+            bullishFvg.IndexLowPrice = candle1.Low;
             
             candle1.PositionInFvg = 1;
             candle2.PositionInFvg = 2;
@@ -159,6 +161,8 @@ namespace Pfuma.Detectors
             
             // Set TimeFrame from candle
             bearishFvg.TimeFrame = candle1.TimeFrame;
+            bearishFvg.IndexHighPrice = candle1.High;
+            bearishFvg.IndexLowPrice = candle3.Low;
 
             candle1.PositionInFvg = 1;
             candle2.PositionInFvg = 2;

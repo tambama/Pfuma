@@ -106,6 +106,12 @@ namespace Pfuma.Detectors
                     swingPoint.SweptFibPrice = price;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
                     
+                    // Update the corresponding candle's SweptFibonacci property
+                    if (candle != null)
+                    {
+                        candle.SweptFibonacci = 1; // Set to 1 to indicate Fibonacci level was swept
+                    }
+                    
                     // Update the FibonacciLevel tracking
                     fibLevel.SweptLevelLineIds[ratio] = "SWEPT";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as swept to prevent multiple sweeps
@@ -171,6 +177,12 @@ namespace Pfuma.Detectors
                     swingPoint.SweptFib = true;
                     swingPoint.SweptFibPrice = price;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
+                    
+                    // Update the corresponding candle's SweptFibonacci property
+                    if (candle != null)
+                    {
+                        candle.SweptFibonacci = 1; // Set to 1 to indicate Fibonacci level was swept
+                    }
                     
                     // Update the FibonacciLevel tracking
                     fibLevel.SweptLevelLineIds[ratio] = "SWEPT";

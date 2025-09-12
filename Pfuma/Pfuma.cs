@@ -54,6 +54,9 @@ namespace Pfuma
         
         [Parameter("Propulsion Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowPropulsionBlock { get; set; }
+
+        [Parameter("Venom", DefaultValue = false, Group = "Patterns")]
+        public bool ShowVenom { get; set; }
         
         
         [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
@@ -188,6 +191,7 @@ namespace Pfuma
         private CisdDetector _cisdDetector;
         private UnicornDetector _unicornDetector;
         private PropulsionBlockDetector _propulsionBlockDetector;
+        private VenomDetector _venomDetector;
         
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
@@ -199,6 +203,7 @@ namespace Pfuma
         private IVisualization<Level> _cisdVisualizer;
         private IVisualization<Level> _unicornVisualizer;
         private IVisualization<Level> _propulsionBlockVisualizer;
+        private IVisualization<Level> _venomVisualizer;
         
         // Bar tracking
         private Bar _previousBar;
@@ -261,6 +266,7 @@ namespace Pfuma
                     ShowCISD = ShowCISD,
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
                     ShowPropulsionBlock = ShowPropulsionBlock,
+                    ShowVenom = ShowVenom,
                     ShowUnicorn = ShowUnicorn,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
@@ -324,6 +330,7 @@ namespace Pfuma
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _venomVisualizer = new VenomVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
         }
         
         private void InitializeServicesAndAnalyzers()
@@ -346,7 +353,7 @@ namespace Pfuma
             _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager);
             
             // Initialize liquidity manager
-            _liquidityManager = new LiquidityManager(Chart, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
+            _liquidityManager = new LiquidityManager(Chart, _candleManager, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
             
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
@@ -387,6 +394,9 @@ namespace Pfuma
             _propulsionBlockDetector = new PropulsionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _propulsionBlockVisualizer, _swingPointRepository, _settings, EnableLog ? Print : null);
             
+            _venomDetector = new VenomDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _venomVisualizer, _settings, EnableLog ? Print : null);
+            
             // HTF FVG detector (uses specialized HTF FVG visualizer)
             _htfFvgDetector = new HtfFvgDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _htfFvgVisualizer, _settings, EnableLog ? Print : null);
@@ -402,6 +412,7 @@ namespace Pfuma
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
             _propulsionBlockDetector.Initialize();
+            _venomDetector.Initialize();
             
             // Initialize liquidity manager and visualizers
             _liquidityManager.Initialize();

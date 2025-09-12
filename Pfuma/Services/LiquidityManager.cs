@@ -17,6 +17,7 @@ namespace Pfuma.Services
     public class LiquidityManager
     {
         private readonly Chart _chart;
+        private readonly CandleManager _candleManager;
         private readonly IEventAggregator _eventAggregator;
         private readonly IRepository<Level> _levelRepository;
         private readonly IRepository<SwingPoint> _swingPointRepository;
@@ -29,6 +30,7 @@ namespace Pfuma.Services
 
         public LiquidityManager(
             Chart chart,
+            CandleManager candleManager,
             IEventAggregator eventAggregator,
             IRepository<Level> levelRepository,
             IRepository<SwingPoint> swingPointRepository,
@@ -37,6 +39,7 @@ namespace Pfuma.Services
             Action<string> logger = null)
         {
             _chart = chart ?? throw new ArgumentNullException(nameof(chart));
+            _candleManager = candleManager ?? throw new ArgumentNullException(nameof(candleManager));
             _eventAggregator = eventAggregator ?? throw new ArgumentNullException(nameof(eventAggregator));
             _levelRepository = levelRepository ?? throw new ArgumentNullException(nameof(levelRepository));
             _swingPointRepository = swingPointRepository ?? throw new ArgumentNullException(nameof(swingPointRepository));
@@ -568,6 +571,13 @@ namespace Pfuma.Services
                         bullishSwingPoint.SweptLiquidity = true;
                         bullishSwingPoint.SweptLiquidityPrice = sessionDailyHigh.Price;
                         
+                        // Update the corresponding candle's SweptLiquidity property
+                        var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                        if (candle != null)
+                        {
+                            candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
+                        }
+                        
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bullishSwingPoint);
                         
@@ -619,6 +629,13 @@ namespace Pfuma.Services
                         // Mark the bearish swing point as having swept liquidity
                         bearishSwingPoint.SweptLiquidity = true;
                         bearishSwingPoint.SweptLiquidityPrice = sessionDailyLow.Price;
+                        
+                        // Update the corresponding candle's SweptLiquidity property
+                        var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                        if (candle != null)
+                        {
+                            candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
+                        }
                         
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyLow, bearishSwingPoint);

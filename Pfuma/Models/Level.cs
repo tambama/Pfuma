@@ -41,7 +41,9 @@ namespace Pfuma.Models
         public DateTime MidTime { get; set; }
         public int Index { get; set; }
         public int IndexHigh { get; set; }
+        public double IndexHighPrice { get; set; }
         public int IndexLow { get; set; }
+        public double IndexLowPrice { get; set; }
         public int IndexMid { get; set; } // Added to track the middle candle
         public bool Activated { get; set; }
         public int ActivationIndex { get; set; }
