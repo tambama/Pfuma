@@ -54,13 +54,16 @@ namespace Pfuma
         
         [Parameter("Propulsion Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowPropulsionBlock { get; set; }
-
-        [Parameter("Venom", DefaultValue = false, Group = "Patterns")]
-        public bool ShowVenom { get; set; }
-        
         
         [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
+        
+        // Venom parameters
+        [Parameter("Show Venom", DefaultValue = false, Group = "Venom")]
+        public bool ShowVenom { get; set; }
+        
+        [Parameter("Show Confirmed Venom Only", DefaultValue = false, Group = "Venom")]
+        public bool ShowConfirmedVenom { get; set; }
         
         
         // Visualization
@@ -267,6 +270,7 @@ namespace Pfuma
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
                     ShowPropulsionBlock = ShowPropulsionBlock,
                     ShowVenom = ShowVenom,
+                    ShowConfirmedVenom = ShowConfirmedVenom,
                     ShowUnicorn = ShowUnicorn,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,

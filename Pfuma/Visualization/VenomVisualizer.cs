@@ -22,9 +22,15 @@ namespace Pfuma.Visualization
         
         protected override bool ShouldDraw(Level venom)
         {
-            return base.ShouldDraw(venom) && 
-                   venom.LevelType == LevelType.Venom &&
-                   Settings.Patterns.ShowVenom;
+            if (!base.ShouldDraw(venom) || venom.LevelType != LevelType.Venom)
+                return false;
+            
+            // If ShowConfirmedVenom is true, only draw confirmed venoms
+            if (Settings.Patterns.ShowConfirmedVenom)
+                return venom.IsConfirmed;
+            
+            // If ShowVenom is true, draw all venoms (confirmed and unconfirmed)
+            return Settings.Patterns.ShowVenom;
         }
         
         protected override string GetPatternId(Level venom)

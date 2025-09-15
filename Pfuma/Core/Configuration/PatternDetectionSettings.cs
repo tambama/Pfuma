@@ -17,6 +17,7 @@ public class PatternDetectionSettings
     public int MaxCisdsPerDirection { get; set; } = 2;
     public bool ShowPropulsionBlock { get; set; } = false;
     public bool ShowVenom { get; set; } = false;
+    public bool ShowConfirmedVenom { get; set; } = false;
         
     // Special Patterns
     public bool ShowUnicorn { get; set; } = false;
