@@ -67,7 +67,7 @@ namespace Pfuma.Visualization
             // Draw the midline (same style as Gauntlet)
             double midPrice = (venom.High + venom.Low) / 2.0;
             string midlineId = $"{patternId}-mid";
-            Chart.DrawTrendLine(
+            var mid = Chart.DrawTrendLine(
                 midlineId,
                 startIndex,         // Start index
                 midPrice,           // Mid price
@@ -85,7 +85,7 @@ namespace Pfuma.Visualization
                 ? "VEN ↑" 
                 : "VEN ↓";
             
-            Chart.DrawText(
+            var label = Chart.DrawText(
                 labelId,
                 labelText,
                 startIndex,
@@ -102,7 +102,7 @@ namespace Pfuma.Visualization
                 string confirmId = $"{patternId}-confirm";
                 string confirmText = "✓";
                 
-                Chart.DrawText(
+                var text = Chart.DrawText(
                     confirmId,
                     confirmText,
                     startIndex + 2,  // Slightly offset from main label

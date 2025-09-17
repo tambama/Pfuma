@@ -64,8 +64,17 @@ namespace Pfuma
         
         [Parameter("Show Confirmed Venom Only", DefaultValue = false, Group = "Venom")]
         public bool ShowConfirmedVenom { get; set; }
-        
-        
+
+        [Parameter("Show Entries", DefaultValue = false, Group = "Venom")]
+        public bool ShowEntries { get; set; }
+
+        // Signals
+        [Parameter("Show Signals", DefaultValue = false, Group = "Signals")]
+        public bool ShowSignals { get; set; }
+
+        [Parameter("Risk Reward", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0, Group = "Signals")]
+        public double RiskReward { get; set; }
+
         // Visualization
         [Parameter("Quadrants", DefaultValue = false, Group = "Visualization")]
         public bool ShowQuadrants { get; set; }
@@ -146,18 +155,13 @@ namespace Pfuma
         [Output("Swing Lows", LineColor = "White", PlotType = PlotType.Points)]
         public IndicatorDataSeries SwingLows { get; set; }
         
-        [Output("Higher Highs", LineColor = "Green", PlotType = PlotType.Points)]
-        public IndicatorDataSeries HigherHighs { get; set; }
-        
-        [Output("Lower Highs", LineColor = "Orange", PlotType = PlotType.Points)]
-        public IndicatorDataSeries LowerHighs { get; set; }
-        
-        [Output("Lower Lows", LineColor = "Red", PlotType = PlotType.Points)]
-        public IndicatorDataSeries LowerLows { get; set; }
-        
-        [Output("Higher Lows", LineColor = "Blue", PlotType = PlotType.Points)]
-        public IndicatorDataSeries HigherLows { get; set; }
-        
+
+        [Output("Entries", LineColor = "Green", PlotType = PlotType.Points)]
+        public IndicatorDataSeries Entries { get; set; }
+
+        [Output("Stops", LineColor = "Red", PlotType = PlotType.Points)]
+        public IndicatorDataSeries Stops { get; set; }
+
         #endregion
         
         #region Private Fields
@@ -178,7 +182,8 @@ namespace Pfuma
         private IFibonacciService _fibonacciService;
         private FibonacciVisualizer _fibonacciVisualizer;
         private IFibonacciSweepDetector _fibonacciSweepDetector;
-        
+        private SignalManager _signalManager;
+
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
         private IRepository<Level> _levelRepository;
@@ -207,7 +212,8 @@ namespace Pfuma
         private IVisualization<Level> _unicornVisualizer;
         private IVisualization<Level> _propulsionBlockVisualizer;
         private IVisualization<Level> _venomVisualizer;
-        
+        private StatsVisualizer _statsVisualizer;
+
         // Bar tracking
         private Bar _previousBar;
         private int _previousBarIndex;
@@ -220,6 +226,8 @@ namespace Pfuma
         {
             try
             {
+                Chart.RemoveAllObjects();
+                
                 // Initialize configuration
                 InitializeConfiguration();
                 
@@ -308,13 +316,16 @@ namespace Pfuma
         {
             _eventAggregator = new EventAggregator();
             _notificationService = new NotificationService(
-                EnableLog, 
-                EnableTelegram, 
-                _settings.Notifications.TelegramChatId, 
-                _settings.Notifications.TelegramToken,  
-                Symbol.Name, 
-                _settings.Time.UtcOffset, 
+                EnableLog,
+                EnableTelegram,
+                _settings.Notifications.TelegramChatId,
+                _settings.Notifications.TelegramToken,
+                Symbol.Name,
+                _settings.Time.UtcOffset,
                 EnableLog ? Print : null);
+
+            _signalManager = new SignalManager(Chart, _notificationService);
+            _statsVisualizer = new StatsVisualizer(Chart, _signalManager);
         }
         
         private void InitializeRepositories()
@@ -436,6 +447,7 @@ namespace Pfuma
             _eventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
             _eventAggregator.Subscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
             _eventAggregator.Subscribe<CisdConfirmedEvent>(OnCISDDetected);
+            _eventAggregator.Subscribe<VenomConfirmedEvent>(OnVenomConfirmed);
         }
         
         #endregion
@@ -446,13 +458,13 @@ namespace Pfuma
         {
             if (!_isInitialized || index <= 1 || index >= Bars.Count)
                 return;
-            
+
             try
             {
                 // Validate array bounds
                 if (index - 1 < 0 || index - 1 >= Bars.Count)
                     return;
-                    
+
                 _previousBarIndex = index - 1;
                 
                 // Process the previous bar and get the candle from CandleManager
@@ -541,7 +553,19 @@ namespace Pfuma
                 {
                     CheckInsideKeyLevels();
                 }
-                
+
+                // 10. Process signals if enabled
+                if (ShowSignals && _signalManager != null && index < Bars.Count)
+                {
+                    _signalManager.ProcessBar(Bars[index], index);
+
+                    // Update stats display every 10 bars to avoid excessive updates
+                    if (index % 10 == 0 && _statsVisualizer != null)
+                    {
+                        _statsVisualizer.UpdateStats();
+                    }
+                }
+
             }
             catch
             {
@@ -672,7 +696,7 @@ namespace Pfuma
 
         private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
         {
-            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 4)
+            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 5)
             {
                 var orderBlock = evt.OrderBlock;
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
@@ -685,17 +709,61 @@ namespace Pfuma
         
         private void OnCISDDetected(CisdConfirmedEvent evt)
         {
-            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 4)
+            var cisds = _levelRepository.Find(l => l.LevelType == LevelType.CISD);
+            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 5)
             {
                 var orderBlock = evt.CisdLevel;
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
                 var price = orderBlock.Direction == Direction.Up ? orderBlock.Low : orderBlock.High;
                 var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
-                Chart.DrawIcon($"macro-{time}", ChartIconType.Square, 
+                Chart.DrawIcon($"macro-{time}", ChartIconType.Square,
                     time, price, color);
             }
         }
-        
+
+        private void OnVenomConfirmed(VenomConfirmedEvent evt)
+        {
+            if ((!ShowEntries && !ShowSignals) || evt?.Venom == null)
+                return;
+
+            var venom = evt.Venom;
+
+            // Only process confirmed Venom patterns
+            if (!venom.IsConfirmed)
+                return;
+
+            // Get the current bar index and time
+            var currentIndex = evt.Index;
+            var currentTime = currentIndex < Bars.Count ? Bars[currentIndex].OpenTime : DateTime.Now;
+
+            double entry, stop;
+
+            // Determine entry and stop based on Venom direction
+            if (venom.Direction == Direction.Up) // Bullish Venom
+            {
+                entry = venom.High;
+                stop = venom.IndexLowPrice;
+            }
+            else // Bearish Venom
+            {
+                entry = venom.Low;
+                stop = venom.IndexHighPrice;
+            }
+
+            // Populate output data series if ShowEntries is enabled
+            if (ShowEntries)
+            {
+                Entries[currentIndex] = entry;
+                Stops[currentIndex] = stop;
+            }
+
+            // Create signal if ShowSignals is enabled
+            if (ShowSignals && _signalManager != null)
+            {
+                _signalManager.AddSignal(entry, stop, venom.Direction, RiskReward, currentTime, currentIndex);
+            }
+        }
+
         #endregion
         
         #region Public Methods for External Access
@@ -748,6 +816,18 @@ namespace Pfuma
             return _levelRepository?.Find(l => 
                 l.LevelType == LevelType.Orderflow && 
                 l.SweptSwingPoint != null) ?? new List<Level>();
+        }
+        
+        /// <summary>
+        /// Gets all detected CISDs (Change in State of Delivery)
+        /// </summary>
+        public List<Level> GetAllCISDs()
+        {
+            var allLevels = (_levelRepository as LevelRepository)?.GetAll() ?? new List<Level>();
+            var cisdLevels = allLevels.Where(l => l.LevelType == LevelType.CISD).ToList();
+            
+            
+            return cisdLevels;
         }
         
         /// <summary>
