@@ -687,6 +687,13 @@ namespace Pfuma.Services
                     bullishSwingPoint.InsidePda = true;
                     bullishSwingPoint.Pda = mostRecentOrderBlock;
                     
+                    // Update the corresponding candle's SweptLiquidity property
+                    var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                    if (candle != null)
+                    {
+                        candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
+                    }
+                    
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
                     {
@@ -732,6 +739,12 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bearishSwingPoint.InsidePda = true;
                     bearishSwingPoint.Pda = mostRecentOrderBlock;
+                    
+                    var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                    if (candle != null)
+                    {
+                        candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
+                    }
                     
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
@@ -780,6 +793,12 @@ namespace Pfuma.Services
                     bullishSwingPoint.InsidePda = true;
                     bullishSwingPoint.Pda = mostRecentCisd;
                     
+                    var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                    if (candle != null)
+                    {
+                        candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
+                    }
+                    
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
                     {
@@ -826,6 +845,12 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bearishSwingPoint.InsidePda = true;
                     bearishSwingPoint.Pda = mostRecentCisd;
+                    
+                    var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                    if (candle != null)
+                    {
+                        candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
+                    }
                     
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)

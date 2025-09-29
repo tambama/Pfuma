@@ -38,7 +38,8 @@ public class Candle
     public int PositionInFvg { get; set; }
     public int SweptLiquidity { get; set; }
     public int SweptFibonacci { get; set; }
-    
+    public bool InsidePda { get; set; }
+
     // Direction
     public Direction Direction => Close > Open ? Direction.Up : Direction.Down;
 }

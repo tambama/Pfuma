@@ -44,7 +44,7 @@ namespace Pfuma.Detectors
 
         public event LiquiditySweptEventHandler LiquiditySwept;
 
-        public SwingPointDetector(SwingPointManager swingPointManager, 
+        public SwingPointDetector(SwingPointManager swingPointManager,
             CandleManager candleManager, IEventAggregator eventAggregator = null, TimeManager timeManager = null)
         {
             _swingPointManager = swingPointManager;
@@ -79,10 +79,10 @@ namespace Pfuma.Detectors
         {
             if (swingPoint == null)
                 return;
-            
+
             // Set the InsideMacro property based on whether the swing point is in macro time
             SetInsideMacroStatus(swingPoint);
-                
+
             _swingPointManager.AddSwingPoint(swingPoint);
             PublishSwingPointDetected(swingPoint);
             

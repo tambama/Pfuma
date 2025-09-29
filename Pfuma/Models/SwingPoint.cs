@@ -50,7 +50,7 @@ public class SwingPoint
     // Swept price tracking for property copying conditions
     public double? SweptLiquidityPrice { get; set; }
     public double? SweptFibPrice { get; set; }
-    
+
     // Score
     public int Score
     {

@@ -55,8 +55,8 @@ namespace Pfuma.Detectors
                 return;
             
             // Check if either candle2 or candle3 swept liquidity/fibonacci
-            bool candle2HasSweep = candle2.SweptLiquidity > 0 || candle2.SweptFibonacci > 0;
-            bool candle3HasSweep = candle3.SweptLiquidity > 0 || candle3.SweptFibonacci > 0;
+            bool candle2HasSweep = candle2.SweptLiquidity > 0 || candle2.SweptFibonacci > 0 || candle3.InsidePda;
+            bool candle3HasSweep = candle3.SweptLiquidity > 0 || candle3.SweptFibonacci > 0 || candle3.InsidePda;
             
             if (candle2HasSweep || candle3HasSweep)
             {
@@ -122,13 +122,13 @@ namespace Pfuma.Detectors
                 if (shouldConfirm)
                 {
                     venom.IsConfirmed = true;
-                    
-                    // Publish confirmation event
-                    EventAggregator.Publish(new VenomConfirmedEvent(venom));
-                    
+
+                    // Publish confirmation event with the confirming swing point's index
+                    EventAggregator.Publish(new VenomConfirmedEvent(venom, swingPoint.Index));
+
                     // Update visualization
                     _visualizer?.Update(venom);
-                    
+
                     Logger?.Invoke($"Venom confirmed: {venom.Direction} at swing point index {swingPoint.Index}");
                 }
             }

@@ -9,11 +9,13 @@ namespace Pfuma.Core.Events
     {
         public Level Venom { get; }
         public Direction Direction { get; }
-        
-        public VenomConfirmedEvent(Level venom) : base(venom.Index)
+        public int ConfirmingSwingPointIndex { get; }
+
+        public VenomConfirmedEvent(Level venom, int confirmingSwingPointIndex) : base(confirmingSwingPointIndex)
         {
             Venom = venom;
             Direction = venom.Direction;
+            ConfirmingSwingPointIndex = confirmingSwingPointIndex;
         }
     }
 }

@@ -57,7 +57,7 @@ namespace Pfuma
         
         [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
-        
+
         // Venom parameters
         [Parameter("Show Venom", DefaultValue = false, Group = "Venom")]
         public bool ShowVenom { get; set; }
@@ -352,10 +352,10 @@ namespace Pfuma
         {
             // Initialize candle manager
             _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle, ShowHtfSwingPoints, _eventAggregator);
-            
+
             // Initialize swing point manager
             _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);
-            
+
             // Initialize swing point detector (without TimeManager initially)
             _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator);
             
@@ -448,6 +448,7 @@ namespace Pfuma
             _eventAggregator.Subscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
             _eventAggregator.Subscribe<CisdConfirmedEvent>(OnCISDDetected);
             _eventAggregator.Subscribe<VenomConfirmedEvent>(OnVenomConfirmed);
+
         }
         
         #endregion
@@ -472,9 +473,6 @@ namespace Pfuma
                 
                 if (candle == null)
                     return;
-                
-                // Also process the current bar for pattern detection
-                _candleManager.ProcessBar(index);
                 
                 _previousBar = Bars[_previousBarIndex];
                 
@@ -518,23 +516,23 @@ namespace Pfuma
                 }
                 
                 // 6. Detect patterns - Always detect FVGs (ShowFVG only controls visualization)
-                _fvgDetector?.Detect(index);
+                _fvgDetector?.Detect(_previousBarIndex);
                 
                 // Detect HTF FVGs (only if enabled and timeframes configured)
                 if (ShowHtfFvg && !string.IsNullOrEmpty(Timeframes))
                 {
-                    _htfFvgDetector?.Detect(index);
+                    _htfFvgDetector?.Detect(_previousBarIndex);
                 }
                 
                 
                 if (ShowRejectionBlock)
                 {
-                    _rejectionBlockDetector?.Detect(index);
+                    _rejectionBlockDetector?.Detect(_previousBarIndex);
                 }
                 
                 if (ShowOrderBlock)
                 {
-                    _orderBlockDetector?.Detect(index);
+                    _orderBlockDetector?.Detect(_previousBarIndex);
                 }
                 
                 
@@ -685,14 +683,16 @@ namespace Pfuma
             if (evt.SwingPoint != null)
             {
                 _swingPointRepository.Add(evt.SwingPoint);
-                
+
                 // Draw icon if swing point is inside macro time
                 if (evt.SwingPoint.InsideMacro)
                 {
                     //DrawInsideMacroIcon(evt.SwingPoint);
                 }
+
             }
         }
+
 
         private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
         {
@@ -732,8 +732,9 @@ namespace Pfuma
             if (!venom.IsConfirmed)
                 return;
 
-            // Get the current bar index and time
-            var currentIndex = evt.Index;
+            // Use the confirming swing point's index for the signal
+            // This ensures signals appear at the bar where they're actually confirmed
+            var currentIndex = evt.ConfirmingSwingPointIndex;
             var currentTime = currentIndex < Bars.Count ? Bars[currentIndex].OpenTime : DateTime.Now;
 
             double entry, stop;

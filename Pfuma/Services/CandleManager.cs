@@ -194,7 +194,8 @@ namespace Pfuma.Services
                 while (_candles.Count < index)
                 {
                     var gapBar = _bars[_candles.Count];
-                    _candles.Add(new Candle(gapBar, _candles.Count, _timeFrame));
+                    var gapCandle = new Candle(gapBar, _candles.Count, _timeFrame);
+                    _candles.Add(gapCandle);
                 }
                 _candles.Add(candle);
             }
