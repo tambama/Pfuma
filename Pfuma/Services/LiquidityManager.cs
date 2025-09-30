@@ -7,6 +7,8 @@ using Pfuma.Core.Interfaces;
 using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Services;
+using Pfuma.Services.Time;
+using Pfuma.Visualization;
 
 namespace Pfuma.Services
 {
@@ -24,9 +26,13 @@ namespace Pfuma.Services
         private readonly IndicatorSettings _settings;
         private readonly NotificationService _notificationService;
         private readonly Action<string> _logger;
-        
+
         // Track the last drawn inside key level dot
         private string _lastInsideKeyLevelDotId;
+
+        // Optional cycle manager and visualizer for cycle liquidity sweeps
+        private Cycle30Manager _cycle30Manager;
+        private Cycle30Visualizer _cycle30Visualizer;
 
         public LiquidityManager(
             Chart chart,
@@ -57,6 +63,16 @@ namespace Pfuma.Services
             _eventAggregator.Subscribe<SwingPointRemovedEvent>(OnSwingPointRemoved);
             _eventAggregator.Subscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
             _eventAggregator.Subscribe<CisdConfirmedEvent>(OnCisdConfirmed);
+            _eventAggregator.Subscribe<RejectionBlockDetectedEvent>(OnRejectionBlockDetected);
+        }
+
+        /// <summary>
+        /// Set cycle manager and visualizer for cycle liquidity sweep detection
+        /// </summary>
+        public void SetCycleComponents(Cycle30Manager cycle30Manager, Cycle30Visualizer cycle30Visualizer)
+        {
+            _cycle30Manager = cycle30Manager;
+            _cycle30Visualizer = cycle30Visualizer;
         }
 
         /// <summary>
@@ -73,7 +89,10 @@ namespace Pfuma.Services
             {
                 // Bullish swing point created - check for bearish order block liquidity sweeps
                 HandleBullishSwingPointLiquiditySweep(swingPoint);
-                
+
+                // Check for bearish rejection block liquidity sweeps
+                HandleBullishSwingPointRejectionBlockSweep(swingPoint);
+
                 // Check for bearish CISD liquidity sweeps
                 HandleBullishSwingPointCisdLiquiditySweep(swingPoint);
                 
@@ -88,26 +107,41 @@ namespace Pfuma.Services
                 
                 // Check if bullish swing point is inside a bearish CISD
                 CheckBullishSwingPointInsideCisd(swingPoint);
+
+                // Check if bullish swing point is inside a bearish rejection block
+                CheckBullishSwingPointInsideRejectionBlock(swingPoint);
+
+                // Check for cycle low liquidity sweeps by bullish swing point
+                HandleBullishSwingPointCycleLiquiditySweep(swingPoint);
             }
             else if (swingPoint.Direction == Direction.Down)
             {
                 // Bearish swing point created - check for bullish order block liquidity sweeps
                 HandleBearishSwingPointLiquiditySweep(swingPoint);
-                
+
+                // Check for bullish rejection block liquidity sweeps
+                HandleBearishSwingPointRejectionBlockSweep(swingPoint);
+
                 // Check for bullish CISD liquidity sweeps
                 HandleBearishSwingPointCisdLiquiditySweep(swingPoint);
-                
+
                 // Check for HTF FVG quadrant sweeps by bearish swing point
                 HandleBearishSwingPointHtfFvgQuadrantSweep(swingPoint);
-                
+
                 // Check for session/daily low liquidity sweeps by bearish swing point
                 HandleBearishSwingPointSessionDailyLowLiquiditySweep(swingPoint);
-                
+
                 // Check if bearish swing point is inside a bullish order block
                 CheckBearishSwingPointInsideOrderBlock(swingPoint);
-                
+
                 // Check if bearish swing point is inside a bullish CISD
                 CheckBearishSwingPointInsideCisd(swingPoint);
+
+                // Check if bearish swing point is inside a bullish rejection block
+                CheckBearishSwingPointInsideRejectionBlock(swingPoint);
+
+                // Check for cycle high liquidity sweeps by bearish swing point
+                HandleBearishSwingPointCycleLiquiditySweep(swingPoint);
             }
         }
 
@@ -140,6 +174,30 @@ namespace Pfuma.Services
             {
                 // Bearish order block - check if swing high is inside key level  
                 HandleBearishOrderBlockDetection(orderBlock);
+            }
+        }
+
+        /// <summary>
+        /// Handle rejection block detection events to check for key level extension opportunities
+        /// When a rejection block is detected, check if its boundary swing point is marked as inside key level
+        /// If so, extend the swept key level to include the swing point's candle
+        /// </summary>
+        private void OnRejectionBlockDetected(RejectionBlockDetectedEvent evt)
+        {
+            if (evt?.RejectionBlock == null)
+                return;
+
+            var rejectionBlock = evt.RejectionBlock;
+
+            if (rejectionBlock.Direction == Direction.Up)
+            {
+                // Bullish rejection block - check if swing low is inside key level
+                HandleBullishRejectionBlockDetection(rejectionBlock);
+            }
+            else if (rejectionBlock.Direction == Direction.Down)
+            {
+                // Bearish rejection block - check if swing high is inside key level
+                HandleBearishRejectionBlockDetection(rejectionBlock);
             }
         }
 
@@ -415,6 +473,118 @@ namespace Pfuma.Services
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error handling bearish swing point liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish swing point creation - sweep bearish rejection blocks
+        /// Get all active bearish rejection blocks where:
+        /// - High of rejection block is lower than bullish swing point price
+        /// - High of rejection block is higher than bullish swing point candle's low price
+        /// Mark these rejection blocks as liquidity swept
+        /// </summary>
+        private void HandleBullishSwingPointRejectionBlockSweep(SwingPoint bullishSwingPoint)
+        {
+            try
+            {
+                // Get all active bearish rejection blocks
+                var activeBearishRejectionBlocks = _levelRepository
+                    .Find(level =>
+                        level.LevelType == LevelType.RejectionBlock &&
+                        level.Direction == Direction.Down &&
+                        level.IsActive)
+                    .ToList();
+
+                double swingPointPrice = bullishSwingPoint.Price;
+                double swingPointCandleLow = bullishSwingPoint.Bar?.Low ?? swingPointPrice;
+
+                foreach (var rejectionBlock in activeBearishRejectionBlocks)
+                {
+                    // Check conditions for liquidity sweep:
+                    // 1. High of rejection block is lower than swing point price
+                    // 2. High of rejection block is higher than swing point candle's low
+                    bool highBelowSwingPoint = rejectionBlock.High < swingPointPrice;
+                    bool highAboveCandleLow = rejectionBlock.High > swingPointCandleLow;
+
+                    if (highBelowSwingPoint && highAboveCandleLow)
+                    {
+                        // Mark rejection block as liquidity swept
+                        rejectionBlock.IsLiquiditySwept = true;
+                        rejectionBlock.SweptSwingPoint = bullishSwingPoint;
+                        rejectionBlock.SweptIndex = bullishSwingPoint.Index;
+
+                        // If the rejection block was not extended, remove it from the chart
+                        if (!rejectionBlock.IsExtended)
+                        {
+                            RemoveKeyLevelFromChart(rejectionBlock);
+                            _logger?.Invoke($"Bearish rejection block swept and removed at {rejectionBlock.High:F5} by bullish swing point at {bullishSwingPoint.Price:F5}");
+                        }
+                        else
+                        {
+                            _logger?.Invoke($"Bearish rejection block swept (extended) at {rejectionBlock.High:F5} by bullish swing point at {bullishSwingPoint.Price:F5}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bullish swing point rejection block sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish swing point creation - sweep bullish rejection blocks
+        /// Get all active bullish rejection blocks where:
+        /// - Low of rejection block is higher than bearish swing point price
+        /// - Low of rejection block is lower than bearish swing point candle's high price
+        /// Mark these rejection blocks as liquidity swept
+        /// </summary>
+        private void HandleBearishSwingPointRejectionBlockSweep(SwingPoint bearishSwingPoint)
+        {
+            try
+            {
+                // Get all active bullish rejection blocks
+                var activeBullishRejectionBlocks = _levelRepository
+                    .Find(level =>
+                        level.LevelType == LevelType.RejectionBlock &&
+                        level.Direction == Direction.Up &&
+                        level.IsActive)
+                    .ToList();
+
+                double swingPointPrice = bearishSwingPoint.Price;
+                double swingPointCandleHigh = bearishSwingPoint.Bar?.High ?? swingPointPrice;
+
+                foreach (var rejectionBlock in activeBullishRejectionBlocks)
+                {
+                    // Check conditions for liquidity sweep:
+                    // 1. Low of rejection block is higher than swing point price
+                    // 2. Low of rejection block is lower than swing point candle's high
+                    bool lowAboveSwingPoint = rejectionBlock.Low > swingPointPrice;
+                    bool lowBelowCandleHigh = rejectionBlock.Low < swingPointCandleHigh;
+
+                    if (lowAboveSwingPoint && lowBelowCandleHigh)
+                    {
+                        // Mark rejection block as liquidity swept
+                        rejectionBlock.IsLiquiditySwept = true;
+                        rejectionBlock.SweptSwingPoint = bearishSwingPoint;
+                        rejectionBlock.SweptIndex = bearishSwingPoint.Index;
+
+                        // If the rejection block was not extended, remove it from the chart
+                        if (!rejectionBlock.IsExtended)
+                        {
+                            RemoveKeyLevelFromChart(rejectionBlock);
+                            _logger?.Invoke($"Bullish rejection block swept and removed at {rejectionBlock.Low:F5} by bearish swing point at {bearishSwingPoint.Price:F5}");
+                        }
+                        else
+                        {
+                            _logger?.Invoke($"Bullish rejection block swept (extended) at {rejectionBlock.Low:F5} by bearish swing point at {bearishSwingPoint.Price:F5}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bearish swing point rejection block sweep: {ex.Message}");
             }
         }
 
@@ -868,14 +1038,120 @@ namespace Pfuma.Services
         }
 
         /// <summary>
+        /// Check if a bullish swing point is inside a bearish rejection block
+        /// If inside multiple rejection blocks, select the most recent one (highest index)
+        /// </summary>
+        private void CheckBullishSwingPointInsideRejectionBlock(SwingPoint bullishSwingPoint)
+        {
+            try
+            {
+                // Always perform detection logic, only skip visualization if disabled
+
+                // Get all active bearish rejection blocks that contain this swing point
+                var containingRejectionBlocks = _levelRepository
+                    .Find(level =>
+                        level.LevelType == LevelType.RejectionBlock &&
+                        level.Direction == Direction.Down &&
+                        level.IsActive &&
+                        level.High > bullishSwingPoint.Price &&  // Rejection block high above swing point
+                        level.Low < bullishSwingPoint.Price)     // Rejection block low below swing point
+                    .ToList();
+
+                if (containingRejectionBlocks.Any())
+                {
+                    // Select the most recent rejection block (highest index)
+                    var mostRecentRejectionBlock = containingRejectionBlocks
+                        .OrderByDescending(rb => rb.Index)
+                        .First();
+
+                    // Mark swing point as inside key level
+                    bullishSwingPoint.InsidePda = true;
+                    bullishSwingPoint.Pda = mostRecentRejectionBlock;
+
+                    // Update the corresponding candle's InsidePda property
+                    var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                    if (candle != null)
+                    {
+                        candle.InsidePda = true;
+                    }
+
+                    // Draw a dot on the swing point only if visualization is enabled
+                    if (_settings.Patterns.ShowInsideKeyLevel)
+                    {
+                        DrawInsideKeyLevelDot(bullishSwingPoint);
+                    }
+
+                    // Swing point is inside rejection block
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error checking bullish swing point inside rejection block: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a bearish swing point is inside a bullish rejection block
+        /// If inside multiple rejection blocks, select the most recent one (highest index)
+        /// </summary>
+        private void CheckBearishSwingPointInsideRejectionBlock(SwingPoint bearishSwingPoint)
+        {
+            try
+            {
+                // Always perform detection logic, only skip visualization if disabled
+
+                // Get all active bullish rejection blocks that contain this swing point
+                var containingRejectionBlocks = _levelRepository
+                    .Find(level =>
+                        level.LevelType == LevelType.RejectionBlock &&
+                        level.Direction == Direction.Up &&
+                        level.IsActive &&
+                        level.High > bearishSwingPoint.Price &&  // Rejection block high above swing point
+                        level.Low < bearishSwingPoint.Price)     // Rejection block low below swing point
+                    .ToList();
+
+                if (containingRejectionBlocks.Any())
+                {
+                    // Select the most recent rejection block (highest index)
+                    var mostRecentRejectionBlock = containingRejectionBlocks
+                        .OrderByDescending(rb => rb.Index)
+                        .First();
+
+                    // Mark swing point as inside key level
+                    bearishSwingPoint.InsidePda = true;
+                    bearishSwingPoint.Pda = mostRecentRejectionBlock;
+
+                    // Update the corresponding candle's InsidePda property
+                    var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                    if (candle != null)
+                    {
+                        candle.InsidePda = true;
+                    }
+
+                    // Draw a dot on the swing point only if visualization is enabled
+                    if (_settings.Patterns.ShowInsideKeyLevel)
+                    {
+                        DrawInsideKeyLevelDot(bearishSwingPoint);
+                    }
+
+                    // Swing point is inside rejection block
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error checking bearish swing point inside rejection block: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Handle bullish order block detection - check if swing low is inside key level and extend that key level
         /// </summary>
         private void HandleBullishOrderBlockDetection(Level orderBlock)
         {
             try
             {
-                // Only extend key levels from order blocks if ShowOrderBlock is true
-                if (!_settings.Patterns.ShowOrderBlock)
+                // Only extend key levels from order blocks if both ShowOrderBlock and ShowInsideKeyLevel are true
+                if (!_settings.Patterns.ShowOrderBlock || !_settings.Patterns.ShowInsideKeyLevel)
                 {
                     // Order block extension disabled in settings
                     return;
@@ -921,8 +1197,8 @@ namespace Pfuma.Services
         {
             try
             {
-                // Only extend key levels from order blocks if ShowOrderBlock is true
-                if (!_settings.Patterns.ShowOrderBlock)
+                // Only extend key levels from order blocks if both ShowOrderBlock and ShowInsideKeyLevel are true
+                if (!_settings.Patterns.ShowOrderBlock || !_settings.Patterns.ShowInsideKeyLevel)
                 {
                     // Order block extension disabled in settings
                     return;
@@ -969,6 +1245,13 @@ namespace Pfuma.Services
         {
             try
             {
+                // Only extend key levels from CISD if ShowInsideKeyLevel is true
+                if (!_settings.Patterns.ShowInsideKeyLevel)
+                {
+                    // CISD extension disabled in settings
+                    return;
+                }
+
                 // Find the swing point at the CISD's exact IndexHigh
                 var swingHigh = _swingPointRepository
                     .Find(sp => sp.Index == cisdLevel.IndexHigh)
@@ -1008,6 +1291,13 @@ namespace Pfuma.Services
         {
             try
             {
+                // Only extend key levels from CISD if ShowInsideKeyLevel is true
+                if (!_settings.Patterns.ShowInsideKeyLevel)
+                {
+                    // CISD extension disabled in settings
+                    return;
+                }
+
                 // Find the swing point at the CISD's exact IndexLow
                 var swingLow = _swingPointRepository
                     .Find(sp => sp.Index == cisdLevel.IndexLow)
@@ -1036,6 +1326,104 @@ namespace Pfuma.Services
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error handling bullish CISD confirmation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish rejection block detection - check if swing low is inside key level and extend that key level
+        /// </summary>
+        private void HandleBullishRejectionBlockDetection(Level rejectionBlock)
+        {
+            try
+            {
+                // Only extend key levels from rejection blocks if both ShowRejectionBlock and ShowInsideKeyLevel are true
+                if (!_settings.Patterns.ShowRejectionBlock || !_settings.Patterns.ShowInsideKeyLevel)
+                {
+                    // Rejection block extension disabled in settings
+                    return;
+                }
+
+                // Find the swing low (bearish swing point) at the low boundary of this bullish rejection block
+                var swingLow = _swingPointRepository
+                    .Find(sp => sp.Direction == Direction.Down &&
+                               Math.Abs(sp.Price - rejectionBlock.Low) < 0.00001 &&
+                               sp.Index >= rejectionBlock.IndexLow - 5 && sp.Index <= rejectionBlock.IndexLow + 5)
+                    .FirstOrDefault();
+
+                if (swingLow == null || !swingLow.InsidePda || swingLow.Pda == null)
+                    return;
+
+                // Mark the rejection block as extended
+                rejectionBlock.IsExtended = true;
+
+                // Check if the swept key level is an HTF FVG
+                if (swingLow.Pda.LevelType == LevelType.FairValueGap && swingLow.Pda.TimeFrame != null)
+                {
+                    // Extend the HTF FVG to include the swing point's candle
+                    ExtendHtfFvg(swingLow.Pda, swingLow);
+                    // HTF FVG extended from rejection block
+                }
+                else
+                {
+                    // Extend the regular key level to include the swing point's candle
+                    ExtendKeyLevel(swingLow.Pda, swingLow);
+                    // Key level extended from rejection block
+                }
+
+                _logger?.Invoke($"Bullish rejection block at {rejectionBlock.Low:F5} extended key level {swingLow.Pda.LevelType}");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bullish rejection block detection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish rejection block detection - check if swing high is inside key level and extend that key level
+        /// </summary>
+        private void HandleBearishRejectionBlockDetection(Level rejectionBlock)
+        {
+            try
+            {
+                // Only extend key levels from rejection blocks if both ShowRejectionBlock and ShowInsideKeyLevel are true
+                if (!_settings.Patterns.ShowRejectionBlock || !_settings.Patterns.ShowInsideKeyLevel)
+                {
+                    // Rejection block extension disabled in settings
+                    return;
+                }
+
+                // Find the swing high (bullish swing point) at the high boundary of this bearish rejection block
+                var swingHigh = _swingPointRepository
+                    .Find(sp => sp.Direction == Direction.Up &&
+                               Math.Abs(sp.Price - rejectionBlock.High) < 0.00001 &&
+                               sp.Index >= rejectionBlock.IndexHigh - 5 && sp.Index <= rejectionBlock.IndexHigh + 5)
+                    .FirstOrDefault();
+
+                if (swingHigh == null || !swingHigh.InsidePda || swingHigh.Pda == null)
+                    return;
+
+                // Mark the rejection block as extended
+                rejectionBlock.IsExtended = true;
+
+                // Check if the swept key level is an HTF FVG
+                if (swingHigh.Pda.LevelType == LevelType.FairValueGap && swingHigh.Pda.TimeFrame != null)
+                {
+                    // Extend the HTF FVG to include the swing point's candle
+                    ExtendHtfFvg(swingHigh.Pda, swingHigh);
+                    // HTF FVG extended from rejection block
+                }
+                else
+                {
+                    // Extend the regular key level to include the swing point's candle
+                    ExtendKeyLevel(swingHigh.Pda, swingHigh);
+                    // Key level extended from rejection block
+                }
+
+                _logger?.Invoke($"Bearish rejection block at {rejectionBlock.High:F5} extended key level {swingHigh.Pda.LevelType}");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bearish rejection block detection: {ex.Message}");
             }
         }
 
@@ -1552,6 +1940,84 @@ namespace Pfuma.Services
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error updating liquidity sweep visual: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish swing point cycle liquidity sweeps (sweeps cycle highs)
+        /// </summary>
+        private void HandleBullishSwingPointCycleLiquiditySweep(SwingPoint bullishSwingPoint)
+        {
+            if (_cycle30Manager == null || _cycle30Visualizer == null) return;
+
+            // Check if this bullish swing point sweeps any cycle highs
+            var cycleHighs = _cycle30Manager.GetCycleHighs().ToList(); // Convert to list to avoid collection modification issues
+
+            foreach (var cycleHigh in cycleHighs)
+            {
+                // Check if bullish swing point swept this cycle high
+                if (bullishSwingPoint.Price > cycleHigh.Price)
+                {
+                    // Mark swing point as having swept cycle liquidity
+                    bullishSwingPoint.SweptCycle = true;
+
+                    // Mark the candle that swept the cycle
+                    var sweepingCandle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                    if (sweepingCandle != null)
+                    {
+                        sweepingCandle.SweptCycle = true;
+                    }
+
+                    // Draw sweep line if liquidity sweep visualization is enabled
+                    if (_settings.Patterns.ShowLiquiditySweep)
+                    {
+                        _cycle30Visualizer.DrawLiquiditySweepLine(cycleHigh, bullishSwingPoint.Index, true);
+                    }
+
+                    // Remove the swept cycle point from collection to prevent duplicate sweeps
+                    _cycle30Manager.RemoveSweptCyclePoint(cycleHigh);
+
+                    _logger?.Invoke($"Cycle30 high swept at {cycleHigh.Price:F5} by bullish swing point at {bullishSwingPoint.Price:F5}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish swing point cycle liquidity sweeps (sweeps cycle lows)
+        /// </summary>
+        private void HandleBearishSwingPointCycleLiquiditySweep(SwingPoint bearishSwingPoint)
+        {
+            if (_cycle30Manager == null || _cycle30Visualizer == null) return;
+
+            // Check if this bearish swing point sweeps any cycle lows
+            var cycleLows = _cycle30Manager.GetCycleLows().ToList(); // Convert to list to avoid collection modification issues
+
+            foreach (var cycleLow in cycleLows)
+            {
+                // Check if bearish swing point swept this cycle low
+                if (bearishSwingPoint.Price < cycleLow.Price)
+                {
+                    // Mark swing point as having swept cycle liquidity
+                    bearishSwingPoint.SweptCycle = true;
+
+                    // Mark the candle that swept the cycle
+                    var sweepingCandle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                    if (sweepingCandle != null)
+                    {
+                        sweepingCandle.SweptCycle = true;
+                    }
+
+                    // Draw sweep line if liquidity sweep visualization is enabled
+                    if (_settings.Patterns.ShowLiquiditySweep)
+                    {
+                        _cycle30Visualizer.DrawLiquiditySweepLine(cycleLow, bearishSwingPoint.Index, true);
+                    }
+
+                    // Remove the swept cycle point from collection to prevent duplicate sweeps
+                    _cycle30Manager.RemoveSweptCyclePoint(cycleLow);
+
+                    _logger?.Invoke($"Cycle30 low swept at {cycleLow.Price:F5} by bearish swing point at {bearishSwingPoint.Price:F5}");
+                }
             }
         }
 

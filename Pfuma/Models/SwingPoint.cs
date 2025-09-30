@@ -51,6 +51,14 @@ public class SwingPoint
     public double? SweptLiquidityPrice { get; set; }
     public double? SweptFibPrice { get; set; }
 
+    // 369 time pattern properties
+    public bool Has369 { get; set; }
+    public int? Number369 { get; set; }
+    public bool Drawn369 { get; set; }
+
+    // 30-minute cycle properties
+    public bool SweptCycle { get; set; }
+
     // Score
     public int Score
     {

@@ -85,7 +85,7 @@ namespace Pfuma.Detectors
 
             _swingPointManager.AddSwingPoint(swingPoint);
             PublishSwingPointDetected(swingPoint);
-            
+
             // Update last swing point references
             if (swingPoint.SwingType == SwingType.H)
             {

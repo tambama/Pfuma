@@ -11,6 +11,7 @@ using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Repositories;
 using Pfuma.Services;
+using Pfuma.Services.Time;
 using Pfuma.Visualization;
 
 namespace Pfuma
@@ -58,6 +59,9 @@ namespace Pfuma
         [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
 
+        [Parameter("369 Pattern", DefaultValue = false, Group = "Patterns")]
+        public bool Show369 { get; set; }
+
         // Venom parameters
         [Parameter("Show Venom", DefaultValue = false, Group = "Venom")]
         public bool ShowVenom { get; set; }
@@ -97,9 +101,12 @@ namespace Pfuma
         
         [Parameter("Cycle Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCycleFibLevels { get; set; }
-        
+
         [Parameter("CISD Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCISDFibLevels { get; set; }
+
+        [Parameter("30 Minute Cycles", DefaultValue = false, Group = "Time")]
+        public bool ShowCycles30 { get; set; }
         
         [Parameter("Extended Fib", DefaultValue = true, Group = "Fibonacci")]
         public bool ShowExtendedFib { get; set; }
@@ -162,6 +169,12 @@ namespace Pfuma
         [Output("Stops", LineColor = "Red", PlotType = PlotType.Points)]
         public IndicatorDataSeries Stops { get; set; }
 
+        [Output("369 Bullish", LineColor = "Green", PlotType = PlotType.Points)]
+        public IndicatorDataSeries Pattern369Bullish { get; set; }
+
+        [Output("369 Bearish", LineColor = "Red", PlotType = PlotType.Points)]
+        public IndicatorDataSeries Pattern369Bearish { get; set; }
+
         #endregion
         
         #region Private Fields
@@ -183,6 +196,9 @@ namespace Pfuma
         private FibonacciVisualizer _fibonacciVisualizer;
         private IFibonacciSweepDetector _fibonacciSweepDetector;
         private SignalManager _signalManager;
+        private Pattern369Service _pattern369Service;
+        private Cycle30Manager _cycle30Manager;
+        private Cycle30Visualizer _cycle30Visualizer;
 
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
@@ -213,6 +229,7 @@ namespace Pfuma
         private IVisualization<Level> _propulsionBlockVisualizer;
         private IVisualization<Level> _venomVisualizer;
         private StatsVisualizer _statsVisualizer;
+        private Pattern369Visualizer _pattern369Visualizer;
 
         // Bar tracking
         private Bar _previousBar;
@@ -280,6 +297,7 @@ namespace Pfuma
                     ShowVenom = ShowVenom,
                     ShowConfirmedVenom = ShowConfirmedVenom,
                     ShowUnicorn = ShowUnicorn,
+                    Show369 = Show369,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
                 },
@@ -289,6 +307,7 @@ namespace Pfuma
                     MacroFilter = MacroFilter,
                     ShowDailyLevels = ShowDailyLevels,
                     ShowSessionLevels = ShowSessionLevels,
+                    ShowCycles30 = ShowCycles30,
                     UtcOffset = UtcOffset
                 },
                 Notifications = new NotificationSettings
@@ -326,6 +345,7 @@ namespace Pfuma
 
             _signalManager = new SignalManager(Chart, _notificationService);
             _statsVisualizer = new StatsVisualizer(Chart, _signalManager);
+            _pattern369Service = new Pattern369Service(UtcOffset);
         }
         
         private void InitializeRepositories()
@@ -346,12 +366,17 @@ namespace Pfuma
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _venomVisualizer = new VenomVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _pattern369Visualizer = new Pattern369Visualizer(Chart, _settings.Visualization, Pattern369Bullish, Pattern369Bearish, UtcOffset, EnableLog ? Print : null);
         }
         
         private void InitializeServicesAndAnalyzers()
         {
             // Initialize candle manager
             _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle, ShowHtfSwingPoints, _eventAggregator);
+
+            // Initialize cycle manager and visualizer
+            _cycle30Manager = new Cycle30Manager(_candleManager, Chart, UtcOffset, EnableLog ? Print : null);
+            _cycle30Visualizer = new Cycle30Visualizer(Chart, _settings.Time, _cycle30Manager, _candleManager, EnableLog ? Print : null);
 
             // Initialize swing point manager
             _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);
@@ -369,6 +394,9 @@ namespace Pfuma
             
             // Initialize liquidity manager
             _liquidityManager = new LiquidityManager(Chart, _candleManager, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
+
+            // Set cycle components in liquidity manager for sweep detection
+            _liquidityManager.SetCycleComponents(_cycle30Manager, _cycle30Visualizer);
             
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
@@ -476,10 +504,16 @@ namespace Pfuma
                 
                 _previousBar = Bars[_previousBarIndex];
                 
+                // Also process the current bar for pattern detection
+                _candleManager.ProcessBar(index);
+                
                 // 1. Process time-based features
                 if (index < Bars.Count && Bars[index] != null)
                 {
                     _timeManager?.ProcessBar(index, Bars[index].OpenTime);
+
+                    // Process 30-minute cycles
+                    _cycle30Manager?.ProcessBar(index, Bars[index].OpenTime);
                 }
                 
                 // Update and draw Fibonacci levels if enabled
@@ -492,6 +526,12 @@ namespace Pfuma
                     {
                         _fibonacciVisualizer.DrawFibonacciLevels();
                     }
+                }
+
+                // Draw 30-minute cycle rectangles if enabled
+                if (ShowCycles30 && _cycle30Visualizer != null)
+                {
+                    _cycle30Visualizer.DrawCurrentCycle(index);
                 }
                 
                 // 2. Check CISD activation on previous bar
@@ -670,6 +710,12 @@ namespace Pfuma
         
         private void OnSwingPointRemoved(SwingPoint removedPoint)
         {
+            // Remove 369 pattern drawing if this swing point has one
+            if (removedPoint?.Has369 == true && _pattern369Visualizer != null)
+            {
+                _pattern369Visualizer.RemovePattern369(removedPoint);
+            }
+
             _eventAggregator.Publish(new SwingPointRemovedEvent(removedPoint));
         }
         
@@ -690,6 +736,23 @@ namespace Pfuma
                     //DrawInsideMacroIcon(evt.SwingPoint);
                 }
 
+                // 369 Pattern Detection and Visualization
+                if (_pattern369Service != null && _pattern369Visualizer != null)
+                {
+                    var (has369, number369) = _pattern369Service.DetectPattern(evt.SwingPoint);
+                    if (has369)
+                    {
+                        // Update swing point properties
+                        evt.SwingPoint.Has369 = true;
+                        evt.SwingPoint.Number369 = number369;
+
+                        // Visualize 369 pattern if Show369 is enabled
+                        if (Show369)
+                        {
+                            _pattern369Visualizer.DrawPattern369(evt.SwingPoint);
+                        }
+                    }
+                }
             }
         }
 

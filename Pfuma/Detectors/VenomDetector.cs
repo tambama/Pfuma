@@ -55,8 +55,8 @@ namespace Pfuma.Detectors
                 return;
             
             // Check if either candle2 or candle3 swept liquidity/fibonacci
-            bool candle2HasSweep = candle2.SweptLiquidity > 0 || candle2.SweptFibonacci > 0 || candle3.InsidePda;
-            bool candle3HasSweep = candle3.SweptLiquidity > 0 || candle3.SweptFibonacci > 0 || candle3.InsidePda;
+            bool candle2HasSweep = (candle2.SweptLiquidity > 0 || candle2.SweptCycle) && candle2.SweptFibonacci > 0; // || candle3.InsidePda;
+            bool candle3HasSweep = (candle3.SweptLiquidity > 0 || candle3.SweptCycle) && candle3.SweptFibonacci > 0; // || candle3.InsidePda;
             
             if (candle2HasSweep || candle3HasSweep)
             {

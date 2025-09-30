@@ -10,5 +10,6 @@ public enum LiquidityType
     [Description("Previous Session High")] PSH,
     [Description("Previous Session Low")] PSL,
     [Description("Previous Cycle High")] PCH,
-    [Description("Previous Cycle Low")] PCL
+    [Description("Previous Cycle Low")] PCL,
+    [Description("Cycle High/Low")] Cycle
 }

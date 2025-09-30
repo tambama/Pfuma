@@ -21,6 +21,7 @@ public class PatternDetectionSettings
         
     // Special Patterns
     public bool ShowUnicorn { get; set; } = false;
+    public bool Show369 { get; set; } = false;
     public bool ShowBreakerBlock { get; set; } = false;
     public bool ShowRejectionBlock { get; set; } = false;
     public bool ShowOrderBlock { get; set; } = false;
