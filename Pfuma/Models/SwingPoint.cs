@@ -59,6 +59,11 @@ public class SwingPoint
     // 30-minute cycle properties
     public bool SweptCycle { get; set; }
 
+    // SMT Divergence properties
+    public bool HasSMT { get; set; }
+    public SwingPoint SweptCyclePoint { get; set; }
+    public Dictionary<string, double> SMTSymbolPrices { get; set; }
+
     // Score
     public int Score
     {
@@ -101,5 +106,6 @@ public class SwingPoint
         LiquidityType = liquidityType;
         LiquidityName = liquidityName;
         TimeFrame = bar?.TimeFrame; // Get TimeFrame from the Candle
+        SMTSymbolPrices = new Dictionary<string, double>();
     }
 }

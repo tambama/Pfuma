@@ -1977,6 +1977,9 @@ namespace Pfuma.Services
                     // Remove the swept cycle point from collection to prevent duplicate sweeps
                     _cycle30Manager.RemoveSweptCyclePoint(cycleHigh);
 
+                    // Publish cycle swept event for SMT detection
+                    _eventAggregator.Publish(new CycleSweptEvent(cycleHigh, bullishSwingPoint));
+
                     _logger?.Invoke($"Cycle30 high swept at {cycleHigh.Price:F5} by bullish swing point at {bullishSwingPoint.Price:F5}");
                 }
             }
@@ -2015,6 +2018,9 @@ namespace Pfuma.Services
 
                     // Remove the swept cycle point from collection to prevent duplicate sweeps
                     _cycle30Manager.RemoveSweptCyclePoint(cycleLow);
+
+                    // Publish cycle swept event for SMT detection
+                    _eventAggregator.Publish(new CycleSweptEvent(cycleLow, bearishSwingPoint));
 
                     _logger?.Invoke($"Cycle30 low swept at {cycleLow.Price:F5} by bearish swing point at {bearishSwingPoint.Price:F5}");
                 }

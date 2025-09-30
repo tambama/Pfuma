@@ -79,6 +79,13 @@ namespace Pfuma
         [Parameter("Risk Reward", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0, Group = "Signals")]
         public double RiskReward { get; set; }
 
+        // SMT Divergence
+        [Parameter("Show SMT", DefaultValue = false, Group = "SMT")]
+        public bool ShowSMT { get; set; }
+
+        [Parameter("SMT Symbols", DefaultValue = "EURUSD,GBPUSD", Group = "SMT")]
+        public string SMTSymbols { get; set; }
+
         // Visualization
         [Parameter("Quadrants", DefaultValue = false, Group = "Visualization")]
         public bool ShowQuadrants { get; set; }
@@ -199,6 +206,8 @@ namespace Pfuma
         private Pattern369Service _pattern369Service;
         private Cycle30Manager _cycle30Manager;
         private Cycle30Visualizer _cycle30Visualizer;
+        private ISMTDetector _smtDetector;
+        private SMTVisualizer _smtVisualizer;
 
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
@@ -345,7 +354,19 @@ namespace Pfuma
 
             _signalManager = new SignalManager(Chart, _notificationService);
             _statsVisualizer = new StatsVisualizer(Chart, _signalManager);
-            _pattern369Service = new Pattern369Service(UtcOffset);
+
+            // Only initialize 369 service if Show369 is enabled
+            if (Show369)
+            {
+                _pattern369Service = new Pattern369Service(UtcOffset);
+            }
+
+            // Initialize SMT components if ShowSMT is enabled
+            if (ShowSMT)
+            {
+                _smtDetector = new SMTDetector(_eventAggregator, this, _candleManager, EnableLog ? Print : null);
+                _smtDetector.Initialize(SMTSymbols);
+            }
         }
         
         private void InitializeRepositories()
@@ -366,7 +387,17 @@ namespace Pfuma
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _venomVisualizer = new VenomVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
-            _pattern369Visualizer = new Pattern369Visualizer(Chart, _settings.Visualization, Pattern369Bullish, Pattern369Bearish, UtcOffset, EnableLog ? Print : null);
+            // Only initialize 369 visualizer if Show369 is enabled
+            if (Show369)
+            {
+                _pattern369Visualizer = new Pattern369Visualizer(Chart, _settings.Visualization, Pattern369Bullish, Pattern369Bearish, UtcOffset, EnableLog ? Print : null);
+            }
+
+            // Only initialize SMT visualizer if ShowSMT is enabled
+            if (ShowSMT)
+            {
+                _smtVisualizer = new SMTVisualizer(Chart, _eventAggregator, ShowSMT, EnableLog ? Print : null);
+            }
         }
         
         private void InitializeServicesAndAnalyzers()
@@ -389,8 +420,8 @@ namespace Pfuma
                 Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
             
-            // Now pass TimeManager to SwingPointDetector
-            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager);
+            // Now pass TimeManager and SMT re-evaluation handler to SwingPointDetector
+            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager, HandleSMTReEvaluation);
             
             // Initialize liquidity manager
             _liquidityManager = new LiquidityManager(Chart, _candleManager, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
@@ -736,8 +767,8 @@ namespace Pfuma
                     //DrawInsideMacroIcon(evt.SwingPoint);
                 }
 
-                // 369 Pattern Detection and Visualization
-                if (_pattern369Service != null && _pattern369Visualizer != null)
+                // 369 Pattern Detection and Visualization - only if Show369 is enabled
+                if (Show369 && _pattern369Service != null && _pattern369Visualizer != null)
                 {
                     var (has369, number369) = _pattern369Service.DetectPattern(evt.SwingPoint);
                     if (has369)
@@ -746,16 +777,37 @@ namespace Pfuma
                         evt.SwingPoint.Has369 = true;
                         evt.SwingPoint.Number369 = number369;
 
-                        // Visualize 369 pattern if Show369 is enabled
-                        if (Show369)
-                        {
-                            _pattern369Visualizer.DrawPattern369(evt.SwingPoint);
-                        }
+                        // Visualize 369 pattern
+                        _pattern369Visualizer.DrawPattern369(evt.SwingPoint);
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Handle SMT re-evaluation when swing points are replaced
+        /// </summary>
+        public void HandleSMTReEvaluation(SwingPoint oldSwingPoint, SwingPoint newSwingPoint)
+        {
+            if (!ShowSMT || _smtDetector == null || _smtVisualizer == null)
+                return;
+
+            try
+            {
+                // Re-evaluate SMT using the detector
+                if (_smtDetector is SMTDetector detector)
+                {
+                    detector.ReEvaluateSMT(newSwingPoint, oldSwingPoint);
+                }
+
+                // Handle visualization update
+                _smtVisualizer.HandleSwingPointUpdate(oldSwingPoint, newSwingPoint);
+            }
+            catch (Exception ex)
+            {
+                Print($"Error handling SMT re-evaluation: {ex.Message}");
+            }
+        }
 
         private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
         {
