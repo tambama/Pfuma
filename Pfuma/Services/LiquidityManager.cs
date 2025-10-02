@@ -754,7 +754,7 @@ namespace Pfuma.Services
                         // Session/Daily high liquidity swept
                         
                         // Send telegram notification if enabled
-                        if (_settings.Notifications.NotifyLiquiditySweep && _settings.Notifications.EnableTelegram)
+                        if (_settings.Notifications.SendLiquidity)
                         {
                             _notificationService.NotifyLiquiditySweep(sessionDailyHigh, bullishSwingPoint);
                         }
@@ -813,7 +813,7 @@ namespace Pfuma.Services
                         // Session/Daily low liquidity swept
                         
                         // Send telegram notification if enabled
-                        if (_settings.Notifications.NotifyLiquiditySweep && _settings.Notifications.EnableTelegram)
+                        if (_settings.Notifications.SendLiquidity)
                         {
                             _notificationService.NotifyLiquiditySweep(sessionDailyLow, bearishSwingPoint);
                         }

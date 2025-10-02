@@ -127,12 +127,28 @@ namespace Pfuma
         // Notifications
         [Parameter("Enable Log", DefaultValue = false, Group = "Notifications")]
         public bool EnableLog { get; set; }
-        
-        [Parameter("Enable Telegram", DefaultValue = false, Group = "Notifications")]
-        public bool EnableTelegram { get; set; }
-        
-        [Parameter("Notify Liquidity Sweep", DefaultValue = false, Group = "Notifications")]
-        public bool NotifyLiquiditySweep { get; set; }
+
+        // Telegram
+        [Parameter("Send Liquidity", DefaultValue = false, Group = "Telegram")]
+        public bool SendLiquidity { get; set; }
+
+        [Parameter("Send Cycles", DefaultValue = false, Group = "Telegram")]
+        public bool SendCycles { get; set; }
+
+        [Parameter("Send SMT", DefaultValue = false, Group = "Telegram")]
+        public bool SendSMT { get; set; }
+
+        [Parameter("Send Venom", DefaultValue = false, Group = "Telegram")]
+        public bool SendVenom { get; set; }
+
+        [Parameter("Send CISD", DefaultValue = false, Group = "Telegram")]
+        public bool SendCISD { get; set; }
+
+        [Parameter("Send Order Block", DefaultValue = false, Group = "Telegram")]
+        public bool SendOrderBlock { get; set; }
+
+        [Parameter("Send Inside Key Level", DefaultValue = false, Group = "Telegram")]
+        public bool SendInsideKeyLevel { get; set; }
         
         // Timeframe Visualization
         [Parameter("See Timeframe", DefaultValue = "", Group = "Visualization")]
@@ -325,8 +341,13 @@ namespace Pfuma
                 Notifications = new NotificationSettings
                 {
                     EnableLog = EnableLog,
-                    EnableTelegram = EnableTelegram,
-                    NotifyLiquiditySweep = NotifyLiquiditySweep
+                    SendLiquidity = SendLiquidity,
+                    SendCycles = SendCycles,
+                    SendSMT = SendSMT,
+                    SendVenom = SendVenom,
+                    SendCISD = SendCISD,
+                    SendOrderBlock = SendOrderBlock,
+                    SendInsideKeyLevel = SendInsideKeyLevel
                 },
                 Visualization = new VisualizationSettings
                 {
@@ -346,9 +367,13 @@ namespace Pfuma
         private void InitializeCoreServices()
         {
             _eventAggregator = new EventAggregator();
+
+            // Enable Telegram if any of the send flags are enabled
+            bool enableTelegram = SendLiquidity || SendCycles || SendSMT || SendVenom || SendCISD || SendOrderBlock || SendInsideKeyLevel;
+
             _notificationService = new NotificationService(
                 EnableLog,
-                EnableTelegram,
+                enableTelegram,
                 _settings.Notifications.TelegramChatId,
                 _settings.Notifications.TelegramToken,
                 Symbol.Name,
