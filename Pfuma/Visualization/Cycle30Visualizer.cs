@@ -129,7 +129,7 @@ namespace Pfuma.Visualization
                 sweptCyclePoint.Price,
                 sweepIndex,
                 sweptCyclePoint.Price,
-                Color.FromArgb(70, lineColor),
+                lineColor,
                 1,
                 LineStyle.Dots
             );

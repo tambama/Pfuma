@@ -1981,6 +1981,16 @@ namespace Pfuma.Services
                     _eventAggregator.Publish(new CycleSweptEvent(cycleHigh, bullishSwingPoint));
 
                     _logger?.Invoke($"Cycle30 high swept at {cycleHigh.Price:F5} by bullish swing point at {bullishSwingPoint.Price:F5}");
+
+                    // Send Telegram notification for Cycle30 liquidity sweep
+                    if (_notificationService != null)
+                    {
+                        _notificationService.SendCycle30LiquiditySweepNotification(
+                            "Cycle30 High",
+                            cycleHigh.Price,
+                            bullishSwingPoint.Price,
+                            Direction.Up);
+                    }
                 }
             }
         }
@@ -2023,6 +2033,16 @@ namespace Pfuma.Services
                     _eventAggregator.Publish(new CycleSweptEvent(cycleLow, bearishSwingPoint));
 
                     _logger?.Invoke($"Cycle30 low swept at {cycleLow.Price:F5} by bearish swing point at {bearishSwingPoint.Price:F5}");
+
+                    // Send Telegram notification for Cycle30 liquidity sweep
+                    if (_notificationService != null)
+                    {
+                        _notificationService.SendCycle30LiquiditySweepNotification(
+                            "Cycle30 Low",
+                            cycleLow.Price,
+                            bearishSwingPoint.Price,
+                            Direction.Down);
+                    }
                 }
             }
         }

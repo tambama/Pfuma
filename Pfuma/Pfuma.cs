@@ -253,10 +253,13 @@ namespace Pfuma
             try
             {
                 Chart.RemoveAllObjects();
-                
+
+                // Print current symbol name
+                Print($"Current symbol: {Symbol.Name}");
+
                 // Initialize configuration
                 InitializeConfiguration();
-                
+
                 // Initialize core services
                 InitializeCoreServices();
                 
