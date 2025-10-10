@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
+using Pfuma.Core.Configuration;
+using Pfuma.Core.Events;
 using Pfuma.Core.Interfaces;
 using Pfuma.Detectors;
 using Pfuma.Extensions;
@@ -18,6 +20,7 @@ namespace Pfuma.Visualization
         private readonly IEventAggregator _eventAggregator;
         private bool _showCycleFibLevels;
         private bool _showCISDFibLevels;
+        private bool _showOTEFibLevels;
         private bool _showExtendedFib;
         private bool _removeFibExtensions;
         private readonly Dictionary<string, List<string>> _drawnObjects;
@@ -36,14 +39,20 @@ namespace Pfuma.Visualization
             get => _showCISDFibLevels;
             set => _showCISDFibLevels = value;
         }
-        
+
+        public bool ShowOTEFibLevels
+        {
+            get => _showOTEFibLevels;
+            set => _showOTEFibLevels = value;
+        }
+
         public bool ShowExtendedFib
         {
             get => _showExtendedFib;
             set => _showExtendedFib = value;
         }
         
-        public FibonacciVisualizer(Chart chart, IFibonacciService fibonacciService, IEventAggregator eventAggregator, CandleManager candleManager, bool showCycleFibLevels, bool showCISDFibLevels, bool showExtendedFib, bool removeFibExtensions = false, Action<string> log = null)
+        public FibonacciVisualizer(Chart chart, IFibonacciService fibonacciService, IEventAggregator eventAggregator, CandleManager candleManager, bool showCycleFibLevels, bool showCISDFibLevels, bool showOTEFibLevels, bool showExtendedFib, bool removeFibExtensions = false, Action<string> log = null)
         {
             _chart = chart;
             _fibonacciService = fibonacciService;
@@ -51,6 +60,7 @@ namespace Pfuma.Visualization
             _candleManager = candleManager;
             _showCycleFibLevels = showCycleFibLevels;
             _showCISDFibLevels = showCISDFibLevels;
+            _showOTEFibLevels = showOTEFibLevels;
             _showExtendedFib = showExtendedFib;
             _removeFibExtensions = removeFibExtensions;
             _log = log;
@@ -69,15 +79,39 @@ namespace Pfuma.Visualization
             if (_eventAggregator != null)
             {
                 _eventAggregator.Subscribe<FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
+                _eventAggregator.Subscribe<FibonacciLevelCreatedEvent>(OnFibonacciLevelCreated);
             }
         }
         
+        private void OnFibonacciLevelCreated(FibonacciLevelCreatedEvent createdEvent)
+        {
+            if (createdEvent?.FibonacciLevel == null)
+                return;
+
+            var fibLevel = createdEvent.FibonacciLevel;
+
+            // Check if we should draw this level based on settings
+            bool shouldDraw = false;
+
+            if (fibLevel.FibType == FibType.Cycle && _showCycleFibLevels)
+                shouldDraw = true;
+            else if (fibLevel.FibType == FibType.CISD && _showCISDFibLevels)
+                shouldDraw = true;
+            else if (fibLevel.FibType == FibType.Ote && _showOTEFibLevels)
+                shouldDraw = true;
+
+            if (shouldDraw)
+            {
+                DrawFibonacciLevel(fibLevel);
+            }
+        }
+
         private void OnFibonacciLevelRemoved(FibonacciLevel removedLevel)
         {
             if (removedLevel != null && !string.IsNullOrEmpty(removedLevel.Id))
             {
                 RemoveFibonacciDrawings(removedLevel.Id);
-                
+
                 // If removeFibExtensions is true, also cleanup extended lines for this level
                 if (_removeFibExtensions)
                 {
@@ -92,7 +126,7 @@ namespace Pfuma.Visualization
             {
                 // Remove all drawings for fully swept level (especially important for CISD levels)
                 RemoveFibonacciDrawings(sweptLevel.Id);
-                
+
                 // If removeFibExtensions is true, also cleanup extended lines for this level
                 if (_removeFibExtensions)
                 {
@@ -178,7 +212,9 @@ namespace Pfuma.Visualization
                 
                 string extendedLineId = lineId + "-extended";
                 string extendedLabelId = extendedLineId + "-label";
-                Color color = fibLevel.FibType == FibType.CISD ? Color.Pink : Color.Gray;
+                Color color = fibLevel.FibType == FibType.CISD ? Color.Pink
+                            : fibLevel.FibType == FibType.Ote ? Color.Red
+                            : Color.Gray;
                 
                 // Use removeExisting=true to force removal of any conflicting objects
                 _chart.DrawStraightLine(
@@ -219,38 +255,31 @@ namespace Pfuma.Visualization
             }
         }
         
-        public void DrawFibonacciLevels()
+        /// <summary>
+        /// Updates visibility of Fibonacci levels based on current settings
+        /// Clears levels when settings are disabled
+        /// Note: Drawing of new levels is handled automatically via FibonacciLevelCreatedEvent
+        /// </summary>
+        public void UpdateSettingsVisibility()
         {
             if (_chart == null) return;
-            
-            // Draw Cycle Fibonacci levels if enabled
-            if (_showCycleFibLevels)
+
+            // Clear Cycle Fibonacci drawings if disabled
+            if (!_showCycleFibLevels)
             {
-                var cycleLevels = _fibonacciService.GetFibonacciLevels();
-                foreach (var fibLevel in cycleLevels)
-                {
-                    DrawFibonacciLevel(fibLevel);
-                }
-            }
-            else
-            {
-                // Clear Cycle Fibonacci drawings if disabled
                 ClearCycleFibonacciDrawings();
             }
-            
-            // Draw CISD Fibonacci levels if enabled
-            if (_showCISDFibLevels)
+
+            // Clear CISD Fibonacci drawings if disabled
+            if (!_showCISDFibLevels)
             {
-                var cisdLevels = _fibonacciService.GetCisdFibonacciLevels();
-                foreach (var fibLevel in cisdLevels)
-                {
-                    DrawFibonacciLevel(fibLevel);
-                }
-            }
-            else
-            {
-                // Clear CISD Fibonacci drawings if disabled
                 ClearCisdFibonacciDrawings();
+            }
+
+            // Clear OTE Fibonacci drawings if disabled
+            if (!_showOTEFibLevels)
+            {
+                ClearOteFibonacciDrawings();
             }
         }
         
@@ -278,7 +307,14 @@ namespace Pfuma.Visualization
             {
                 double ratio = kvp.Key;
                 double price = kvp.Value;
-                
+
+                // For OTE levels, skip drawing the 0.0 level (starting point)
+                // We track it for sweep detection but don't display it
+                if (fibLevel.FibType == FibType.Ote && Math.Abs(ratio - 0.0) < 0.001)
+                {
+                    continue;
+                }
+
                 // Check if this ratio has been swept - if so, skip drawing it
                 if (fibLevel.SweptLevels.ContainsKey(ratio) && fibLevel.SweptLevels[ratio])
                 {
@@ -307,7 +343,9 @@ namespace Pfuma.Visualization
                 }
                 
                 string labelText = GetFibonacciLabelText(ratio);
-                Color color = fibLevel.FibType == FibType.CISD ? Color.Pink : Color.Gray;
+                Color color = fibLevel.FibType == FibType.CISD ? Color.Pink
+                            : fibLevel.FibType == FibType.Ote ? Color.Red
+                            : Color.Gray;
                 
                 // Draw the horizontal line with label
                 _chart.DrawStraightLine(
@@ -546,7 +584,19 @@ namespace Pfuma.Visualization
                 }
             }
         }
-        
+
+        private void ClearOteFibonacciDrawings()
+        {
+            var oteLevels = _fibonacciService.GetOteFibonacciLevels();
+            foreach (var fibLevel in oteLevels)
+            {
+                if (!string.IsNullOrEmpty(fibLevel.Id))
+                {
+                    RemoveFibonacciDrawings(fibLevel.Id);
+                }
+            }
+        }
+
         // Extended lines should never be automatically removed - they persist permanently
 
         public void ClearAllDrawings()
@@ -575,6 +625,7 @@ namespace Pfuma.Visualization
             if (_eventAggregator != null)
             {
                 _eventAggregator.Unsubscribe<FibonacciLevelSweptEvent>(OnFibonacciLevelSwept);
+                _eventAggregator.Unsubscribe<FibonacciLevelCreatedEvent>(OnFibonacciLevelCreated);
             }
             
             // Clear all regular drawings

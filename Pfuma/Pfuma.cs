@@ -49,10 +49,13 @@ namespace Pfuma
         
         [Parameter("CISD", DefaultValue = false, Group = "Patterns")]
         public bool ShowCISD { get; set; }
-        
+
         //[Parameter("Max CISD", DefaultValue = 2, Group = "Patterns")]
         public int MaxCisdsPerDirection { get; set; } = 1;
-        
+
+        [Parameter("OTE", DefaultValue = false, Group = "Patterns")]
+        public bool ShowOTE { get; set; }
+
         [Parameter("Propulsion Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowPropulsionBlock { get; set; }
         
@@ -105,12 +108,18 @@ namespace Pfuma
         
         [Parameter("Session Levels", DefaultValue = true, Group = "Time")]
         public bool ShowSessionLevels { get; set; }
-        
+
+        [Parameter("Opening Times", DefaultValue = false, Group = "Time")]
+        public bool ShowOpeningTimes { get; set; }
+
         [Parameter("Cycle Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCycleFibLevels { get; set; }
 
         [Parameter("CISD Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCISDFibLevels { get; set; }
+
+        [Parameter("OTE Fib Levels", DefaultValue = false, Group = "Fibonacci")]
+        public bool ShowOTEFibLevels { get; set; }
 
         [Parameter("30 Minute Cycles", DefaultValue = false, Group = "Time")]
         public bool ShowCycles30 { get; set; }
@@ -321,6 +330,7 @@ namespace Pfuma
                     ShowBreakerBlock = ShowBreakerBlock,
                     ShowCISD = ShowCISD,
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
+                    ShowOTE = ShowOTE,
                     ShowPropulsionBlock = ShowPropulsionBlock,
                     ShowVenom = ShowVenom,
                     ShowConfirmedVenom = ShowConfirmedVenom,
@@ -446,7 +456,7 @@ namespace Pfuma
             // Initialize time manager
             _timeManager = new TimeManager(
                 Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
-                ShowMacros, ShowDailyLevels, ShowSessionLevels, UtcOffset);
+                ShowMacros, ShowDailyLevels, ShowSessionLevels, ShowOpeningTimes, UtcOffset);
             
             // Now pass TimeManager and SMT re-evaluation handler to SwingPointDetector
             _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager, HandleSMTReEvaluation);
@@ -456,10 +466,13 @@ namespace Pfuma
 
             // Set cycle components in liquidity manager for sweep detection
             _liquidityManager.SetCycleComponents(_cycle30Manager, _cycle30Visualizer);
-            
+
+            // Set opening time manager for open level sweep visualization
+            _liquidityManager.SetOpeningTimeManager(_timeManager.OpeningTimeManager);
+
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
-            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowCycleFibLevels, ShowCISDFibLevels, ShowExtendedFib, RemoveFibExtensions, EnableLog ? Print : null);
+            _fibonacciVisualizer = new FibonacciVisualizer(Chart, _fibonacciService, _eventAggregator, _candleManager, ShowCycleFibLevels, ShowCISDFibLevels, ShowOTEFibLevels, ShowExtendedFib, RemoveFibExtensions, EnableLog ? Print : null);
             _fibonacciSweepDetector = new FibonacciSweepDetector(_fibonacciService, _eventAggregator, EnableLog ? Print : null);
             
         }
@@ -575,16 +588,17 @@ namespace Pfuma
                     _cycle30Manager?.ProcessBar(index, Bars[index].OpenTime);
                 }
                 
-                // Update and draw Fibonacci levels if enabled
+                // Update Fibonacci visualizer settings
+                // Note: Drawing is now handled automatically via FibonacciLevelCreatedEvent
                 if (_fibonacciVisualizer != null)
                 {
                     _fibonacciVisualizer.ShowCycleFibLevels = ShowCycleFibLevels;
                     _fibonacciVisualizer.ShowCISDFibLevels = ShowCISDFibLevels;
+                    _fibonacciVisualizer.ShowOTEFibLevels = ShowOTEFibLevels;
                     _fibonacciVisualizer.ShowExtendedFib = ShowExtendedFib;
-                    if (ShowCycleFibLevels || ShowCISDFibLevels)
-                    {
-                        _fibonacciVisualizer.DrawFibonacciLevels();
-                    }
+
+                    // Clear levels if settings are disabled
+                    _fibonacciVisualizer.UpdateSettingsVisibility();
                 }
 
                 // Draw 30-minute cycle rectangles if enabled

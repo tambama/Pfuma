@@ -287,16 +287,22 @@ namespace Pfuma.Detectors
                 {
                     cisd.IsConfirmed = true;
                     cisd.IndexOfConfirmingCandle = swingPoint.Index;
-                    
+
                     // Check if CISD time range overlaps with macro time
                     CheckCisdMacroTimeOverlap(cisd, swingPoint);
-                    
+
                     // Create Fibonacci levels for the confirmed CISD
                     CreateCisdFibonacciLevels(cisd);
-                    
+
+                    // Check for OTE condition if enabled
+                    if (Settings.Patterns.ShowOTE)
+                    {
+                        CheckOTECondition(cisd);
+                    }
+
                     // Publish confirmation event
                     EventAggregator.Publish(new CisdConfirmedEvent(cisd, cisd.Direction));
-                    
+
                     // Update visualization
                     _visualizer?.Update(cisd);
                 }
@@ -542,7 +548,136 @@ namespace Pfuma.Detectors
         {
             CheckCisdConfirmation(evt.SwingPoint);
         }
-        
+
+        /// <summary>
+        /// Checks if a confirmed CISD meets the OTE (Optimum Trade Entry) condition
+        /// </summary>
+        private void CheckOTECondition(Level cisd)
+        {
+            if (cisd == null || !cisd.IsConfirmed)
+                return;
+
+            if (cisd.Direction == Direction.Down) // Bearish CISD
+            {
+                CheckBearishOTE(cisd);
+            }
+            else if (cisd.Direction == Direction.Up) // Bullish CISD
+            {
+                CheckBullishOTE(cisd);
+            }
+        }
+
+        /// <summary>
+        /// Checks for Bearish OTE condition
+        /// </summary>
+        private void CheckBearishOTE(Level cisd)
+        {
+            // Find the nearest unswept session high (PSH or PDH)
+            // Order by index descending and get the first one
+            var unsweptSessionHighs = _swingPointRepository
+                .Find(sp => (sp.LiquidityType == LiquidityType.PSH) &&
+                           !sp.Swept)
+                .OrderByDescending(sp => sp.Index)
+                .ToList();
+
+            if (unsweptSessionHighs.Count == 0)
+                return;
+
+            var oteHigh = unsweptSessionHighs.First();
+
+            // Get candles between oteHigh.Time (inclusive) and CISD high time (exclusive)
+            var cisdHighCandle = CandleManager.GetCandle(cisd.IndexHigh);
+            if (cisdHighCandle == null)
+                return;
+
+            var candlesBetween = CandleManager.GetCandlesBetween(oteHigh.Time, cisdHighCandle.Time)
+                .Where(c => c.Time < cisdHighCandle.Time) // Exclude CISD high time
+                .ToList();
+
+            if (candlesBetween.Count == 0)
+                return;
+
+            // Find the lowest point between oteHigh and CISD high
+            var (lowestIndex, lowestTime, oteLow) = candlesBetween.FindLowestPoint();
+
+            if (lowestIndex == -1)
+                return;
+
+            // Check if CISD's swing high is above 61% of the distance from oteLow up to oteHigh
+            // For bearish OTE, we measure 61% UP from oteLow towards oteHigh
+            double sixtyOnePercent = oteLow + (oteHigh.Price - oteLow) * 0.75;
+
+            if (cisd.High > sixtyOnePercent)
+            {
+                // This is an OTE entry - convert CISD to OTE
+                cisd.LevelType = LevelType.OTE;
+
+                // Find the swing point at oteLow for the event
+                var oteLowSwingPoint = _swingPointRepository
+                    .Find(sp => sp.Index == lowestIndex)
+                    .FirstOrDefault();
+
+                // Fire OTE detected event
+                EventAggregator.Publish(new OteDetectedEvent(cisd, oteHigh, oteLowSwingPoint));
+            }
+        }
+
+        /// <summary>
+        /// Checks for Bullish OTE condition
+        /// </summary>
+        private void CheckBullishOTE(Level cisd)
+        {
+            // Find the nearest unswept session low (PSL or PDL)
+            // Order by index descending and get the first one
+            var unsweptSessionLows = _swingPointRepository
+                .Find(sp => (sp.LiquidityType == LiquidityType.PSL) &&
+                           !sp.Swept)
+                .OrderByDescending(sp => sp.Index)
+                .ToList();
+
+            if (unsweptSessionLows.Count == 0)
+                return;
+
+            var oteLow = unsweptSessionLows.First();
+
+            // Get candles between oteLow.Time (inclusive) and CISD low time (exclusive)
+            var cisdLowCandle = CandleManager.GetCandle(cisd.IndexLow);
+            if (cisdLowCandle == null)
+                return;
+
+            var candlesBetween = CandleManager.GetCandlesBetween(oteLow.Time, cisdLowCandle.Time)
+                .Where(c => c.Time < cisdLowCandle.Time) // Exclude CISD low time
+                .ToList();
+
+            if (candlesBetween.Count == 0)
+                return;
+
+            // Find the highest point between oteLow and CISD low
+            var (highestIndex, highestTime, oteHigh) = candlesBetween.FindHighestPoint();
+
+            if (highestIndex == -1)
+                return;
+
+            // Check if CISD's swing low is below 61% of the distance from oteHigh down to oteLow
+            // For bullish OTE, we measure 61% DOWN from oteHigh towards oteLow
+            double sixtyOnePercent = oteHigh - (oteHigh - oteLow.Price) * 0.75;
+
+            if (cisd.Low < sixtyOnePercent)
+            {
+                // This is an OTE entry - convert CISD to OTE
+                cisd.LevelType = LevelType.OTE;
+
+                // Find the swing point at oteHigh for the event
+                var oteHighSwingPoint = _swingPointRepository
+                    .Find(sp => Math.Abs(sp.Index - highestIndex) <= 2)
+                    .OrderBy(sp => Math.Abs(sp.Index - highestIndex))
+                    .FirstOrDefault();
+
+                // Fire OTE detected event
+                EventAggregator.Publish(new OteDetectedEvent(cisd, oteHighSwingPoint, oteLow));
+            }
+        }
+
         /// <summary>
         /// Helper method to find swing point at a specific index with tolerance
         /// </summary>

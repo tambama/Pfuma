@@ -12,11 +12,13 @@ namespace Pfuma.Services
         List<FibonacciLevel> GetAllFibonacciLevels();
         List<FibonacciLevel> GetFibonacciLevels();
         List<FibonacciLevel> GetCisdFibonacciLevels();
+        List<FibonacciLevel> GetOteFibonacciLevels();
         FibonacciLevel GetLatestLevel();
         FibonacciLevel RemoveOldestLevel();
         void AddCisdFibonacciLevel(FibonacciLevel level);
         void ClearOldLevels(int maxLevels = 2);
         void ClearOldCisdLevels(int maxLevels = 5);
+        void ClearOldOteLevels(int maxLevels = 10);
         void CheckAndRemoveFullySweptLevels();
         event Action<FibonacciLevel> LevelRemoved;
         event Action<FibonacciLevel> LevelFullySwept;
@@ -27,23 +29,29 @@ namespace Pfuma.Services
         private readonly IEventAggregator _eventAggregator;
         private readonly List<FibonacciLevel> _fibonacciLevels;
         private readonly List<FibonacciLevel> _cisdFibonacciLevels;
+        private readonly List<FibonacciLevel> _oteFibonacciLevels;
         private const int MaxLevels = 2; // Only keep 2 levels at most
         private const int MaxCisdLevels = 5; // Keep up to 5 CISD Fibonacci levels
-        
+        private const int MaxOteLevels = 5; // Keep up to 10 OTE Fibonacci levels
+
         public event Action<FibonacciLevel> LevelRemoved;
         public event Action<FibonacciLevel> LevelFullySwept;
-        
+
         public FibonacciService(IEventAggregator eventAggregator)
         {
             _eventAggregator = eventAggregator;
             _fibonacciLevels = new List<FibonacciLevel>();
             _cisdFibonacciLevels = new List<FibonacciLevel>();
-            
+            _oteFibonacciLevels = new List<FibonacciLevel>();
+
             // Subscribe to time cycle events
             _eventAggregator.Subscribe<TimeCycleDetectedEvent>(OnTimeCycleDetected);
-            
+
             // Subscribe to swing point creation events for CISD level sweeping
             _eventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
+
+            // Subscribe to OTE detected events
+            _eventAggregator.Subscribe<OteDetectedEvent>(OnOteDetected);
         }
         
         private void OnTimeCycleDetected(TimeCycleDetectedEvent cycleEvent)
@@ -114,18 +122,155 @@ namespace Pfuma.Services
             
             // Add the new level
             _fibonacciLevels.Add(fibLevel);
+
+            // Publish event for new Fibonacci level creation
+            _eventAggregator?.Publish(new FibonacciLevelCreatedEvent(fibLevel, startIndex));
         }
         
         private void OnSwingPointDetected(SwingPointDetectedEvent swingPointEvent)
         {
             if (swingPointEvent?.SwingPoint == null) return;
-            
+
             var swingPoint = swingPointEvent.SwingPoint;
-            
+
             // Check if this swing point sweeps any CISD Fibonacci levels
             CheckCisdFibonacciInvalidation(swingPoint);
         }
-        
+
+        private void OnOteDetected(OteDetectedEvent oteEvent)
+        {
+            if (oteEvent?.OteLevel == null) return;
+
+            var oteLevel = oteEvent.OteLevel;
+
+            if (oteLevel.Direction == Direction.Down) // Bearish OTE
+            {
+                CreateBearishOteFibonacciLevels(oteLevel, oteEvent.OteHigh, oteEvent.OteLow);
+            }
+            else if (oteLevel.Direction == Direction.Up) // Bullish OTE
+            {
+                CreateBullishOteFibonacciLevels(oteLevel, oteEvent.OteHigh, oteEvent.OteLow);
+            }
+        }
+
+        private void CreateBearishOteFibonacciLevels(Level oteLevel, SwingPoint oteHigh, SwingPoint oteLow)
+        {
+            if (oteHigh == null)
+                return;
+
+            double oteLowPrice = oteLow.Price; // The lowest point found in the range
+
+            // First Fibonacci: from oteHigh to oteLow
+            bool existsFirstLevel = _oteFibonacciLevels.Any(fib =>
+                Math.Abs(fib.HighPrice - oteHigh.Price) < 0.00001 &&
+                Math.Abs(fib.LowPrice - oteLowPrice) < 0.00001 &&
+                fib.FibType == FibType.Ote);
+
+            if (!existsFirstLevel)
+            {
+                var fibLevel1 = new FibonacciLevel(
+                    oteHigh.Index,
+                    oteLow.Index,
+                    oteHigh.Price,
+                    oteLowPrice,
+                    oteHigh.Time,
+                    oteLow.Time,
+                    FibType.Ote
+                );
+
+                AddOteFibonacciLevel(fibLevel1);
+            }
+
+            // Second Fibonacci: from OTE's high point (CISD high) to oteLow
+            bool existsSecondLevel = _oteFibonacciLevels.Any(fib =>
+                Math.Abs(fib.HighPrice - oteLevel.High) < 0.00001 &&
+                Math.Abs(fib.LowPrice - oteLowPrice) < 0.00001 &&
+                fib.FibType == FibType.Ote);
+
+            if (!existsSecondLevel)
+            {
+                var fibLevel2 = new FibonacciLevel(
+                    oteLevel.IndexHigh,
+                    oteLow.Index,
+                    oteLevel.High,
+                    oteLowPrice,
+                    oteLevel.HighTime,
+                    oteLow.Time,
+                    FibType.Ote
+                );
+
+                AddOteFibonacciLevel(fibLevel2);
+            }
+        }
+
+        private void CreateBullishOteFibonacciLevels(Level oteLevel, SwingPoint oteHigh, SwingPoint oteLow)
+        {
+            if (oteLow == null)
+                return;
+
+            double oteHighPrice = oteHigh.Price; // The highest point found in the range
+
+            // First Fibonacci: from oteLow to oteHigh
+            bool existsFirstLevel = _oteFibonacciLevels.Any(fib =>
+                Math.Abs(fib.LowPrice - oteLow.Price) < 0.00001 &&
+                Math.Abs(fib.HighPrice - oteHighPrice) < 0.00001 &&
+                fib.FibType == FibType.Ote);
+
+            if (!existsFirstLevel)
+            {
+                var fibLevel1 = new FibonacciLevel(
+                    oteLow.Index,
+                    oteHigh.Index,
+                    oteLow.Price,
+                    oteHighPrice,
+                    oteLow.Time,
+                    oteHigh.Time,
+                    FibType.Ote
+                );
+
+                AddOteFibonacciLevel(fibLevel1);
+            }
+
+            // Second Fibonacci: from OTE's low point (CISD low) to oteHigh
+            bool existsSecondLevel = _oteFibonacciLevels.Any(fib =>
+                Math.Abs(fib.LowPrice - oteLevel.Low) < 0.00001 &&
+                Math.Abs(fib.HighPrice - oteHighPrice) < 0.00001 &&
+                fib.FibType == FibType.Ote);
+
+            if (!existsSecondLevel)
+            {
+                var fibLevel2 = new FibonacciLevel(
+                    oteLevel.IndexLow,
+                    oteHigh.Index,
+                    oteLevel.Low,
+                    oteHighPrice,
+                    oteLevel.LowTime,
+                    oteHigh.Time,
+                    FibType.Ote
+                );
+
+                AddOteFibonacciLevel(fibLevel2);
+            }
+        }
+
+        private void AddOteFibonacciLevel(FibonacciLevel level)
+        {
+            if (level == null || level.FibType != FibType.Ote) return;
+
+            // Check if we need to remove old OTE levels
+            if (_oteFibonacciLevels.Count >= MaxOteLevels)
+            {
+                var oldestLevel = _oteFibonacciLevels[0];
+                _oteFibonacciLevels.RemoveAt(0);
+                LevelRemoved?.Invoke(oldestLevel);
+            }
+
+            _oteFibonacciLevels.Add(level);
+
+            // Publish event for new OTE Fibonacci level creation
+            _eventAggregator?.Publish(new FibonacciLevelCreatedEvent(level, level.StartIndex));
+        }
+
         private void CheckCisdFibonacciInvalidation(SwingPoint swingPoint)
         {
             var levelsToRemove = new List<FibonacciLevel>();
@@ -175,17 +320,23 @@ namespace Pfuma.Services
         {
             var levels = new List<FibonacciLevel>(_fibonacciLevels);
             levels.AddRange(_cisdFibonacciLevels);
+            levels.AddRange(_oteFibonacciLevels);
             return new List<FibonacciLevel>(levels);
         }
-        
+
         public List<FibonacciLevel> GetFibonacciLevels()
         {
             return new List<FibonacciLevel>(_fibonacciLevels);
         }
-        
+
         public List<FibonacciLevel> GetCisdFibonacciLevels()
         {
             return new List<FibonacciLevel>(_cisdFibonacciLevels);
+        }
+
+        public List<FibonacciLevel> GetOteFibonacciLevels()
+        {
+            return new List<FibonacciLevel>(_oteFibonacciLevels);
         }
         
         public void AddCisdFibonacciLevel(FibonacciLevel level)
@@ -205,8 +356,11 @@ namespace Pfuma.Services
             
             // Add the new CISD Fibonacci level
             _cisdFibonacciLevels.Add(level);
+
+            // Publish event for new CISD Fibonacci level creation
+            _eventAggregator?.Publish(new FibonacciLevelCreatedEvent(level, level.StartIndex));
         }
-        
+
         public FibonacciLevel GetLatestLevel()
         {
             return _fibonacciLevels.LastOrDefault();
@@ -271,6 +425,16 @@ namespace Pfuma.Services
                 LevelRemoved?.Invoke(oldestLevel);
             }
         }
+
+        public void ClearOldOteLevels(int maxLevels = 10)
+        {
+            while (_oteFibonacciLevels.Count > maxLevels)
+            {
+                var oldestLevel = _oteFibonacciLevels[0];
+                _oteFibonacciLevels.RemoveAt(0);
+                LevelRemoved?.Invoke(oldestLevel);
+            }
+        }
         
         public void CheckAndRemoveFullySweptLevels()
         {
@@ -305,6 +469,23 @@ namespace Pfuma.Services
             foreach (var levelToRemove in cisdLevelsToRemove)
             {
                 _cisdFibonacciLevels.Remove(levelToRemove);
+                LevelFullySwept?.Invoke(levelToRemove);
+            }
+
+            // Check and remove fully swept OTE Fibonacci levels
+            var oteLevelsToRemove = new List<FibonacciLevel>();
+
+            foreach (var level in _oteFibonacciLevels)
+            {
+                if (level.AreAllLevelsSwept())
+                {
+                    oteLevelsToRemove.Add(level);
+                }
+            }
+
+            foreach (var levelToRemove in oteLevelsToRemove)
+            {
+                _oteFibonacciLevels.Remove(levelToRemove);
                 LevelFullySwept?.Invoke(levelToRemove);
             }
         }

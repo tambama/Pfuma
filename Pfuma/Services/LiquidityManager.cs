@@ -34,6 +34,9 @@ namespace Pfuma.Services
         private Cycle30Manager _cycle30Manager;
         private Cycle30Visualizer _cycle30Visualizer;
 
+        // Optional opening time manager for open level sweep visualization
+        private IOpeningTimeManager _openingTimeManager;
+
         public LiquidityManager(
             Chart chart,
             CandleManager candleManager,
@@ -76,6 +79,14 @@ namespace Pfuma.Services
         }
 
         /// <summary>
+        /// Set opening time manager for open level sweep visualization
+        /// </summary>
+        public void SetOpeningTimeManager(IOpeningTimeManager openingTimeManager)
+        {
+            _openingTimeManager = openingTimeManager;
+        }
+
+        /// <summary>
         /// Handle swing point detection events to check for liquidity sweeps
         /// </summary>
         private void OnSwingPointDetected(SwingPointDetectedEvent evt)
@@ -101,7 +112,13 @@ namespace Pfuma.Services
                 
                 // Check for session/daily high liquidity sweeps by bullish swing point
                 HandleBullishSwingPointSessionDailyHighLiquiditySweep(swingPoint);
-                
+
+                // Check for session/daily low liquidity sweeps by bullish swing point (cross-direction)
+                HandleBullishSwingPointSessionDailyLowLiquiditySweep(swingPoint);
+
+                // Check for opening time level sweeps by bullish swing point
+                HandleBullishSwingPointOpenLevelSweep(swingPoint);
+
                 // Check if bullish swing point is inside a bearish order block
                 CheckBullishSwingPointInsideOrderBlock(swingPoint);
                 
@@ -130,6 +147,12 @@ namespace Pfuma.Services
 
                 // Check for session/daily low liquidity sweeps by bearish swing point
                 HandleBearishSwingPointSessionDailyLowLiquiditySweep(swingPoint);
+
+                // Check for session/daily high liquidity sweeps by bearish swing point (cross-direction)
+                HandleBearishSwingPointSessionDailyHighLiquiditySweep(swingPoint);
+
+                // Check for opening time level sweeps by bearish swing point
+                HandleBearishSwingPointOpenLevelSweep(swingPoint);
 
                 // Check if bearish swing point is inside a bullish order block
                 CheckBearishSwingPointInsideOrderBlock(swingPoint);
@@ -712,6 +735,7 @@ namespace Pfuma.Services
         /// Handle bullish swing point session/daily high liquidity sweeps
         /// Check if the bullish swing point sweeps any session highs (PSH) or daily highs (PDH)
         /// Update visual representation when sweeps occur
+        /// Daily levels can be swept multiple times and have a 3-day lifespan that extends on each sweep
         /// </summary>
         private void HandleBullishSwingPointSessionDailyHighLiquiditySweep(SwingPoint bullishSwingPoint)
         {
@@ -720,39 +744,77 @@ namespace Pfuma.Services
                 if (!_settings.Patterns.ShowLiquiditySweep)
                     return;
 
-                // Get all active session and daily highs (PSH, PDH) that could be swept
+                // Get all session and daily highs (PSH, PDH) that could be swept
+                // For daily levels (PDH), allow multiple sweeps if still within lifespan
                 var activeHighs = _swingPointRepository
-                    .Find(sp => 
+                    .Find(sp =>
                         (sp.LiquidityType == LiquidityType.PSH || sp.LiquidityType == LiquidityType.PDH) &&
-                        !sp.Swept &&
                         sp.Index < bullishSwingPoint.Index) // Must be before the current swing point
                     .ToList();
 
+                // Filter out session levels that have been swept and daily levels whose lifespan has expired
+                activeHighs = activeHighs.Where(sp =>
+                {
+                    if (sp.LiquidityType == LiquidityType.PDH)
+                    {
+                        // Daily levels can be swept multiple times as long as they have days remaining
+                        return sp.DaysRemaining > 0 || !sp.Swept;
+                    }
+                    else
+                    {
+                        // Session levels can only be swept once
+                        return !sp.Swept;
+                    }
+                }).ToList();
+
                 foreach (var sessionDailyHigh in activeHighs)
                 {
-                    // Check if bullish swing point price is equal to or above the session/daily high
-                    if (bullishSwingPoint.Price >= sessionDailyHigh.Price)
+                    // Check if bullish swing point candle swept through the level
+                    // Bullish candle sweep: low below level AND high above level
+                    bool hasSwept = bullishSwingPoint.Bar != null &&
+                                   bullishSwingPoint.Bar.Low < sessionDailyHigh.Price &&
+                                   bullishSwingPoint.Bar.High > sessionDailyHigh.Price;
+
+                    if (hasSwept)
                     {
+                        // Handle daily level lifespan tracking
+                        if (sessionDailyHigh.LiquidityType == LiquidityType.PDH)
+                        {
+                            if (!sessionDailyHigh.Swept)
+                            {
+                                // First sweep - set 3-day lifespan
+                                sessionDailyHigh.FirstSweptDate = bullishSwingPoint.Time.Date;
+                                sessionDailyHigh.DaysRemaining = 3;
+                                sessionDailyHigh.SweptCount = 1;
+                            }
+                            else
+                            {
+                                // Subsequent sweep - extend lifespan to 3 days
+                                sessionDailyHigh.DaysRemaining = 3;
+                                sessionDailyHigh.SweptCount++;
+                            }
+                        }
+
                         // Mark the session/daily high as swept
                         sessionDailyHigh.Swept = true;
                         sessionDailyHigh.IndexOfSweepingCandle = bullishSwingPoint.Index;
-                        
+
                         // Mark the bullish swing point as having swept liquidity
                         bullishSwingPoint.SweptLiquidity = true;
                         bullishSwingPoint.SweptLiquidityPrice = sessionDailyHigh.Price;
-                        
+
                         // Update the corresponding candle's SweptLiquidity property
                         var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
                         if (candle != null)
                         {
                             candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
                         }
-                        
+
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bullishSwingPoint);
-                        
+
                         // Session/Daily high liquidity swept
-                        
+
                         // Send telegram notification if enabled
                         if (_settings.Notifications.SendLiquidity)
                         {
@@ -771,6 +833,7 @@ namespace Pfuma.Services
         /// Handle bearish swing point session/daily low liquidity sweeps
         /// Check if the bearish swing point sweeps any session lows (PSL) or daily lows (PDL)
         /// Update visual representation when sweeps occur
+        /// Daily levels can be swept multiple times and have a 3-day lifespan that extends on each sweep
         /// </summary>
         private void HandleBearishSwingPointSessionDailyLowLiquiditySweep(SwingPoint bearishSwingPoint)
         {
@@ -779,39 +842,77 @@ namespace Pfuma.Services
                 if (!_settings.Patterns.ShowLiquiditySweep)
                     return;
 
-                // Get all active session and daily lows (PSL, PDL) that could be swept
+                // Get all session and daily lows (PSL, PDL) that could be swept
+                // For daily levels (PDL), allow multiple sweeps if still within lifespan
                 var activeLows = _swingPointRepository
-                    .Find(sp => 
+                    .Find(sp =>
                         (sp.LiquidityType == LiquidityType.PSL || sp.LiquidityType == LiquidityType.PDL) &&
-                        !sp.Swept &&
                         sp.Index < bearishSwingPoint.Index) // Must be before the current swing point
                     .ToList();
 
+                // Filter out session levels that have been swept and daily levels whose lifespan has expired
+                activeLows = activeLows.Where(sp =>
+                {
+                    if (sp.LiquidityType == LiquidityType.PDL)
+                    {
+                        // Daily levels can be swept multiple times as long as they have days remaining
+                        return sp.DaysRemaining > 0 || !sp.Swept;
+                    }
+                    else
+                    {
+                        // Session levels can only be swept once
+                        return !sp.Swept;
+                    }
+                }).ToList();
+
                 foreach (var sessionDailyLow in activeLows)
                 {
-                    // Check if bearish swing point price is equal to or below the session/daily low
-                    if (bearishSwingPoint.Price <= sessionDailyLow.Price)
+                    // Check if bearish swing point candle swept through the level
+                    // Bearish candle sweep: high above level AND low below level
+                    bool hasSwept = bearishSwingPoint.Bar != null &&
+                                   bearishSwingPoint.Bar.High > sessionDailyLow.Price &&
+                                   bearishSwingPoint.Bar.Low < sessionDailyLow.Price;
+
+                    if (hasSwept)
                     {
+                        // Handle daily level lifespan tracking
+                        if (sessionDailyLow.LiquidityType == LiquidityType.PDL)
+                        {
+                            if (!sessionDailyLow.Swept)
+                            {
+                                // First sweep - set 3-day lifespan
+                                sessionDailyLow.FirstSweptDate = bearishSwingPoint.Time.Date;
+                                sessionDailyLow.DaysRemaining = 3;
+                                sessionDailyLow.SweptCount = 1;
+                            }
+                            else
+                            {
+                                // Subsequent sweep - extend lifespan to 3 days
+                                sessionDailyLow.DaysRemaining = 3;
+                                sessionDailyLow.SweptCount++;
+                            }
+                        }
+
                         // Mark the session/daily low as swept
                         sessionDailyLow.Swept = true;
                         sessionDailyLow.IndexOfSweepingCandle = bearishSwingPoint.Index;
-                        
+
                         // Mark the bearish swing point as having swept liquidity
                         bearishSwingPoint.SweptLiquidity = true;
                         bearishSwingPoint.SweptLiquidityPrice = sessionDailyLow.Price;
-                        
+
                         // Update the corresponding candle's SweptLiquidity property
                         var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
                         if (candle != null)
                         {
                             candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
                         }
-                        
+
                         // Update the visual representation
                         HandleLiquiditySweepVisualUpdate(sessionDailyLow, bearishSwingPoint);
-                        
+
                         // Session/Daily low liquidity swept
-                        
+
                         // Send telegram notification if enabled
                         if (_settings.Notifications.SendLiquidity)
                         {
@@ -823,6 +924,374 @@ namespace Pfuma.Services
             catch (Exception ex)
             {
                 _logger?.Invoke($"Error handling bearish swing point session/daily low liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish swing point session/daily low liquidity sweeps (cross-direction sweep)
+        /// Check if the bullish swing point sweeps any session lows (PSL) or daily lows (PDL)
+        /// Update visual representation when sweeps occur
+        /// Daily levels can be swept multiple times and have a 3-day lifespan that extends on each sweep
+        /// </summary>
+        private void HandleBullishSwingPointSessionDailyLowLiquiditySweep(SwingPoint bullishSwingPoint)
+        {
+            try
+            {
+                if (!_settings.Patterns.ShowLiquiditySweep)
+                    return;
+
+                // Get all session and daily lows (PSL, PDL) that could be swept
+                // For daily levels (PDL), allow multiple sweeps if still within lifespan
+                var activeLows = _swingPointRepository
+                    .Find(sp =>
+                        (sp.LiquidityType == LiquidityType.PSL || sp.LiquidityType == LiquidityType.PDL) &&
+                        sp.Index < bullishSwingPoint.Index) // Must be before the current swing point
+                    .ToList();
+
+                // Filter out session levels that have been swept and daily levels whose lifespan has expired
+                activeLows = activeLows.Where(sp =>
+                {
+                    if (sp.LiquidityType == LiquidityType.PDL)
+                    {
+                        // Daily levels can be swept multiple times as long as they have days remaining
+                        return sp.DaysRemaining > 0 || !sp.Swept;
+                    }
+                    else
+                    {
+                        // Session levels can only be swept once
+                        return !sp.Swept;
+                    }
+                }).ToList();
+
+                foreach (var sessionDailyLow in activeLows)
+                {
+                    // Check if bullish swing point candle swept through the level (cross-direction sweep)
+                    // Bullish candle sweep: low below level AND high above level
+                    bool hasSwept = bullishSwingPoint.Bar != null &&
+                                   bullishSwingPoint.Bar.Low < sessionDailyLow.Price &&
+                                   bullishSwingPoint.Bar.High > sessionDailyLow.Price;
+
+                    if (hasSwept)
+                    {
+                        // Handle daily level lifespan tracking
+                        if (sessionDailyLow.LiquidityType == LiquidityType.PDL)
+                        {
+                            if (!sessionDailyLow.Swept)
+                            {
+                                // First sweep - set 3-day lifespan
+                                sessionDailyLow.FirstSweptDate = bullishSwingPoint.Time.Date;
+                                sessionDailyLow.DaysRemaining = 3;
+                                sessionDailyLow.SweptCount = 1;
+                            }
+                            else
+                            {
+                                // Subsequent sweep - extend lifespan to 3 days
+                                sessionDailyLow.DaysRemaining = 3;
+                                sessionDailyLow.SweptCount++;
+                            }
+                        }
+
+                        // Mark the session/daily low as swept
+                        sessionDailyLow.Swept = true;
+                        sessionDailyLow.IndexOfSweepingCandle = bullishSwingPoint.Index;
+
+                        // Mark the bullish swing point as having swept liquidity
+                        bullishSwingPoint.SweptLiquidity = true;
+                        bullishSwingPoint.SweptLiquidityPrice = sessionDailyLow.Price;
+
+                        // Update the corresponding candle's SweptLiquidity property
+                        var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                        if (candle != null)
+                        {
+                            candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
+                        }
+
+                        // Update the visual representation
+                        HandleLiquiditySweepVisualUpdate(sessionDailyLow, bullishSwingPoint);
+
+                        // Session/Daily low liquidity swept (cross-direction)
+
+                        // Send telegram notification if enabled
+                        if (_settings.Notifications.SendLiquidity)
+                        {
+                            _notificationService.NotifyLiquiditySweep(sessionDailyLow, bullishSwingPoint);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bullish swing point session/daily low liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish swing point session/daily high liquidity sweeps (cross-direction sweep)
+        /// Check if the bearish swing point sweeps any session highs (PSH) or daily highs (PDH)
+        /// Update visual representation when sweeps occur
+        /// Daily levels can be swept multiple times and have a 3-day lifespan that extends on each sweep
+        /// </summary>
+        private void HandleBearishSwingPointSessionDailyHighLiquiditySweep(SwingPoint bearishSwingPoint)
+        {
+            try
+            {
+                if (!_settings.Patterns.ShowLiquiditySweep)
+                    return;
+
+                // Get all session and daily highs (PSH, PDH) that could be swept
+                // For daily levels (PDH), allow multiple sweeps if still within lifespan
+                var activeHighs = _swingPointRepository
+                    .Find(sp =>
+                        (sp.LiquidityType == LiquidityType.PSH || sp.LiquidityType == LiquidityType.PDH) &&
+                        sp.Index < bearishSwingPoint.Index) // Must be before the current swing point
+                    .ToList();
+
+                // Filter out session levels that have been swept and daily levels whose lifespan has expired
+                activeHighs = activeHighs.Where(sp =>
+                {
+                    if (sp.LiquidityType == LiquidityType.PDH)
+                    {
+                        // Daily levels can be swept multiple times as long as they have days remaining
+                        return sp.DaysRemaining > 0 || !sp.Swept;
+                    }
+                    else
+                    {
+                        // Session levels can only be swept once
+                        return !sp.Swept;
+                    }
+                }).ToList();
+
+                foreach (var sessionDailyHigh in activeHighs)
+                {
+                    // Check if bearish swing point candle swept through the level (cross-direction sweep)
+                    // Bearish candle sweep: high above level AND low below level
+                    bool hasSwept = bearishSwingPoint.Bar != null &&
+                                   bearishSwingPoint.Bar.High > sessionDailyHigh.Price &&
+                                   bearishSwingPoint.Bar.Low < sessionDailyHigh.Price;
+
+                    if (hasSwept)
+                    {
+                        // Handle daily level lifespan tracking
+                        if (sessionDailyHigh.LiquidityType == LiquidityType.PDH)
+                        {
+                            if (!sessionDailyHigh.Swept)
+                            {
+                                // First sweep - set 3-day lifespan
+                                sessionDailyHigh.FirstSweptDate = bearishSwingPoint.Time.Date;
+                                sessionDailyHigh.DaysRemaining = 3;
+                                sessionDailyHigh.SweptCount = 1;
+                            }
+                            else
+                            {
+                                // Subsequent sweep - extend lifespan to 3 days
+                                sessionDailyHigh.DaysRemaining = 3;
+                                sessionDailyHigh.SweptCount++;
+                            }
+                        }
+
+                        // Mark the session/daily high as swept
+                        sessionDailyHigh.Swept = true;
+                        sessionDailyHigh.IndexOfSweepingCandle = bearishSwingPoint.Index;
+
+                        // Mark the bearish swing point as having swept liquidity
+                        bearishSwingPoint.SweptLiquidity = true;
+                        bearishSwingPoint.SweptLiquidityPrice = sessionDailyHigh.Price;
+
+                        // Update the corresponding candle's SweptLiquidity property
+                        var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                        if (candle != null)
+                        {
+                            candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
+                        }
+
+                        // Update the visual representation
+                        HandleLiquiditySweepVisualUpdate(sessionDailyHigh, bearishSwingPoint);
+
+                        // Session/Daily high liquidity swept (cross-direction)
+
+                        // Send telegram notification if enabled
+                        if (_settings.Notifications.SendLiquidity)
+                        {
+                            _notificationService.NotifyLiquiditySweep(sessionDailyHigh, bearishSwingPoint);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bearish swing point session/daily high liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish swing point opening level sweeps
+        /// Check if the bullish swing point sweeps any opening time levels (Open)
+        /// Open levels can be swept in both directions and have a 3-day lifespan that extends on each sweep
+        /// </summary>
+        private void HandleBullishSwingPointOpenLevelSweep(SwingPoint bullishSwingPoint)
+        {
+            try
+            {
+                if (!_settings.Patterns.ShowLiquiditySweep)
+                    return;
+
+                // Get all opening time levels (Open) that could be swept
+                var activeOpenLevels = _swingPointRepository
+                    .Find(sp =>
+                        sp.LiquidityType == LiquidityType.Open &&
+                        sp.Index < bullishSwingPoint.Index) // Must be before the current swing point
+                    .ToList();
+
+                // Filter out levels whose lifespan has expired
+                activeOpenLevels = activeOpenLevels.Where(sp =>
+                {
+                    // Open levels can be swept multiple times as long as they have days remaining
+                    return sp.DaysRemaining > 0 || !sp.Swept;
+                }).ToList();
+
+                foreach (var openLevel in activeOpenLevels)
+                {
+                    // Check if bullish swing point candle swept through the level
+                    // Bullish candle sweep: low below level AND high above level
+                    bool hasSwept = bullishSwingPoint.Bar != null &&
+                                   bullishSwingPoint.Bar.Low < openLevel.Price &&
+                                   bullishSwingPoint.Bar.High > openLevel.Price;
+
+                    if (hasSwept)
+                    {
+                        // Handle Open level lifespan tracking
+                        if (!openLevel.Swept)
+                        {
+                            // First sweep - set 3-day lifespan
+                            openLevel.FirstSweptDate = bullishSwingPoint.Time.Date;
+                            openLevel.DaysRemaining = 3;
+                            openLevel.SweptCount = 1;
+                        }
+                        else
+                        {
+                            // Subsequent sweep - extend lifespan to 3 days
+                            openLevel.DaysRemaining = 3;
+                            openLevel.SweptCount++;
+                        }
+
+                        // Mark the opening level as swept
+                        openLevel.Swept = true;
+                        openLevel.IndexOfSweepingCandle = bullishSwingPoint.Index;
+
+                        // Mark the bullish swing point as having swept liquidity
+                        bullishSwingPoint.SweptLiquidity = true;
+                        bullishSwingPoint.SweptLiquidityPrice = openLevel.Price;
+
+                        // Update the corresponding candle's SweptLiquidity property
+                        var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                        if (candle != null)
+                        {
+                            candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
+                        }
+
+                        // Update the visual representation
+                        HandleLiquiditySweepVisualUpdate(openLevel, bullishSwingPoint);
+
+                        // Update the opening time manager to redraw line from open to sweep
+                        _openingTimeManager?.UpdateSweptLevel(openLevel, bullishSwingPoint);
+
+                        // Send telegram notification if enabled
+                        if (_settings.Notifications.SendLiquidity)
+                        {
+                            _notificationService.NotifyLiquiditySweep(openLevel, bullishSwingPoint);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bullish swing point opening level sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish swing point opening level sweeps
+        /// Check if the bearish swing point sweeps any opening time levels (Open)
+        /// Open levels can be swept in both directions and have a 3-day lifespan that extends on each sweep
+        /// </summary>
+        private void HandleBearishSwingPointOpenLevelSweep(SwingPoint bearishSwingPoint)
+        {
+            try
+            {
+                if (!_settings.Patterns.ShowLiquiditySweep)
+                    return;
+
+                // Get all opening time levels (Open) that could be swept
+                var activeOpenLevels = _swingPointRepository
+                    .Find(sp =>
+                        sp.LiquidityType == LiquidityType.Open &&
+                        sp.Index < bearishSwingPoint.Index) // Must be before the current swing point
+                    .ToList();
+
+                // Filter out levels whose lifespan has expired
+                activeOpenLevels = activeOpenLevels.Where(sp =>
+                {
+                    // Open levels can be swept multiple times as long as they have days remaining
+                    return sp.DaysRemaining > 0 || !sp.Swept;
+                }).ToList();
+
+                foreach (var openLevel in activeOpenLevels)
+                {
+                    // Check if bearish swing point candle swept through the level
+                    // Bearish candle sweep: high above level AND low below level
+                    bool hasSwept = bearishSwingPoint.Bar != null &&
+                                   bearishSwingPoint.Bar.High > openLevel.Price &&
+                                   bearishSwingPoint.Bar.Low < openLevel.Price;
+
+                    if (hasSwept)
+                    {
+                        // Handle Open level lifespan tracking
+                        if (!openLevel.Swept)
+                        {
+                            // First sweep - set 3-day lifespan
+                            openLevel.FirstSweptDate = bearishSwingPoint.Time.Date;
+                            openLevel.DaysRemaining = 3;
+                            openLevel.SweptCount = 1;
+                        }
+                        else
+                        {
+                            // Subsequent sweep - extend lifespan to 3 days
+                            openLevel.DaysRemaining = 3;
+                            openLevel.SweptCount++;
+                        }
+
+                        // Mark the opening level as swept
+                        openLevel.Swept = true;
+                        openLevel.IndexOfSweepingCandle = bearishSwingPoint.Index;
+
+                        // Mark the bearish swing point as having swept liquidity
+                        bearishSwingPoint.SweptLiquidity = true;
+                        bearishSwingPoint.SweptLiquidityPrice = openLevel.Price;
+
+                        // Update the corresponding candle's SweptLiquidity property
+                        var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                        if (candle != null)
+                        {
+                            candle.SweptLiquidity = 1; // Set to 1 to indicate liquidity was swept
+                        }
+
+                        // Update the visual representation
+                        HandleLiquiditySweepVisualUpdate(openLevel, bearishSwingPoint);
+
+                        // Update the opening time manager to redraw line from open to sweep
+                        _openingTimeManager?.UpdateSweptLevel(openLevel, bearishSwingPoint);
+
+                        // Send telegram notification if enabled
+                        if (_settings.Notifications.SendLiquidity)
+                        {
+                            _notificationService.NotifyLiquiditySweep(openLevel, bearishSwingPoint);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error handling bearish swing point opening level sweep: {ex.Message}");
             }
         }
 

@@ -15,9 +15,14 @@ namespace Pfuma.Services
         private readonly IDailyLevelManager _dailyLevelManager;
         private readonly ISessionLevelManager _sessionLevelManager;
         private readonly ITimeCycleManager _timeCycleManager;
+        private readonly IOpeningTimeManager _openingTimeManager;
         private readonly int _utcOffset;
         private readonly bool _showDailyLevels;
         private readonly bool _showSessionLevels;
+        private readonly bool _showOpeningTimes;
+        private DateTime _lastProcessedDay = DateTime.MinValue;
+
+        public IOpeningTimeManager OpeningTimeManager => _openingTimeManager;
 
         public TimeManager(
             Chart chart,
@@ -28,29 +33,38 @@ namespace Pfuma.Services
             bool showMacros = true,
             bool showDailyLevels = true,
             bool showSessionLevels = true,
+            bool showOpeningTimes = false,
             int utcOffset = -4)
         {
             _utcOffset = utcOffset;
             _showDailyLevels = showDailyLevels;
             _showSessionLevels = showSessionLevels;
-            
+            _showOpeningTimes = showOpeningTimes;
+
             _macroTimeManager = new MacroTimeManager(
-                chart, 
-                notificationService, 
+                chart,
+                notificationService,
                 showMacros);
-            
+
             _dailyLevelManager = new DailyLevelManager(
                 candleManager,
                 swingPointDetector,
                 chart,
                 showDailyLevels);
-                
+
             _sessionLevelManager = new SessionLevelManager(
                 candleManager,
                 swingPointDetector,
                 chart,
                 showSessionLevels);
-                
+
+            _openingTimeManager = new OpeningTimeManager(
+                candleManager,
+                swingPointDetector,
+                chart,
+                showOpeningTimes,
+                utcOffset);
+
             _timeCycleManager = new TimeCycleManager(
                 candleManager,
                 eventAggregator);
@@ -97,22 +111,40 @@ namespace Pfuma.Services
             try
             {
                 DateTime marketTime = time.AddHours(_utcOffset);
-                
+
                 // Process macro times
                 _macroTimeManager?.ProcessMacroTimes(marketTime, time);
-                
-                // Handle daily boundaries (18:00)
-                if (_showDailyLevels && marketTime.Hour == 18 && marketTime.Minute == 0)
+
+                // Handle daily boundaries - detect day change at 18:00 (daily boundary)
+                // Check if we've crossed into a new day at or after 18:00
+                if (_showDailyLevels)
                 {
-                    _dailyLevelManager?.ProcessDailyBoundary(index);
+                    DateTime currentDay = marketTime.Hour >= 18 ? marketTime.Date : marketTime.Date.AddDays(-1);
+
+                    if (_lastProcessedDay != DateTime.MinValue && currentDay > _lastProcessedDay)
+                    {
+                        _dailyLevelManager?.ProcessDailyBoundary(index);
+                        _lastProcessedDay = currentDay;
+                    }
+                    else if (_lastProcessedDay == DateTime.MinValue)
+                    {
+                        // Initialize on first bar
+                        _lastProcessedDay = currentDay;
+                    }
                 }
-                
+
                 // Process session levels
                 if (_showSessionLevels)
                 {
                     _sessionLevelManager?.ProcessBar(index, marketTime);
                 }
-                
+
+                // Process opening time levels
+                if (_showOpeningTimes)
+                {
+                    _openingTimeManager?.ProcessBar(index, marketTime);
+                }
+
                 // Process time cycles
                 _timeCycleManager?.ProcessBar(index, marketTime);
             }

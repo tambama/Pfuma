@@ -23,9 +23,9 @@ public class CisdVisualizer : BaseVisualizer<Level>
         
     protected override bool ShouldDraw(Level cisd)
     {
-        return base.ShouldDraw(cisd) && 
-               cisd.LevelType == LevelType.CISD &&
-               Settings.Patterns.ShowCISD;
+        return base.ShouldDraw(cisd) &&
+               ((cisd.LevelType == LevelType.CISD && Settings.Patterns.ShowCISD) ||
+                (cisd.LevelType == LevelType.OTE && Settings.Patterns.ShowOTE));
     }
         
     protected override string GetPatternId(Level cisd)
@@ -35,20 +35,35 @@ public class CisdVisualizer : BaseVisualizer<Level>
         
     protected override void PerformDraw(Level cisd, string patternId, List<string> objectIds)
     {
-        Color cisdColor = cisd.Direction == Direction.Up 
-            ? ApplyOpacity(Color.Green, 70)
-            : ApplyOpacity(Color.Pink, 50);
-            
+        // Determine color based on level type
+        Color levelColor;
+        Color confirmColor;
+
+        if (cisd.LevelType == LevelType.OTE)
+        {
+            // OTE levels are always red
+            levelColor = ApplyOpacity(Color.Red, 70);
+            confirmColor = Color.Red;
+        }
+        else
+        {
+            // CISD levels use green for bullish, pink for bearish
+            levelColor = cisd.Direction == Direction.Up
+                ? ApplyOpacity(Color.Green, 70)
+                : ApplyOpacity(Color.Pink, 50);
+            confirmColor = cisd.Direction == Direction.Up ? Color.Green : Color.Pink;
+        }
+
         // If activated, draw activation line
         if (cisd.Activated)
         {
-            DrawActivationLine(cisd, patternId, objectIds, cisdColor);
+            DrawActivationLine(cisd, patternId, objectIds, levelColor);
         }
-            
+
         // If confirmed, draw confirmation line
         if (cisd.IsConfirmed)
         {
-            DrawConfirmationLine(cisd, patternId, objectIds, cisd.Direction == Direction.Up ? Color.Green : Color.Pink);
+            DrawConfirmationLine(cisd, patternId, objectIds, confirmColor);
         }
         
         // Draw timeframe label if enabled
@@ -109,21 +124,21 @@ public class CisdVisualizer : BaseVisualizer<Level>
     {
         string labelId = $"{patternId}-tf-label";
         objectIds.Add(labelId);
-        
+
         // Position the label at the center of the CISD
         DateTime labelTime = cisd.Direction == Direction.Up ? cisd.HighTime : cisd.LowTime;
         labelTime = labelTime.AddMinutes(30); // Offset slightly for visibility
         double labelPrice = cisd.Mid;
-        
+
         string timeframeText = cisd.TimeFrame.GetShortName();
-        
+
         var text = Chart.DrawText(
             labelId,
             timeframeText,
             labelTime,
             labelPrice,
             Color.White);
-            
+
         text.FontSize = 8;
         text.HorizontalAlignment = HorizontalAlignment.Center;
         text.VerticalAlignment = VerticalAlignment.Center;

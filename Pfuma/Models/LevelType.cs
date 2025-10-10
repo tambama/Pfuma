@@ -20,6 +20,8 @@ public enum LevelType
     Unicorn,
     [Description("CISD")]
     CISD,
+    [Description("OTE")]
+    OTE,
     [Description("Rejection Block")]
     RejectionBlock,
     [Description("Order Block")]

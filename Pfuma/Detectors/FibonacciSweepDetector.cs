@@ -83,13 +83,16 @@ namespace Pfuma.Detectors
                 {
                     continue; // Already swept, skip
                 }
-                
+
+                bool isSweep = false;
+                bool isBreak = false;
+
                 // Bullish sweep: opens below level, high above level, closes below level
-                bool isSweep = candle.Open < price && candle.High > price && candle.Close < price;
-                
+                isSweep = candle.Open < price && candle.High > price && candle.Close < price;
+
                 // Bullish break: opens below level, closes above level
-                bool isBreak = candle.Open < price && candle.Close > price;
-                
+                isBreak = candle.Open < price && candle.Close > price;
+
                 if (isSweep || isBreak)
                 {
                     sweptLevels.Add((ratio, price, isSweep, isBreak, fibLevel.Id, fibLevel.FibType));
@@ -105,17 +108,27 @@ namespace Pfuma.Detectors
                     swingPoint.SweptFib = true;
                     swingPoint.SweptFibPrice = price;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
-                    
+
+                    // If this is an OTE Fibonacci level, also mark SweptOteFib
+                    if (type == FibType.Ote)
+                    {
+                        swingPoint.SweptOteFib = true;
+                        if (candle != null)
+                        {
+                            candle.SweptOteFib = true;
+                        }
+                    }
+
                     // Update the corresponding candle's SweptFibonacci property
                     if (candle != null)
                     {
                         candle.SweptFibonacci = 1; // Set to 1 to indicate Fibonacci level was swept
                     }
-                    
+
                     // Update the FibonacciLevel tracking
                     fibLevel.SweptLevelLineIds[ratio] = "SWEPT";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as swept to prevent multiple sweeps
-                    
+
                     // Publish event for visualization update
                     PublishFibonacciSweepEvent(fibLevel, ratio, swingPoint.Index, price, true, false);
                 }
@@ -124,13 +137,13 @@ namespace Pfuma.Detectors
                     // Mark as broken (remove from chart)
                     fibLevel.SweptLevelLineIds[ratio] = "BROKEN";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as processed to prevent reprocessing
-                    
+
                     // Publish event for visualization update (remove line)
                     PublishFibonacciSweepEvent(fibLevel, ratio, swingPoint.Index, price, false, true);
                 }
             }
         }
-        
+
         private void ProcessBearishSwingPoint(SwingPoint swingPoint, Candle candle, FibonacciLevel fibLevel)
         {
             var sweptLevels = new List<(double ratio, double price, bool isSweep, bool isBreak, string id, FibType type)>();
@@ -155,19 +168,22 @@ namespace Pfuma.Detectors
                 {
                     continue; // Already swept, skip
                 }
-                
+
+                bool isSweep = false;
+                bool isBreak = false;
+
                 // Bearish sweep: opens above level, low below level, closes above level
-                bool isSweep = candle.Open > price && candle.Low < price && candle.Close > price;
-                
+                isSweep = candle.Open > price && candle.Low < price && candle.Close > price;
+
                 // Bearish break: opens above level, closes below level
-                bool isBreak = candle.Open > price && candle.Close < price;
-                
+                isBreak = candle.Open > price && candle.Close < price;
+
                 if (isSweep || isBreak)
                 {
                     sweptLevels.Add((ratio, price, isSweep, isBreak, fibLevel.Id, fibLevel.FibType));
                 }
             }
-            
+
             // Process swept/broken levels
             foreach (var (ratio, price, isSweep, isBreak, id, type) in sweptLevels)
             {
@@ -177,17 +193,27 @@ namespace Pfuma.Detectors
                     swingPoint.SweptFib = true;
                     swingPoint.SweptFibPrice = price;
                     swingPoint.SweptFibLevels.Add((swingPoint.Index, price, ratio, id, type));
-                    
+
+                    // If this is an OTE Fibonacci level, also mark SweptOteFib
+                    if (type == FibType.Ote)
+                    {
+                        swingPoint.SweptOteFib = true;
+                        if (candle != null)
+                        {
+                            candle.SweptOteFib = true;
+                        }
+                    }
+
                     // Update the corresponding candle's SweptFibonacci property
                     if (candle != null)
                     {
                         candle.SweptFibonacci = 1; // Set to 1 to indicate Fibonacci level was swept
                     }
-                    
+
                     // Update the FibonacciLevel tracking
                     fibLevel.SweptLevelLineIds[ratio] = "SWEPT";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as swept to prevent multiple sweeps
-                    
+
                     // Publish event for visualization update
                     PublishFibonacciSweepEvent(fibLevel, ratio, swingPoint.Index, price, true, false);
                 }
@@ -196,13 +222,13 @@ namespace Pfuma.Detectors
                     // Mark as broken (remove from chart)
                     fibLevel.SweptLevelLineIds[ratio] = "BROKEN";
                     fibLevel.SweptLevels[ratio] = true;  // Mark as processed to prevent reprocessing
-                    
+
                     // Publish event for visualization update (remove line)
                     PublishFibonacciSweepEvent(fibLevel, ratio, swingPoint.Index, price, false, true);
                 }
             }
         }
-        
+
         private void PublishFibonacciSweepEvent(FibonacciLevel fibLevel, double ratio, int sweepIndex, double price, bool isSweep, bool isBreak)
         {
             var sweepEvent = new FibonacciLevelSweptEvent

@@ -38,6 +38,7 @@ public class Candle
     public int PositionInFvg { get; set; }
     public int SweptLiquidity { get; set; }
     public int SweptFibonacci { get; set; }
+    public bool SweptOteFib { get; set; }
     public bool InsidePda { get; set; }
     public bool SweptCycle { get; set; }
     public bool HasSMT { get; set; }

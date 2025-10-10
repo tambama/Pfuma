@@ -6,7 +6,8 @@ namespace Pfuma.Models;
 public enum FibType
 {
     Cycle,
-    CISD
+    CISD,
+    Ote
 }
 
 public class FibonacciLevel
@@ -34,6 +35,10 @@ public class FibonacciLevel
         else if (fibType == FibType.CISD)
         {
             TrackedRatios = new double[] { -2.0, -3.75, -4.0 };
+        }
+        else if (fibType == FibType.Ote)
+        {
+            TrackedRatios = new double[] { 0.0, 1.0, -1, -1.5, -2.0, -4.0 };
         }
         
         // For calculation: always low to high (price order)
@@ -110,6 +115,17 @@ public class FibonacciLevel
             // Bullish CISD: When LowPrice (0.0 ratio) is swept, the entire level is considered fully swept
             // Bearish CISD: When HighPrice (0.0 ratio) is swept, the entire level is considered fully swept
             if (SweptLevels.ContainsKey(0.0) && SweptLevels[0.0])
+            {
+                return true;
+            }
+            return false;
+        }
+        else if (FibType == FibType.Ote)
+        {
+            // For OTE levels, check if the starting point (1.0 level) is swept
+            // Bullish OTE (Direction.Up): LowPrice corresponds to ratio 1.0 (starting point)
+            // Bearish OTE (Direction.Down): HighPrice corresponds to ratio 1.0 (starting point)
+            if (SweptLevels.ContainsKey(1.0) && SweptLevels[1.0])
             {
                 return true;
             }

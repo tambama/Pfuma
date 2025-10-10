@@ -45,8 +45,9 @@ public class SwingPoint
     
     // Fibonacci sweep tracking
     public bool SweptFib { get; set; }
+    public bool SweptOteFib { get; set; }
     public List<(int Index, double Price, double Ratio, string Id, FibType Type)> SweptFibLevels { get; set; } = new List<(int, double, double, string, FibType)>();
-    
+
     // Swept price tracking for property copying conditions
     public double? SweptLiquidityPrice { get; set; }
     public double? SweptFibPrice { get; set; }
@@ -63,6 +64,11 @@ public class SwingPoint
     public bool HasSMT { get; set; }
     public SwingPoint SweptCyclePoint { get; set; }
     public Dictionary<string, double> SMTSymbolPrices { get; set; }
+
+    // Daily liquidity lifespan tracking (for PDH/PDL multi-sweep support)
+    public DateTime? FirstSweptDate { get; set; }  // Date when first swept
+    public int DaysRemaining { get; set; }          // Days remaining before removal
+    public int SweptCount { get; set; }             // Number of times this level has been swept
 
     // Score
     public int Score

@@ -15,6 +15,7 @@ public class PatternDetectionSettings
     // CISD
     public bool ShowCISD { get; set; } = false;
     public int MaxCisdsPerDirection { get; set; } = 2;
+    public bool ShowOTE { get; set; } = false;
     public bool ShowPropulsionBlock { get; set; } = false;
     public bool ShowVenom { get; set; } = false;
     public bool ShowConfirmedVenom { get; set; } = false;

@@ -43,6 +43,9 @@ public class DailyLevelManager : IDailyLevelManager
             if (_lastDayStartTime != DateTime.MinValue)
             {
                 ProcessPreviousDayLevels(currentIndex);
+
+                // Process lifespan for daily levels (decrement days remaining and remove expired levels)
+                ProcessDailyLevelLifespan(currentIndex);
             }
 
             var currentCandle = _candleManager.GetCandle(currentIndex);
@@ -326,11 +329,51 @@ public class DailyLevelManager : IDailyLevelManager
 
             _chart.RemoveObject(lineId);
             _chart.RemoveObject(labelId);
-            
+
             // Also try removing with simplified naming patterns
             string simplifiedId = prefix.ToLower();
             _chart.RemoveObject(simplifiedId);
             _chart.RemoveObject($"{simplifiedId}-label");
         }
     }
+
+    /// <summary>
+    /// Process daily level lifespan - decrement days remaining and remove expired levels
+    /// Called at the start of each new day
+    /// </summary>
+    private void ProcessDailyLevelLifespan(int currentIndex)
+    {
+        if (_swingPointDetector == null) return;
+
+        var currentCandle = _candleManager.GetCandle(currentIndex);
+        if (currentCandle == null) return;
+
+        // Get all daily highs and lows (PDH, PDL) that have been swept
+        var dailyLevels = _swingPointDetector.GetAllSwingPoints()
+            .Where(sp => (sp.LiquidityType == LiquidityType.PDH || sp.LiquidityType == LiquidityType.PDL) && sp.Swept)
+            .ToList();
+
+        foreach (var level in dailyLevels)
+        {
+            if (level.FirstSweptDate.HasValue && level.DaysRemaining > 0)
+            {
+                // Calculate days elapsed since first sweep
+                int daysElapsed = (currentCandle.Time.Date - level.FirstSweptDate.Value).Days;
+
+                // Update days remaining
+                level.DaysRemaining = Math.Max(0, 3 - daysElapsed);
+
+                // If lifespan expired, deactivate the level (but keep drawings on chart)
+                if (level.DaysRemaining == 0)
+                {
+                    // Mark as not swept so it won't be swept again
+                    // This deactivates the level while keeping the swept liquidity line visible on chart
+                    // The level will be replaced when a new daily high/low is created
+                    level.Swept = false;
+                    level.FirstSweptDate = null; // Reset for potential reuse
+                }
+            }
+        }
+    }
+
 }
