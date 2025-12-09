@@ -122,13 +122,21 @@ namespace Pfuma.Detectors
             candle1.PositionInFvg = 1;
             candle2.PositionInFvg = 2;
             candle3.PositionInFvg = 3;
-            
+
+            // Mark candles as being in an FVG
+            candle1.IsInFvg = true;
+            candle2.IsInFvg = true;
+            candle3.IsInFvg = true;
+            candle1.FvgDirection = Direction.Up;
+            candle2.FvgDirection = Direction.Up;
+            candle3.FvgDirection = Direction.Up;
+
             // Initialize quadrants for the bullish FVG
             bullishFvg.InitializeQuadrants();
-            
+
             return bullishFvg;
         }
-        
+
         private Level DetectBearishFvg(Candle candle1, Candle candle2, Candle candle3, int detectionIndex)
         {
             // Bearish FVG: candle1's low must be higher than candle3's high (gap condition)
@@ -167,13 +175,21 @@ namespace Pfuma.Detectors
             candle1.PositionInFvg = 1;
             candle2.PositionInFvg = 2;
             candle3.PositionInFvg = 3;
-            
+
+            // Mark candles as being in an FVG
+            candle1.IsInFvg = true;
+            candle2.IsInFvg = true;
+            candle3.IsInFvg = true;
+            candle1.FvgDirection = Direction.Down;
+            candle2.FvgDirection = Direction.Down;
+            candle3.FvgDirection = Direction.Down;
+
             // Initialize quadrants for the bearish FVG
             bearishFvg.InitializeQuadrants();
-            
+
             return bearishFvg;
         }
-        
+
         protected override bool PostDetectionValidation(Level fvg, int currentIndex)
         {
             if (!base.PostDetectionValidation(fvg, currentIndex))

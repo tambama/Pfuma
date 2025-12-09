@@ -37,77 +37,16 @@ namespace Pfuma.Visualization
 
         /// <summary>
         /// Draw current 30-minute cycle rectangle
+        /// Note: When ShowCycles30 is enabled, only sweep lines are drawn (no boxes or labels)
         /// </summary>
         public void DrawCurrentCycle(int currentIndex)
         {
             if (!_timeSettings.ShowCycles30)
                 return;
 
-            var cycleStart = _cycle30Manager.GetCurrentCycleStart();
-            var cycleStartIndex = _cycle30Manager.GetCurrentCycleStartIndex();
-
-            if (cycleStart == DateTime.MinValue || cycleStartIndex == -1)
-                return;
-
-            // Determine cycle type and color
-            bool isMinute00Cycle = _cycle30Manager.IsCycleStartingAtMinute00(cycleStart);
-            Color rectangleColor = isMinute00Cycle ? Color.Green : Color.Pink;
-            LineStyle lineStyle = isMinute00Cycle ? LineStyle.Solid : LineStyle.Dots;
-
-            // Calculate rectangle bounds
-            int endIndex = currentIndex + 10; // Extend 10 bars into the future
-            double highPrice = GetHighestPriceInRange(cycleStartIndex, currentIndex);
-            double lowPrice = GetLowestPriceInRange(cycleStartIndex, currentIndex);
-
-            // Add some padding to the rectangle
-            double priceRange = highPrice - lowPrice;
-            double padding = priceRange * 0.1; // 10% padding
-            highPrice += padding;
-            lowPrice -= padding;
-
-            // Create unique ID for this cycle
-            string cycleId = $"cycle30-{cycleStart:yyyyMMdd-HHmm}";
-
-            // Remove existing rectangle for this cycle
-            RemoveCycleRectangle(cycleId);
-
-            // Draw rectangle
-            string rectId = $"{cycleId}-rect";
-            var rectangle = _chart.DrawRectangle(
-                rectId,
-                cycleStartIndex,
-                highPrice,
-                endIndex,
-                lowPrice,
-                Color.FromArgb(30, rectangleColor), // Semi-transparent fill
-                2, // Border thickness
-                lineStyle
-            );
-
-            rectangle.IsFilled = true;
-
-            // Store the drawn object
-            if (!_drawnObjects.ContainsKey(cycleId))
-                _drawnObjects[cycleId] = new List<string>();
-            _drawnObjects[cycleId].Add(rectId);
-
-            // Draw cycle label
-            string labelId = $"{cycleId}-label";
-            var label = _chart.DrawText(
-                labelId,
-                $"C30-{cycleStart:HH:mm}",
-                cycleStartIndex,
-                highPrice,
-                rectangleColor
-            );
-
-            label.FontSize = 10;
-            label.HorizontalAlignment = HorizontalAlignment.Left;
-            label.VerticalAlignment = VerticalAlignment.Top;
-
-            _drawnObjects[cycleId].Add(labelId);
-
-            _logger($"Cycle30 rectangle drawn: {cycleStart:HH:mm} ({(isMinute00Cycle ? "Green" : "Pink")})");
+            // For 30-minute cycles, we only draw sweep lines (handled in DrawLiquiditySweepLine)
+            // No boxes or labels are drawn
+            return;
         }
 
         /// <summary>
@@ -115,7 +54,7 @@ namespace Pfuma.Visualization
         /// </summary>
         public void DrawLiquiditySweepLine(SwingPoint sweptCyclePoint, int sweepIndex, bool showLiquiditySweep)
         {
-            if (!showLiquiditySweep || sweptCyclePoint?.LiquidityType != LiquidityType.Cycle)
+            if (!showLiquiditySweep || !_timeSettings.ShowCycles30 || sweptCyclePoint?.LiquidityType != LiquidityType.Cycle)
                 return;
 
             // Determine line color based on swing type

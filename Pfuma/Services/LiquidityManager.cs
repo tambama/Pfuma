@@ -418,15 +418,20 @@ namespace Pfuma.Services
 
                         // Publish liquidity sweep event first (so visualizer can check IsExtended)
                         _eventAggregator.Publish(new OrderBlockLiquiditySweptEvent(
-                            orderBlock, 
-                            bullishSwingPoint, 
+                            orderBlock,
+                            bullishSwingPoint,
                             bullishSwingPoint.Index));
 
-                        // If the order block was not extended, remove it from the chart
+                        // If the order block was not extended, handle removal
                         if (!orderBlock.IsExtended)
                         {
-                            RemoveKeyLevelFromChart(orderBlock);
-                            // Non-extended order block removed
+                            // Only remove from chart if ClearSwept is true
+                            if (_settings.Patterns.ClearSwept)
+                            {
+                                RemoveKeyLevelFromChart(orderBlock);
+                            }
+                            // Always remove from collection
+                            _levelRepository.Remove(orderBlock);
                         }
 
                         // Order block liquidity swept
@@ -478,15 +483,20 @@ namespace Pfuma.Services
 
                         // Publish liquidity sweep event first (so visualizer can check IsExtended)
                         _eventAggregator.Publish(new OrderBlockLiquiditySweptEvent(
-                            orderBlock, 
-                            bearishSwingPoint, 
+                            orderBlock,
+                            bearishSwingPoint,
                             bearishSwingPoint.Index));
 
-                        // If the order block was not extended, remove it from the chart
+                        // If the order block was not extended, handle removal
                         if (!orderBlock.IsExtended)
                         {
-                            RemoveKeyLevelFromChart(orderBlock);
-                            // Non-extended order block removed
+                            // Only remove from chart if ClearSwept is true
+                            if (_settings.Patterns.ClearSwept)
+                            {
+                                RemoveKeyLevelFromChart(orderBlock);
+                            }
+                            // Always remove from collection
+                            _levelRepository.Remove(orderBlock);
                         }
 
                         // Order block liquidity swept
@@ -650,15 +660,20 @@ namespace Pfuma.Services
 
                         // Publish liquidity sweep event first (so visualizer can check IsExtended if needed)
                         _eventAggregator.Publish(new CisdLiquiditySweptEvent(
-                            cisd, 
-                            bullishSwingPoint, 
+                            cisd,
+                            bullishSwingPoint,
                             bullishSwingPoint.Index));
 
-                        // If the CISD was not extended, remove it from the chart
+                        // If the CISD was not extended, handle removal
                         if (!cisd.IsExtended)
                         {
-                            RemoveCisdFromChart(cisd);
-                            // Non-extended CISD removed
+                            // Only remove from chart if ClearSwept is true
+                            if (_settings.Patterns.ClearSwept)
+                            {
+                                RemoveCisdFromChart(cisd);
+                            }
+                            // Always remove from collection
+                            _levelRepository.Remove(cisd);
                         }
 
                         // CISD liquidity swept
@@ -710,15 +725,20 @@ namespace Pfuma.Services
 
                         // Publish liquidity sweep event first (so visualizer can check IsExtended if needed)
                         _eventAggregator.Publish(new CisdLiquiditySweptEvent(
-                            cisd, 
-                            bearishSwingPoint, 
+                            cisd,
+                            bearishSwingPoint,
                             bearishSwingPoint.Index));
 
-                        // If the CISD was not extended, remove it from the chart
+                        // If the CISD was not extended, handle removal
                         if (!cisd.IsExtended)
                         {
-                            RemoveCisdFromChart(cisd);
-                            // Non-extended CISD removed
+                            // Only remove from chart if ClearSwept is true
+                            if (_settings.Patterns.ClearSwept)
+                            {
+                                RemoveCisdFromChart(cisd);
+                            }
+                            // Always remove from collection
+                            _levelRepository.Remove(cisd);
                         }
 
                         // CISD liquidity swept

@@ -65,6 +65,9 @@ namespace Pfuma
         [Parameter("369 Pattern", DefaultValue = false, Group = "Patterns")]
         public bool Show369 { get; set; }
 
+        [Parameter("Clear Swept", DefaultValue = true, Group = "Patterns")]
+        public bool ClearSwept { get; set; }
+
         // Venom parameters
         [Parameter("Show Venom", DefaultValue = false, Group = "Venom")]
         public bool ShowVenom { get; set; }
@@ -338,6 +341,7 @@ namespace Pfuma
                     Show369 = Show369,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
+                    ClearSwept = ClearSwept,
                 },
                 Time = new TimeSettings
                 {
