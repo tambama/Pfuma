@@ -28,10 +28,7 @@ namespace Pfuma
         // Pattern Detection
         [Parameter("FVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowFVG { get; set; }
-        
-        [Parameter("Gauntlet", DefaultValue = false, Group = "Patterns")]
-        public bool ShowGauntlet { get; set; }
-        
+
         [Parameter("Order Flow", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderFlow { get; set; }
         
@@ -67,16 +64,6 @@ namespace Pfuma
 
         [Parameter("Clear Swept", DefaultValue = true, Group = "Patterns")]
         public bool ClearSwept { get; set; }
-
-        // Venom parameters
-        [Parameter("Show Venom", DefaultValue = false, Group = "Venom")]
-        public bool ShowVenom { get; set; }
-        
-        [Parameter("Show Confirmed Venom Only", DefaultValue = false, Group = "Venom")]
-        public bool ShowConfirmedVenom { get; set; }
-
-        [Parameter("Show Entries", DefaultValue = false, Group = "Venom")]
-        public bool ShowEntries { get; set; }
 
         // Signals
         [Parameter("Show Signals", DefaultValue = false, Group = "Signals")]
@@ -149,9 +136,6 @@ namespace Pfuma
 
         [Parameter("Send SMT", DefaultValue = false, Group = "Telegram")]
         public bool SendSMT { get; set; }
-
-        [Parameter("Send Venom", DefaultValue = false, Group = "Telegram")]
-        public bool SendVenom { get; set; }
 
         [Parameter("Send CISD", DefaultValue = false, Group = "Telegram")]
         public bool SendCISD { get; set; }
@@ -252,7 +236,6 @@ namespace Pfuma
         private CisdDetector _cisdDetector;
         private UnicornDetector _unicornDetector;
         private PropulsionBlockDetector _propulsionBlockDetector;
-        private VenomDetector _venomDetector;
         
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
@@ -264,7 +247,6 @@ namespace Pfuma
         private IVisualization<Level> _cisdVisualizer;
         private IVisualization<Level> _unicornVisualizer;
         private IVisualization<Level> _propulsionBlockVisualizer;
-        private IVisualization<Level> _venomVisualizer;
         private StatsVisualizer _statsVisualizer;
         private Pattern369Visualizer _pattern369Visualizer;
 
@@ -323,7 +305,6 @@ namespace Pfuma
                 Patterns = new PatternDetectionSettings
                 {
                     ShowFVG = ShowFVG,  // Only for LTF FVG visualization
-                    ShowGauntlet = ShowGauntlet,  // Show the 2 most recent FVGs
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
                     ShowOrderFlow = ShowOrderFlow,  // Only for regular orderflow
                     ShowHtfOrderFlow = ShowHtfOrderFlow,  // Only for HTF orderflow
@@ -335,8 +316,6 @@ namespace Pfuma
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
                     ShowOTE = ShowOTE,
                     ShowPropulsionBlock = ShowPropulsionBlock,
-                    ShowVenom = ShowVenom,
-                    ShowConfirmedVenom = ShowConfirmedVenom,
                     ShowUnicorn = ShowUnicorn,
                     Show369 = Show369,
                     ShowQuadrants = ShowQuadrants,
@@ -358,7 +337,6 @@ namespace Pfuma
                     SendLiquidity = SendLiquidity,
                     SendCycles = SendCycles,
                     SendSMT = SendSMT,
-                    SendVenom = SendVenom,
                     SendCISD = SendCISD,
                     SendOrderBlock = SendOrderBlock,
                     SendInsideKeyLevel = SendInsideKeyLevel
@@ -383,7 +361,7 @@ namespace Pfuma
             _eventAggregator = new EventAggregator();
 
             // Enable Telegram if any of the send flags are enabled
-            bool enableTelegram = SendLiquidity || SendCycles || SendSMT || SendVenom || SendCISD || SendOrderBlock || SendInsideKeyLevel;
+            bool enableTelegram = SendLiquidity || SendCycles || SendSMT || SendCISD || SendOrderBlock || SendInsideKeyLevel;
 
             _notificationService = new NotificationService(
                 EnableLog,
@@ -428,7 +406,6 @@ namespace Pfuma
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
-            _venomVisualizer = new VenomVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             // Only initialize 369 visualizer if Show369 is enabled
             if (Show369)
             {
@@ -512,10 +489,7 @@ namespace Pfuma
             
             _propulsionBlockDetector = new PropulsionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _propulsionBlockVisualizer, _swingPointRepository, _settings, EnableLog ? Print : null);
-            
-            _venomDetector = new VenomDetector(
-                Chart, _candleManager, _eventAggregator, _levelRepository, _venomVisualizer, _settings, EnableLog ? Print : null);
-            
+
             // HTF FVG detector (uses specialized HTF FVG visualizer)
             _htfFvgDetector = new HtfFvgDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _htfFvgVisualizer, _settings, EnableLog ? Print : null);
@@ -531,8 +505,7 @@ namespace Pfuma
             _cisdDetector.Initialize();
             _unicornDetector.Initialize();
             _propulsionBlockDetector.Initialize();
-            _venomDetector.Initialize();
-            
+
             // Initialize liquidity manager and visualizers
             _liquidityManager.Initialize();
             (_orderBlockVisualizer as OrderBlockVisualizer)?.Initialize();
@@ -551,8 +524,6 @@ namespace Pfuma
             _eventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
             _eventAggregator.Subscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
             _eventAggregator.Subscribe<CisdConfirmedEvent>(OnCISDDetected);
-            _eventAggregator.Subscribe<VenomConfirmedEvent>(OnVenomConfirmed);
-
         }
         
         #endregion
@@ -616,29 +587,28 @@ namespace Pfuma
                 {
                     CheckCisdActivation(_previousBar, _previousBarIndex);
                 }
-                
-                // 3. Detect swing points
+
+                // 3. Detect FVGs first (before swing points so candles are marked with FVG info)
+                _fvgDetector?.Detect(_previousBarIndex);
+
+                // Detect HTF FVGs (only if enabled and timeframes configured)
+                if (ShowHtfFvg && !string.IsNullOrEmpty(Timeframes))
+                {
+                    _htfFvgDetector?.Detect(_previousBarIndex);
+                }
+
+                // 4. Detect swing points (after FVG detection)
                 if (ShowSwingPoints)
                 {
                     _swingPointDetector?.ProcessBar(_previousBarIndex, candle);
                 }
-                
-                
+
                 // 5. Check for special liquidity sweeps (PDH, PDL, PSH, PSL)
                 // Note: Regular swing point liquidity sweeps are handled by OrderFlowDetector
                 if (ShowLiquiditySweep && _swingPointDetector != null)
                 {
                     // This functionality could be moved to TimeManager or SwingPointDetector
                     // For now, liquidity sweep detection for special points is handled via events
-                }
-                
-                // 6. Detect patterns - Always detect FVGs (ShowFVG only controls visualization)
-                _fvgDetector?.Detect(_previousBarIndex);
-                
-                // Detect HTF FVGs (only if enabled and timeframes configured)
-                if (ShowHtfFvg && !string.IsNullOrEmpty(Timeframes))
-                {
-                    _htfFvgDetector?.Detect(_previousBarIndex);
                 }
                 
                 
@@ -879,50 +849,6 @@ namespace Pfuma
                 var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
                 Chart.DrawIcon($"macro-{time}", ChartIconType.Square,
                     time, price, color);
-            }
-        }
-
-        private void OnVenomConfirmed(VenomConfirmedEvent evt)
-        {
-            if ((!ShowEntries && !ShowSignals) || evt?.Venom == null)
-                return;
-
-            var venom = evt.Venom;
-
-            // Only process confirmed Venom patterns
-            if (!venom.IsConfirmed)
-                return;
-
-            // Use the confirming swing point's index for the signal
-            // This ensures signals appear at the bar where they're actually confirmed
-            var currentIndex = evt.ConfirmingSwingPointIndex;
-            var currentTime = currentIndex < Bars.Count ? Bars[currentIndex].OpenTime : DateTime.Now;
-
-            double entry, stop;
-
-            // Determine entry and stop based on Venom direction
-            if (venom.Direction == Direction.Up) // Bullish Venom
-            {
-                entry = venom.High;
-                stop = venom.IndexLowPrice;
-            }
-            else // Bearish Venom
-            {
-                entry = venom.Low;
-                stop = venom.IndexHighPrice;
-            }
-
-            // Populate output data series if ShowEntries is enabled
-            if (ShowEntries)
-            {
-                Entries[currentIndex] = entry;
-                Stops[currentIndex] = stop;
-            }
-
-            // Create signal if ShowSignals is enabled
-            if (ShowSignals && _signalManager != null)
-            {
-                _signalManager.AddSignal(entry, stop, venom.Direction, RiskReward, currentTime, currentIndex);
             }
         }
 

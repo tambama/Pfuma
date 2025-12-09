@@ -55,6 +55,7 @@ namespace Pfuma.Models
         public int IndexOfConfirmingCandle { get; set; }
         public Level BreakerBlock { get; set; }
         public Level RejectionBlock { get; set; }
+        public Level SourceFvg { get; set; }
         public string OrderFlowId { get; set; }
     
     

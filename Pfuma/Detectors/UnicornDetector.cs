@@ -93,12 +93,35 @@ namespace Pfuma.Detectors
                 
                 if (intersectsWithBreaker)
                 {
-                    // This FVG is a Unicorn - mark it
-                    fvg.LevelType = LevelType.Unicorn;
-                    
-                    // Store as a unicorn (it's already stored as an FVG)
-                    PublishDetectionEvent(fvg, fvg.Index);
-                    
+                    // Create a new Unicorn level based on the FVG (keep original FVG intact)
+                    var unicorn = new Level(
+                        LevelType.Unicorn,
+                        fvg.Low,
+                        fvg.High,
+                        fvg.LowTime,
+                        fvg.HighTime,
+                        fvg.MidTime,
+                        fvg.Direction,
+                        fvg.Index,
+                        fvg.IndexHigh,
+                        fvg.IndexLow,
+                        fvg.IndexMid,
+                        fvg.Zone
+                    );
+
+                    // Copy additional properties
+                    unicorn.TimeFrame = fvg.TimeFrame;
+                    unicorn.IndexHighPrice = fvg.IndexHighPrice;
+                    unicorn.IndexLowPrice = fvg.IndexLowPrice;
+                    unicorn.SourceFvg = fvg;
+                    unicorn.BreakerBlock = cisd.BreakerBlock;
+
+                    // Store the unicorn in the repository
+                    Repository.Add(unicorn);
+
+                    // Publish detection event for the new unicorn
+                    PublishDetectionEvent(unicorn, unicorn.Index);
+
                     // Only need to find one match
                     break;
                 }

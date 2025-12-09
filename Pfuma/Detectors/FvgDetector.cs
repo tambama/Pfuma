@@ -18,9 +18,7 @@ namespace Pfuma.Detectors
     public class FvgDetector : BasePatternDetector<Level>
     {
         private readonly IVisualization<Level> _visualizer;
-        private readonly List<Level> _gauntlets; // Track the 2 most recent FVGs
-        private bool _showGauntlet;
-        
+
         public FvgDetector(
             Chart chart,
             CandleManager candleManager,
@@ -32,8 +30,6 @@ namespace Pfuma.Detectors
             : base(chart, candleManager, eventAggregator, repository, settings, logger)
         {
             _visualizer = visualizer;
-            _showGauntlet = settings?.Patterns?.ShowGauntlet ?? false;
-            _gauntlets = new List<Level>();
         }
         
         protected override int GetMinimumBarsRequired()
@@ -71,16 +67,7 @@ namespace Pfuma.Detectors
             {
                 detectedFvgs.Add(bearishFvg);
             }
-            
-            // Process gauntlets if enabled
-            if (_showGauntlet && detectedFvgs.Count > 0)
-            {
-                foreach (var fvg in detectedFvgs)
-                {
-                    ProcessGauntlet(fvg, currentIndex - 1);
-                }
-            }
-            
+
             return detectedFvgs;
         }
         
@@ -258,101 +245,7 @@ namespace Pfuma.Detectors
             
             return true;
         }
-        
-        private void ProcessGauntlet(Level fvg, int detectionIndex)
-        {
-            // First, clear all existing gauntlet visualizations from the current collection
-            foreach (var gauntlet in _gauntlets.ToList()) // Use ToList() to create a copy for safe iteration
-            {
-                RemoveGauntletVisualization(gauntlet);
-            }
-            
-            // Check if we already have an FVG with the same index in the gauntlet collection
-            var existingFvgWithSameIndex = _gauntlets.FirstOrDefault(g => g.Index == fvg.Index);
-            if (existingFvgWithSameIndex != null)
-            {
-                // Remove the existing FVG with the same index
-                _gauntlets.Remove(existingFvgWithSameIndex);
-            }
-            
-            // If we already have 2 gauntlets after removing duplicates, remove the oldest
-            if (_gauntlets.Count >= 2)
-            {
-                var oldestGauntlet = _gauntlets[0];
-                _gauntlets.RemoveAt(0);
-            }
-            
-            // Add the new FVG to gauntlets
-            _gauntlets.Add(fvg);
-            
-            // Now redraw all gauntlets in the updated collection
-            foreach (var gauntlet in _gauntlets)
-            {
-                DrawGauntletRectangle(gauntlet, detectionIndex);
-            }
-        }
-        
-        private void DrawGauntletRectangle(Level fvg, int detectionIndex)
-        {
-            if (Chart == null) return;
-            
-            // Determine colors based on FVG direction
-            Color rectangleColor = fvg.Direction == Direction.Up ? Color.Green : Color.Pink;
-            Color midlineColor = rectangleColor;
-            
-            // Calculate rectangle extension (10 candlesticks to the right from detection point)
-            int endIndex = detectionIndex + 10;
-            int startIndex = Math.Min(fvg.IndexHigh, fvg.IndexLow);
-            
-            // Draw the main rectangle
-            string rectId = $"gauntlet_rect_{fvg.Id}";
-            var rect = Chart.DrawRectangle(
-                rectId,
-                startIndex,    // Start index (where FVG was formed)
-                fvg.High,   // Top of FVG
-                endIndex,      // End index (10 candles to the right)
-                fvg.Low,    // Bottom of FVG
-                Color.FromArgb(30, rectangleColor),
-                2      // Thickness
-            );
-            
-            rect.IsFilled = true;
-            
-            // Draw the midline
-            double midPrice = (fvg.High + fvg.Low) / 2.0;
-            string midlineId = $"gauntlet_mid_{fvg.Id}";
-            Chart.DrawTrendLine(
-                midlineId,
-                startIndex,     // Start index
-                midPrice,    // Mid price
-                endIndex,       // End index
-                midPrice,    // Mid price
-                Color.FromArgb(60, midlineColor),
-                1,      // Thickness
-                LineStyle.Solid
-            );
-        }
-        
-        private void RemoveGauntletVisualization(Level gauntlet)
-        {
-            if (Chart == null) return;
-            
-            try
-            {
-                // Remove rectangle
-                string rectId = $"gauntlet_rect_{gauntlet.Id}";
-                Chart.RemoveObject(rectId);
-                
-                // Remove midline
-                string midlineId = $"gauntlet_mid_{gauntlet.Id}";
-                Chart.RemoveObject(midlineId);
-            }
-            catch
-            {
-                // Silently handle removal errors
-            }
-        }
-        
+
         protected override void SubscribeToEvents()
         {
             // FVG detector might want to know about swing points for context

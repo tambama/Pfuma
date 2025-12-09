@@ -9,7 +9,6 @@ public class PatternDetectionSettings
         
     // FVG
     public bool ShowFVG { get; set; } = false;
-    public bool ShowGauntlet { get; set; } = false;
     public bool ShowHtfFvg { get; set; } = false;
         
     // CISD
@@ -17,9 +16,7 @@ public class PatternDetectionSettings
     public int MaxCisdsPerDirection { get; set; } = 2;
     public bool ShowOTE { get; set; } = false;
     public bool ShowPropulsionBlock { get; set; } = false;
-    public bool ShowVenom { get; set; } = false;
-    public bool ShowConfirmedVenom { get; set; } = false;
-        
+
     // Special Patterns
     public bool ShowUnicorn { get; set; } = false;
     public bool Show369 { get; set; } = false;

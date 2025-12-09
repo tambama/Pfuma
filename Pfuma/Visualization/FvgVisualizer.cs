@@ -35,106 +35,61 @@ namespace Pfuma.Visualization
         
         protected override void PerformDraw(Level fvg, string patternId, List<string> objectIds)
         {
-            // Calculate drawing parameters
-            double lowPrice = fvg.Low;
-            double highPrice = fvg.High;
-            double midPrice = fvg.Mid;
-            
-            DateTime startTime = fvg.MidTime;
-            DateTime endTime = startTime.AddMinutes(Constants.Time.LevelExtensionMinutes);
-            
-            Color baseColor = GetDirectionalColor(fvg.Direction);
-            
-            // Draw main rectangle
-            DrawFvgRectangle(fvg, patternId, objectIds, baseColor);
-            
-            // Draw level lines
-            DrawFvgLevelLines(fvg, patternId, objectIds, baseColor);
-            
+            // Determine colors based on direction (same style as Unicorn)
+            Color rectangleColor = fvg.Direction == Direction.Up ? Color.Green : Color.Pink;
+
+            // Calculate rectangle extension (10 candlesticks to the right from detection point)
+            int startIndex = Math.Min(fvg.IndexHigh, fvg.IndexLow);
+            int endIndex = startIndex + 10;
+
+            // Draw the main rectangle (same style as Unicorn)
+            string rectId = $"{patternId}-rect";
+            var rect = Chart.DrawRectangle(
+                rectId,
+                startIndex,     // Start index (where FVG was formed)
+                fvg.High,       // Top of FVG
+                endIndex,       // End index (10 candles to the right)
+                fvg.Low,        // Bottom of FVG
+                Color.FromArgb(30, rectangleColor),
+                2               // Thickness
+            );
+
+            rect.IsFilled = true;
+            objectIds.Add(rectId);
+
+            // Draw the midline (same style as Unicorn)
+            double midPrice = (fvg.High + fvg.Low) / 2.0;
+            string midlineId = $"{patternId}-mid";
+            Chart.DrawTrendLine(
+                midlineId,
+                startIndex,     // Start index
+                midPrice,       // Mid price
+                endIndex,       // End index
+                midPrice,       // Mid price
+                Color.FromArgb(60, rectangleColor),
+                1,              // Thickness
+                LineStyle.Solid
+            );
+            objectIds.Add(midlineId);
+
             // Draw quadrants if enabled
             if (Settings.Patterns.ShowQuadrants && fvg.Quadrants != null && fvg.Quadrants.Count > 0)
             {
-                DrawQuadrantLevels(fvg, patternId, objectIds);
+                DrawQuadrantLevels(fvg, patternId, objectIds, startIndex, endIndex);
             }
-            
+
             // Draw timeframe label if enabled
             if (ShouldShowTimeframeLabel(fvg.TimeFrame))
             {
-                DrawTimeframeLabel(fvg, patternId, objectIds);
+                DrawTimeframeLabel(fvg, patternId, objectIds, endIndex);
             }
         }
-        
-        private void DrawFvgRectangle(Level fvg, string patternId, List<string> objectIds, Color baseColor)
+
+        private void DrawQuadrantLevels(Level fvg, string patternId, List<string> objectIds, int startIndex, int endIndex)
         {
-            string rectangleId = patternId;
-            
-            var rectangle = Chart.DrawRectangle(
-                rectangleId,
-                fvg.MidTime,
-                fvg.Low,
-                fvg.MidTime.AddMinutes(Constants.Time.LevelExtensionMinutes),
-                fvg.High,
-                baseColor);
-            
-            rectangle.IsFilled = true;
-            rectangle.Color = ApplyOpacity(baseColor, Settings.Opacity.FVG);
-            
-            objectIds.Add(rectangleId);
-        }
-        
-        private void DrawFvgLevelLines(Level fvg, string patternId, List<string> objectIds, Color baseColor)
-        {
-            DateTime startTime = fvg.MidTime;
-            DateTime endTime = startTime.AddMinutes(1); // Short lines for levels
-            
-            // Low line
-            string lowLineId = $"{patternId}-low";
-            Chart.DrawTrendLine(
-                lowLineId,
-                startTime,
-                fvg.Low,
-                endTime,
-                fvg.Low,
-                baseColor,
-                Constants.Drawing.DefaultLineThickness,
-                LineStyle.Solid);
-            objectIds.Add(lowLineId);
-            
-            // Mid line
-            string midLineId = $"{patternId}-mid";
-            Chart.DrawTrendLine(
-                midLineId,
-                startTime,
-                fvg.Mid,
-                endTime,
-                fvg.Mid,
-                baseColor,
-                Constants.Drawing.DefaultLineThickness,
-                LineStyle.Dots);
-            objectIds.Add(midLineId);
-            
-            // High line
-            string highLineId = $"{patternId}-high";
-            Chart.DrawTrendLine(
-                highLineId,
-                startTime,
-                fvg.High,
-                endTime,
-                fvg.High,
-                baseColor,
-                Constants.Drawing.DefaultLineThickness,
-                LineStyle.Solid);
-            objectIds.Add(highLineId);
-        }
-        
-        private void DrawQuadrantLevels(Level fvg, string patternId, List<string> objectIds)
-        {
-            DateTime startTime = fvg.Direction == Direction.Up ? fvg.LowTime : fvg.HighTime;
-            DateTime endTime = fvg.Direction == Direction.Up ? fvg.HighTime : fvg.LowTime;
-            
             Color unsweptColor = GetColorFromString("Pink");
             Color sweptColor = GetColorFromString("Gray");
-            
+
             // Line styles for each quadrant
             LineStyle[] styles = new LineStyle[]
             {
@@ -144,23 +99,23 @@ namespace Pfuma.Visualization
                 LineStyle.Dots,   // 75%
                 LineStyle.Solid   // 100%
             };
-            
+
             // Draw each quadrant line
             for (int i = 0; i < fvg.Quadrants.Count && i < styles.Length; i++)
             {
                 var quadrant = fvg.Quadrants[i];
                 string quadId = $"{patternId}-quad-{quadrant.Percent}";
-                
-                var line = Chart.DrawTrendLine(
+
+                Chart.DrawTrendLine(
                     quadId,
-                    startTime,
+                    startIndex,
                     quadrant.Price,
-                    endTime,
+                    endIndex,
                     quadrant.Price,
                     quadrant.IsSwept ? sweptColor : unsweptColor,
-                    Constants.Drawing.DefaultLineThickness,
+                    1,
                     styles[i]);
-                
+
                 objectIds.Add(quadId);
             }
         }
@@ -215,24 +170,25 @@ namespace Pfuma.Visualization
         /// <summary>
         /// Draws a timeframe label on the FVG
         /// </summary>
-        private void DrawTimeframeLabel(Level fvg, string patternId, List<string> objectIds)
+        private void DrawTimeframeLabel(Level fvg, string patternId, List<string> objectIds, int endIndex)
         {
             string labelId = $"{patternId}-tf-label";
             objectIds.Add(labelId);
-            
-            // Position the label at the center of the FVG
-            DateTime labelTime = fvg.MidTime;
+
+            // Position the label at the middle of the rectangle extension
+            int labelIndex = (Math.Min(fvg.IndexHigh, fvg.IndexLow) + endIndex) / 2;
             double labelPrice = fvg.Mid;
-            
+
             string timeframeText = fvg.TimeFrame.GetShortName();
-            
+
             var text = Chart.DrawText(
                 labelId,
                 timeframeText,
-                labelTime,
+                labelIndex,
                 labelPrice,
-                Color.White);
-                
+                Color.White
+            );
+
             text.FontSize = 8;
             text.HorizontalAlignment = HorizontalAlignment.Center;
             text.VerticalAlignment = VerticalAlignment.Center;

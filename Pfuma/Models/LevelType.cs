@@ -28,6 +28,4 @@ public enum LevelType
     OrderBlock,
     [Description("Propulsion Block")]
     PropulsionBlock,
-    [Description("Venom")]
-    Venom,
 }

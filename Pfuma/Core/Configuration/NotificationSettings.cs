@@ -6,7 +6,6 @@ public class NotificationSettings
     public bool SendLiquidity { get; set; } = false;
     public bool SendCycles { get; set; } = false;
     public bool SendSMT { get; set; } = false;
-    public bool SendVenom { get; set; } = false;
     public bool SendCISD { get; set; } = false;
     public bool SendOrderBlock { get; set; } = false;
     public bool SendInsideKeyLevel { get; set; } = false;
