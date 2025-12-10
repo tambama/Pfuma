@@ -29,6 +29,9 @@ namespace Pfuma
         [Parameter("FVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowFVG { get; set; }
 
+        [Parameter("iFVG", DefaultValue = false, Group = "Patterns")]
+        public bool ShowIFvg { get; set; }
+
         [Parameter("Order Flow", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderFlow { get; set; }
         
@@ -306,6 +309,7 @@ namespace Pfuma
                 {
                     ShowFVG = ShowFVG,  // Only for LTF FVG visualization
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
+                    ShowIFvg = ShowIFvg,  // Only for iFVG visualization
                     ShowOrderFlow = ShowOrderFlow,  // Only for regular orderflow
                     ShowHtfOrderFlow = ShowHtfOrderFlow,  // Only for HTF orderflow
                     ShowLiquiditySweep = ShowLiquiditySweep,

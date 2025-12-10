@@ -10,6 +10,7 @@ public class PatternDetectionSettings
     // FVG
     public bool ShowFVG { get; set; } = false;
     public bool ShowHtfFvg { get; set; } = false;
+    public bool ShowIFvg { get; set; } = false;
         
     // CISD
     public bool ShowCISD { get; set; } = false;

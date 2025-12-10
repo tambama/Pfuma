@@ -12,5 +12,6 @@ public enum LiquidityType
     [Description("Previous Cycle High")] PCH,
     [Description("Previous Cycle Low")] PCL,
     [Description("Cycle High/Low")] Cycle,
-    [Description("Opening Price")] Open
+    [Description("Opening Price")] Open,
+    [Description("Inducement")] Inducement
 }

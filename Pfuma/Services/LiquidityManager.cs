@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using cAlgo.API;
 using Pfuma.Core.Configuration;
@@ -36,6 +37,9 @@ namespace Pfuma.Services
 
         // Optional opening time manager for open level sweep visualization
         private IOpeningTimeManager _openingTimeManager;
+
+        // Inducements collection - swing points inside key levels (Order Blocks, CISDs)
+        private readonly List<SwingPoint> _inducements = new List<SwingPoint>();
 
         public LiquidityManager(
             Chart chart,
@@ -173,7 +177,11 @@ namespace Pfuma.Services
         /// </summary>
         private void OnSwingPointRemoved(SwingPointRemovedEvent evt)
         {
-            // Inside key level status is automatically cleared when swing point is removed
+            if (evt?.SwingPoint == null)
+                return;
+
+            // Clean up inducement if this swing point was an inducement
+            CleanupInducementForRemovedSwingPoint(evt.SwingPoint);
         }
 
         /// <summary>
@@ -1345,21 +1353,32 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bullishSwingPoint.InsidePda = true;
                     bullishSwingPoint.Pda = mostRecentOrderBlock;
-                    
+
                     // Update the corresponding candle's SweptLiquidity property
                     var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
                     if (candle != null)
                     {
                         candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
                     }
-                    
+
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
                     {
                         DrawInsideKeyLevelDot(bullishSwingPoint);
                     }
 
-                    // Swing point is inside order block
+                    // Check for inducement - bullish swing point inside bearish key level
+                    // For bearish key levels, we want the HIGHER priced inducement
+                    if (mostRecentOrderBlock.Inducement == null)
+                    {
+                        // No inducement set yet - set this one
+                        SetInducement(mostRecentOrderBlock, bullishSwingPoint);
+                    }
+                    else if (bullishSwingPoint.Price > mostRecentOrderBlock.Inducement.Price)
+                    {
+                        // This swing point is higher - replace the inducement
+                        SetInducement(mostRecentOrderBlock, bullishSwingPoint);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1398,20 +1417,31 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bearishSwingPoint.InsidePda = true;
                     bearishSwingPoint.Pda = mostRecentOrderBlock;
-                    
+
                     var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
                     if (candle != null)
                     {
                         candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
                     }
-                    
+
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
                     {
                         DrawInsideKeyLevelDot(bearishSwingPoint);
                     }
 
-                    // Swing point is inside order block
+                    // Check for inducement - bearish swing point inside bullish key level
+                    // For bullish key levels, we want the LOWER priced inducement
+                    if (mostRecentOrderBlock.Inducement == null)
+                    {
+                        // No inducement set yet - set this one
+                        SetInducement(mostRecentOrderBlock, bearishSwingPoint);
+                    }
+                    else if (bearishSwingPoint.Price < mostRecentOrderBlock.Inducement.Price)
+                    {
+                        // This swing point is lower - replace the inducement
+                        SetInducement(mostRecentOrderBlock, bearishSwingPoint);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1451,20 +1481,31 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bullishSwingPoint.InsidePda = true;
                     bullishSwingPoint.Pda = mostRecentCisd;
-                    
+
                     var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
                     if (candle != null)
                     {
                         candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
                     }
-                    
+
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
                     {
                         DrawInsideKeyLevelDot(bullishSwingPoint);
                     }
 
-                    // Swing point is inside CISD
+                    // Check for inducement - bullish swing point inside bearish key level
+                    // For bearish key levels, we want the HIGHER priced inducement
+                    if (mostRecentCisd.Inducement == null)
+                    {
+                        // No inducement set yet - set this one
+                        SetInducement(mostRecentCisd, bullishSwingPoint);
+                    }
+                    else if (bullishSwingPoint.Price > mostRecentCisd.Inducement.Price)
+                    {
+                        // This swing point is higher - replace the inducement
+                        SetInducement(mostRecentCisd, bullishSwingPoint);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1504,20 +1545,31 @@ namespace Pfuma.Services
                     // Mark swing point as inside key level
                     bearishSwingPoint.InsidePda = true;
                     bearishSwingPoint.Pda = mostRecentCisd;
-                    
+
                     var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
                     if (candle != null)
                     {
                         candle.InsidePda = true; // Set to 1 to indicate liquidity was swept
                     }
-                    
+
                     // Draw a dot on the swing point only if visualization is enabled
                     if (_settings.Patterns.ShowInsideKeyLevel)
                     {
                         DrawInsideKeyLevelDot(bearishSwingPoint);
                     }
 
-                    // Swing point is inside CISD
+                    // Check for inducement - bearish swing point inside bullish key level
+                    // For bullish key levels, we want the LOWER priced inducement
+                    if (mostRecentCisd.Inducement == null)
+                    {
+                        // No inducement set yet - set this one
+                        SetInducement(mostRecentCisd, bearishSwingPoint);
+                    }
+                    else if (bearishSwingPoint.Price < mostRecentCisd.Inducement.Price)
+                    {
+                        // This swing point is lower - replace the inducement
+                        SetInducement(mostRecentCisd, bearishSwingPoint);
+                    }
                 }
             }
             catch (Exception ex)
@@ -2537,10 +2589,100 @@ namespace Pfuma.Services
         }
 
         /// <summary>
+        /// Sets the inducement for a key level and adds to the inducements collection.
+        /// Also draws the inducement icon.
+        /// </summary>
+        private void SetInducement(Level keyLevel, SwingPoint swingPoint)
+        {
+            if (keyLevel == null || swingPoint == null)
+                return;
+
+            // Set the swing point's liquidity type to Inducement
+            swingPoint.LiquidityType = LiquidityType.Inducement;
+
+            // Set the inducement on the key level
+            keyLevel.Inducement = swingPoint;
+
+            // Add to inducements collection if not already present
+            if (!_inducements.Any(i => i.Index == swingPoint.Index))
+            {
+                _inducements.Add(swingPoint);
+            }
+
+            // Draw the inducement icon
+            DrawInducementIcon(swingPoint);
+        }
+
+        /// <summary>
+        /// Draws a pink diamond icon at the inducement price
+        /// </summary>
+        private void DrawInducementIcon(SwingPoint inducement)
+        {
+            if (inducement == null)
+                return;
+
+            string iconId = $"inducement-{inducement.Index}";
+
+            _chart.DrawIcon(
+                iconId,
+                ChartIconType.Diamond,
+                inducement.Time,
+                inducement.Price,
+                Color.Pink
+            );
+        }
+
+        /// <summary>
+        /// Removes the inducement icon from the chart
+        /// </summary>
+        private void RemoveInducementIcon(SwingPoint inducement)
+        {
+            if (inducement == null)
+                return;
+
+            string iconId = $"inducement-{inducement.Index}";
+            _chart.RemoveObject(iconId);
+        }
+
+        /// <summary>
+        /// Cleans up inducement when a swing point is removed
+        /// </summary>
+        private void CleanupInducementForRemovedSwingPoint(SwingPoint removedSwingPoint)
+        {
+            if (removedSwingPoint == null)
+                return;
+
+            // Check if this swing point was an inducement
+            var inducementToRemove = _inducements.FirstOrDefault(i => i.Index == removedSwingPoint.Index);
+            if (inducementToRemove != null)
+            {
+                // Remove the inducement icon
+                RemoveInducementIcon(inducementToRemove);
+
+                // Remove from collection
+                _inducements.Remove(inducementToRemove);
+
+                // Clear the inducement reference from any key levels that reference this swing point
+                var keyLevelsWithInducement = _levelRepository
+                    .Find(level =>
+                        (level.LevelType == LevelType.OrderBlock || level.LevelType == LevelType.CISD) &&
+                        level.Inducement != null &&
+                        level.Inducement.Index == removedSwingPoint.Index)
+                    .ToList();
+
+                foreach (var keyLevel in keyLevelsWithInducement)
+                {
+                    keyLevel.Inducement = null;
+                }
+            }
+        }
+
+        /// <summary>
         /// Dispose of resources and unsubscribe from events
         /// </summary>
         public void Dispose()
         {
+            _inducements?.Clear();
             _eventAggregator?.Unsubscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
             _eventAggregator?.Unsubscribe<SwingPointRemovedEvent>(OnSwingPointRemoved);
             _eventAggregator?.Unsubscribe<OrderBlockDetectedEvent>(OnOrderBlockDetected);
