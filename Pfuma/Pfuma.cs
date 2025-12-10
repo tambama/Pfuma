@@ -833,11 +833,11 @@ namespace Pfuma
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
                 var price = orderBlock.Direction == Direction.Up ? orderBlock.Low : orderBlock.High;
                 var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
-                Chart.DrawIcon($"macro-{time}", ChartIconType.Square, 
+                Chart.DrawIcon($"macro-{time}", ChartIconType.Square,
                     time, price, color);
             }
         }
-        
+
         private void OnCISDDetected(CisdConfirmedEvent evt)
         {
             var cisds = _levelRepository.Find(l => l.LevelType == LevelType.CISD);

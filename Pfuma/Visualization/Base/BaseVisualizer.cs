@@ -38,22 +38,26 @@ namespace Pfuma.Visualization.Base
             {
                 if (!ShouldDraw(pattern))
                     return;
-                
+
                 // Get unique ID for this pattern
                 string patternId = GetPatternId(pattern);
-                
-                // Remove any existing visualization
+
+                // Skip if already drawn (prevents flickering from repeated Draw calls)
+                if (ObjectRegistry.ContainsKey(patternId) && ObjectRegistry[patternId].Count > 0)
+                    return;
+
+                // Remove any existing visualization (in case of partial draw)
                 RemoveExistingObjects(patternId);
-                
+
                 // Get all object IDs that will be created
                 var objectIds = new List<string>();
-                
+
                 // Perform the actual drawing
                 PerformDraw(pattern, patternId, objectIds);
-                
+
                 // Register the created objects
                 RegisterObjects(patternId, objectIds);
-                
+
                 // Log if needed
                 LogDraw(pattern, patternId);
             }

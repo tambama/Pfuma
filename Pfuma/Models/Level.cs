@@ -68,10 +68,15 @@ namespace Pfuma.Models
     
         // CISD
         public Level CISDLevel { get; set; }
+
+        // Orderflow Root Index - tracks which swing point this FVG is associated with
+        // For bullish FVGs: most recent swing low's index
+        // For bearish FVGs: most recent swing high's index
+        public int? OrderflowRootIndex { get; set; }
         
         // Propulsion Block
         public bool HasPropulsionBlock { get; set; }
-    
+
         // Quadrant tracking
         public List<Quadrant> Quadrants { get; set; } = new List<Quadrant>();
 

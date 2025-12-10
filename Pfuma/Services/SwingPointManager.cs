@@ -58,13 +58,23 @@ namespace Pfuma.Services
         /// <summary>
         /// Adds a swing point to the collection
         /// </summary>
-        public void AddSwingPoint(SwingPoint swingPoint)
+        /// <returns>True if the swing point was added, false if it was a duplicate</returns>
+        public bool AddSwingPoint(SwingPoint swingPoint)
         {
             if (swingPoint == null)
-                return;
-                
+                return false;
+
+            // Check for duplicate swing point at same index and direction
+            bool isDuplicate = _swingPoints.Any(sp =>
+                sp.Index == swingPoint.Index &&
+                sp.SwingType == swingPoint.SwingType &&
+                sp.Direction == swingPoint.Direction);
+
+            if (isDuplicate)
+                return false;
+
             _swingPoints.Add(swingPoint);
-            
+
             // Update last swing point references
             if (swingPoint.SwingType == SwingType.H)
             {
@@ -74,6 +84,8 @@ namespace Pfuma.Services
             {
                 _lastLowSwingPoint = swingPoint;
             }
+
+            return true;
         }
         
         /// <summary>

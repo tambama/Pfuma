@@ -90,7 +90,11 @@ namespace Pfuma.Detectors
             // Set the InsideMacro property based on whether the swing point is in macro time
             SetInsideMacroStatus(swingPoint);
 
-            _swingPointManager.AddSwingPoint(swingPoint);
+            // Only publish event if swing point was actually added (not a duplicate)
+            bool wasAdded = _swingPointManager.AddSwingPoint(swingPoint);
+            if (!wasAdded)
+                return;
+
             PublishSwingPointDetected(swingPoint);
 
             // Update last swing point references

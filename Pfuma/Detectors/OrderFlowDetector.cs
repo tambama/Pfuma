@@ -19,7 +19,8 @@ namespace Pfuma.Detectors
         private readonly IVisualization<Level> _visualizer;
         private readonly SwingPointDetector _swingPointDetector;
         private readonly List<SwingPoint> _swingPointHistory;
-        
+        private readonly OrderflowFvgTracker _fvgTracker;
+
         public OrderFlowDetector(
             Chart chart,
             CandleManager candleManager,
@@ -34,6 +35,7 @@ namespace Pfuma.Detectors
             _visualizer = visualizer;
             _swingPointDetector = swingPointDetector;
             _swingPointHistory = new List<SwingPoint>();
+            _fvgTracker = new OrderflowFvgTracker();
         }
         
         protected override int GetMinimumBarsRequired()
@@ -271,18 +273,80 @@ namespace Pfuma.Detectors
         
         protected override bool PostDetectionValidation(Level orderflow, int currentIndex)
         {
-            return base.PostDetectionValidation(orderflow, currentIndex) && 
-                   orderflow.LevelType == LevelType.Orderflow;
+            if (!base.PostDetectionValidation(orderflow, currentIndex))
+                return false;
+
+            if (orderflow.LevelType != LevelType.Orderflow)
+                return false;
+
+            // Check for duplicate orderflows
+            bool isDuplicate = Repository.Any(existing =>
+                existing.LevelType == LevelType.Orderflow &&
+                existing.Direction == orderflow.Direction &&
+                existing.IndexLow == orderflow.IndexLow &&
+                existing.IndexHigh == orderflow.IndexHigh);
+
+            return !isDuplicate;
         }
         
         protected override void PublishDetectionEvent(Level orderflow, int currentIndex)
         {
             EventAggregator.Publish(new OrderFlowDetectedEvent(orderflow));
-            
+
             if (Settings.Patterns.ShowOrderFlow && _visualizer != null)
             {
                 _visualizer.Draw(orderflow);
             }
+
+            // Consume FVGs from the tracker for this orderflow's direction
+            var matchingFvgs = _fvgTracker.ConsumeFvgs(orderflow.Direction);
+
+            if (matchingFvgs.Count > 0)
+            {
+                // Assign the OrderflowRootIndex to each FVG
+                foreach (var fvg in matchingFvgs)
+                {
+                    fvg.OrderflowRootIndex = orderflow.Index;
+                }
+
+                DrawFvgCountLabel(orderflow, matchingFvgs.Count);
+            }
+        }
+
+        private void DrawFvgCountLabel(Level orderflow, int fvgCount)
+        {
+            // Get the time at the orderflow's starting index
+            int labelIndex = orderflow.Index;
+            if (labelIndex < 0 || labelIndex >= Chart.BarsTotal)
+                return;
+
+            DateTime labelTime = Chart.Bars[labelIndex].OpenTime;
+
+            // Position label at the orderflow's starting price based on direction
+            double labelPrice = orderflow.Direction == Direction.Up
+                ? orderflow.Low  // For bullish, label at low (swing low)
+                : orderflow.High; // For bearish, label at high (swing high)
+
+            // Get directional color
+            Color labelColor = orderflow.Direction == Direction.Up
+                ? Color.FromArgb(255, 0, 200, 100)  // Green for bullish
+                : Color.FromArgb(255, 200, 50, 50); // Red for bearish
+
+            string labelId = $"of-fvg-count-{orderflow.Direction}-{orderflow.Index}";
+
+            var text = Chart.DrawText(
+                labelId,
+                fvgCount.ToString(),
+                labelTime,
+                labelPrice,
+                labelColor);
+
+            text.FontSize = 10;
+            text.IsBold = true;
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = orderflow.Direction == Direction.Up
+                ? VerticalAlignment.Top
+                : VerticalAlignment.Bottom;
         }
         
         protected override void LogDetection(Level orderflow, int currentIndex)
@@ -307,17 +371,24 @@ namespace Pfuma.Detectors
         {
             EventAggregator.Subscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
             EventAggregator.Subscribe<SwingPointRemovedEvent>(OnSwingPointRemoved);
+            EventAggregator.Subscribe<FvgDetectedEvent>(OnFvgDetected);
         }
-        
+
         protected override void UnsubscribeFromEvents()
         {
             EventAggregator.Unsubscribe<SwingPointDetectedEvent>(OnSwingPointDetected);
             EventAggregator.Unsubscribe<SwingPointRemovedEvent>(OnSwingPointRemoved);
+            EventAggregator.Unsubscribe<FvgDetectedEvent>(OnFvgDetected);
         }
-        
+
         private void OnSwingPointDetected(SwingPointDetectedEvent evt)
         {
             ProcessSwingPoint(evt.SwingPoint);
+        }
+
+        private void OnFvgDetected(FvgDetectedEvent evt)
+        {
+            _fvgTracker.AddFvg(evt.FvgLevel);
         }
         
         private void OnSwingPointRemoved(SwingPointRemovedEvent evt)
@@ -345,6 +416,7 @@ namespace Pfuma.Detectors
         {
             base.OnDispose();
             _swingPointHistory.Clear();
+            _fvgTracker.Clear();
         }
     }
 }
