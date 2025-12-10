@@ -2621,6 +2621,10 @@ namespace Pfuma.Services
             if (inducement == null)
                 return;
 
+            // Only draw if ShowInducement is enabled
+            if (!_settings.Patterns.ShowInducement)
+                return;
+
             string iconId = $"inducement-{inducement.Index}";
 
             _chart.DrawIcon(

@@ -28,6 +28,7 @@ public class PatternDetectionSettings
     // Quadrants
     public bool ShowQuadrants { get; set; } = false;
     public bool ShowInsideKeyLevel { get; set; } = false;
+    public bool ShowInducement { get; set; } = false;
 
     // Swept Level Management
     public bool ClearSwept { get; set; } = true;

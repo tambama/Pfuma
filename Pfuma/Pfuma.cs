@@ -88,6 +88,9 @@ namespace Pfuma
         
         [Parameter("Inside Key Level", DefaultValue = false, Group = "Visualization")]
         public bool ShowInsideKeyLevel { get; set; }
+
+        [Parameter("Inducement", DefaultValue = false, Group = "Visualization")]
+        public bool ShowInducement { get; set; }
         
         // Time Management
         [Parameter("Macros", DefaultValue = false, Group = "Time")]
@@ -324,6 +327,7 @@ namespace Pfuma
                     Show369 = Show369,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
+                    ShowInducement = ShowInducement,
                     ClearSwept = ClearSwept,
                 },
                 Time = new TimeSettings
