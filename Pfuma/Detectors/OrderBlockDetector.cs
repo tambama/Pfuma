@@ -83,9 +83,6 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         try
         {
-            if (!Settings.Patterns.ShowOrderBlock)
-                return null;
-
             // Get all swing points ordered by index descending
             var allBearishSwingPoints = _swingPointManager.GetSwingLows()
                 .OrderByDescending(sp => sp.Index)
@@ -192,9 +189,6 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         try
         {
-            if (!Settings.Patterns.ShowOrderBlock)
-                return null;
-
             // Get all swing points ordered by index descending
             var allBullishSwingPoints = _swingPointManager.GetSwingHighs()
                 .OrderByDescending(sp => sp.Index)
@@ -318,7 +312,15 @@ public class OrderBlockDetector : BasePatternDetector<Level>
         {
             Repository.Add(orderBlock);
             PublishDetectionEvent(orderBlock, evt.SwingPoint.Index);
-            _visualizer?.Draw(orderBlock);
+
+            // Only draw if ShowOrderBlock is enabled
+            if (Settings.Patterns.ShowOrderBlock)
+            {
+                _visualizer?.Draw(orderBlock);
+            }
+
+            // Identify and mark iFVG for the order block
+            IdentifyAndMarkIFvg(orderBlock);
         }
     }
         
@@ -389,5 +391,107 @@ public class OrderBlockDetector : BasePatternDetector<Level>
     {
         _detectedOrderBlockSignatures?.Clear();
         base.Dispose();
+    }
+
+    /// <summary>
+    /// Identifies and marks the iFVG (Institutional FVG) for a confirmed Order Block.
+    /// For bullish OB: find bearish FVGs within the OB range, last one becomes bullish iFVG (green)
+    /// For bearish OB: find bullish FVGs within the OB range, last one becomes bearish iFVG (red)
+    /// </summary>
+    private void IdentifyAndMarkIFvg(Level orderBlock)
+    {
+        if (orderBlock == null)
+            return;
+
+        int startIndex = Math.Min(orderBlock.IndexHigh, orderBlock.IndexLow);
+        int endIndex = Math.Max(orderBlock.IndexHigh, orderBlock.IndexLow);
+
+        // For bullish OB, look for bearish FVGs (the orderflow was bearish)
+        // For bearish OB, look for bullish FVGs (the orderflow was bullish)
+        Direction fvgDirection = orderBlock.Direction == Direction.Up ? Direction.Down : Direction.Up;
+
+        // Find all FVGs within the order block's index range with opposite direction
+        var fvgsInRange = Repository.Find(level =>
+            level.LevelType == LevelType.FairValueGap &&
+            level.Direction == fvgDirection &&
+            level.Index >= startIndex &&
+            level.Index <= endIndex)
+            .OrderBy(fvg => fvg.Index)
+            .ToList();
+
+        if (fvgsInRange.Count == 0)
+            return;
+
+        // Get the last FVG in the range
+        var lastFvg = fvgsInRange.Last();
+
+        // Mark the order block as having an iFVG
+        orderBlock.HasIFvg = true;
+        orderBlock.IFvg = lastFvg;
+
+        // Draw the iFVG only if ShowIFvg is enabled
+        if (Settings.Patterns.ShowIFvg)
+        {
+            DrawIFvg(lastFvg, orderBlock.Direction);
+        }
+    }
+
+    /// <summary>
+    /// Draws the iFVG with the appropriate color based on the Order Block direction.
+    /// Bullish OB = green iFVG, Bearish OB = red/pink iFVG
+    /// </summary>
+    private void DrawIFvg(Level fvg, Direction obDirection)
+    {
+        if (fvg == null)
+            return;
+
+        // Determine color based on OB direction (not FVG direction)
+        Color rectangleColor = obDirection == Direction.Up ? Color.Green : Color.Pink;
+
+        // Calculate rectangle extension (10 candlesticks to the right from detection point)
+        int startIndex = Math.Min(fvg.IndexHigh, fvg.IndexLow);
+        int endIndex = startIndex + 10;
+
+        string patternId = $"ifvg-ob-{obDirection}-{fvg.Index}-{fvg.IndexHigh}-{fvg.IndexLow}";
+
+        // Draw the main rectangle
+        string rectId = $"{patternId}-rect";
+        var rect = Chart.DrawRectangle(
+            rectId,
+            startIndex,
+            fvg.High,
+            endIndex,
+            fvg.Low,
+            Color.FromArgb(30, rectangleColor),
+            2
+        );
+        rect.IsFilled = true;
+
+        // Draw the midline
+        double midPrice = (fvg.High + fvg.Low) / 2.0;
+        string midlineId = $"{patternId}-mid";
+        Chart.DrawTrendLine(
+            midlineId,
+            startIndex,
+            midPrice,
+            endIndex,
+            midPrice,
+            Color.FromArgb(60, rectangleColor),
+            1,
+            LineStyle.Solid
+        );
+
+        // Draw "iFVG" label at center
+        string labelId = $"{patternId}-label";
+        var text = Chart.DrawText(
+            labelId,
+            "iFVG",
+            (startIndex + endIndex) / 2,
+            midPrice,
+            rectangleColor
+        );
+        text.FontSize = 8;
+        text.HorizontalAlignment = HorizontalAlignment.Center;
+        text.VerticalAlignment = VerticalAlignment.Center;
     }
 }

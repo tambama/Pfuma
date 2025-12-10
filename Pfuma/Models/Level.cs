@@ -77,6 +77,13 @@ namespace Pfuma.Models
         // Propulsion Block
         public bool HasPropulsionBlock { get; set; }
 
+        // iFVG (Institutional FVG) - the last FVG in the orderflow that created this CISD/Order Block
+        public bool HasIFvg { get; set; }
+        public Level IFvg { get; set; }
+
+        // Inducement - swing point inside this key level (Order Block, CISD) that acts as inducement
+        public SwingPoint Inducement { get; set; }
+
         // Quadrant tracking
         public List<Quadrant> Quadrants { get; set; } = new List<Quadrant>();
 

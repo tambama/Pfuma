@@ -300,6 +300,9 @@ namespace Pfuma.Detectors
                         CheckOTECondition(cisd);
                     }
 
+                    // Identify and mark iFVG (Institutional FVG)
+                    IdentifyAndMarkIFvg(cisd);
+
                     // Publish confirmation event
                     EventAggregator.Publish(new CisdConfirmedEvent(cisd, cisd.Direction));
 
@@ -698,6 +701,108 @@ namespace Pfuma.Detectors
                 .FirstOrDefault();
 
             return toleranceMatch;
+        }
+
+        /// <summary>
+        /// Identifies and marks the iFVG (Institutional FVG) for a confirmed CISD.
+        /// For bullish CISD: get the bearish orderflow, find its FVGs, last one becomes bullish iFVG (green)
+        /// For bearish CISD: get the bullish orderflow, find its FVGs, last one becomes bearish iFVG (red)
+        /// </summary>
+        private void IdentifyAndMarkIFvg(Level cisd)
+        {
+            if (cisd == null || string.IsNullOrEmpty(cisd.OrderFlowId))
+                return;
+
+            // Find the orderflow that created this CISD
+            var orderFlow = Repository.Find(level =>
+                level.Id == cisd.OrderFlowId &&
+                level.LevelType == LevelType.Orderflow)
+                .FirstOrDefault();
+
+            if (orderFlow == null)
+                return;
+
+            // Find all FVGs associated with this orderflow (via OrderflowRootIndex)
+            var orderflowFvgs = Repository.Find(level =>
+                level.LevelType == LevelType.FairValueGap &&
+                level.OrderflowRootIndex == orderFlow.Index)
+                .OrderBy(fvg => fvg.Index)
+                .ToList();
+
+            if (orderflowFvgs.Count == 0)
+                return;
+
+            // Get the last FVG in the orderflow
+            var lastFvg = orderflowFvgs.Last();
+
+            // Mark the CISD as having an iFVG
+            cisd.HasIFvg = true;
+            cisd.IFvg = lastFvg;
+
+            // Draw the iFVG only if ShowIFvg is enabled
+            if (Settings.Patterns.ShowIFvg)
+            {
+                DrawIFvg(lastFvg, cisd.Direction);
+            }
+        }
+
+        /// <summary>
+        /// Draws the iFVG with the appropriate color based on the CISD/OB direction.
+        /// Bullish CISD/OB = green iFVG, Bearish CISD/OB = red/pink iFVG
+        /// </summary>
+        private void DrawIFvg(Level fvg, Direction cisdDirection)
+        {
+            if (fvg == null)
+                return;
+
+            // Determine color based on CISD direction (not FVG direction)
+            Color rectangleColor = cisdDirection == Direction.Up ? Color.Green : Color.Pink;
+
+            // Calculate rectangle extension (10 candlesticks to the right from detection point)
+            int startIndex = Math.Min(fvg.IndexHigh, fvg.IndexLow);
+            int endIndex = startIndex + 10;
+
+            string patternId = $"ifvg-{cisdDirection}-{fvg.Index}-{fvg.IndexHigh}-{fvg.IndexLow}";
+
+            // Draw the main rectangle
+            string rectId = $"{patternId}-rect";
+            var rect = Chart.DrawRectangle(
+                rectId,
+                startIndex,
+                fvg.High,
+                endIndex,
+                fvg.Low,
+                Color.FromArgb(30, rectangleColor),
+                2
+            );
+            rect.IsFilled = true;
+
+            // Draw the midline
+            double midPrice = (fvg.High + fvg.Low) / 2.0;
+            string midlineId = $"{patternId}-mid";
+            Chart.DrawTrendLine(
+                midlineId,
+                startIndex,
+                midPrice,
+                endIndex,
+                midPrice,
+                Color.FromArgb(60, rectangleColor),
+                1,
+                LineStyle.Solid
+            );
+
+            // Draw "iFVG" label at center
+            string labelId = $"{patternId}-label";
+            var text = Chart.DrawText(
+                labelId,
+                "iFVG",
+                (startIndex + endIndex) / 2,
+                midPrice,
+                rectangleColor
+            );
+            text.FontSize = 8;
+            text.HorizontalAlignment = HorizontalAlignment.Center;
+            text.VerticalAlignment = VerticalAlignment.Center;
         }
     }
 }
