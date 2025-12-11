@@ -308,45 +308,7 @@ namespace Pfuma.Detectors
                 {
                     fvg.OrderflowRootIndex = orderflow.Index;
                 }
-
-                DrawFvgCountLabel(orderflow, matchingFvgs.Count);
             }
-        }
-
-        private void DrawFvgCountLabel(Level orderflow, int fvgCount)
-        {
-            // Get the time at the orderflow's starting index
-            int labelIndex = orderflow.Index;
-            if (labelIndex < 0 || labelIndex >= Chart.BarsTotal)
-                return;
-
-            DateTime labelTime = Chart.Bars[labelIndex].OpenTime;
-
-            // Position label at the orderflow's starting price based on direction
-            double labelPrice = orderflow.Direction == Direction.Up
-                ? orderflow.Low  // For bullish, label at low (swing low)
-                : orderflow.High; // For bearish, label at high (swing high)
-
-            // Get directional color
-            Color labelColor = orderflow.Direction == Direction.Up
-                ? Color.FromArgb(255, 0, 200, 100)  // Green for bullish
-                : Color.FromArgb(255, 200, 50, 50); // Red for bearish
-
-            string labelId = $"of-fvg-count-{orderflow.Direction}-{orderflow.Index}";
-
-            var text = Chart.DrawText(
-                labelId,
-                fvgCount.ToString(),
-                labelTime,
-                labelPrice,
-                labelColor);
-
-            text.FontSize = 10;
-            text.IsBold = true;
-            text.HorizontalAlignment = HorizontalAlignment.Center;
-            text.VerticalAlignment = orderflow.Direction == Direction.Up
-                ? VerticalAlignment.Top
-                : VerticalAlignment.Bottom;
         }
         
         protected override void LogDetection(Level orderflow, int currentIndex)

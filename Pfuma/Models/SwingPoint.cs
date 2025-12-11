@@ -60,6 +60,9 @@ public class SwingPoint
     // 30-minute cycle properties
     public bool SweptCycle { get; set; }
 
+    // Inducement sweep tracking
+    public bool SweptInducement { get; set; }
+
     // SMT Divergence properties
     public bool HasSMT { get; set; }
     public SwingPoint SweptCyclePoint { get; set; }

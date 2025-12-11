@@ -134,6 +134,9 @@ namespace Pfuma.Services
 
                 // Check for cycle low liquidity sweeps by bullish swing point
                 HandleBullishSwingPointCycleLiquiditySweep(swingPoint);
+
+                // Check for bullish inducement sweeps and breaks
+                HandleBullishSwingPointInducementSweepOrBreak(swingPoint);
             }
             else if (swingPoint.Direction == Direction.Down)
             {
@@ -169,6 +172,9 @@ namespace Pfuma.Services
 
                 // Check for cycle high liquidity sweeps by bearish swing point
                 HandleBearishSwingPointCycleLiquiditySweep(swingPoint);
+
+                // Check for bearish inducement sweeps and breaks
+                HandleBearishSwingPointInducementSweepOrBreak(swingPoint);
             }
         }
 
@@ -2585,6 +2591,206 @@ namespace Pfuma.Services
                             Direction.Down);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Handles bullish swing point inducement sweep or break.
+        /// Sweep: swing high > inducement price AND close < inducement price
+        /// Break: swing close > inducement price
+        /// </summary>
+        private void HandleBullishSwingPointInducementSweepOrBreak(SwingPoint swingPoint)
+        {
+            if (swingPoint == null || swingPoint.Direction != Direction.Up)
+                return;
+
+            // Get bullish inducements (swing highs inside bearish key levels)
+            var bullishInducements = _inducements
+                .Where(i => i.Direction == Direction.Up)
+                .OrderByDescending(i => i.Price)
+                .ToList();
+
+            if (bullishInducements.Count == 0)
+                return;
+
+            var swingHigh = swingPoint.Bar.High;
+            var swingClose = swingPoint.Bar.Close;
+
+            // Find inducements that are swept (high > inducement AND close < inducement)
+            var sweptInducements = bullishInducements
+                .Where(i => swingHigh > i.Price && swingClose < i.Price)
+                .ToList();
+
+            // Find inducements that are broken (close > inducement)
+            var brokenInducements = bullishInducements
+                .Where(i => swingClose > i.Price && !sweptInducements.Contains(i))
+                .ToList();
+
+            // Handle swept inducements
+            if (sweptInducements.Count > 0)
+            {
+                // Get the highest swept inducement to draw the line
+                var highestSweptInducement = sweptInducements.First(); // Already sorted by price descending
+
+                // Draw line for the highest inducement
+                DrawInducementSweepLine(highestSweptInducement, swingPoint);
+
+                // Mark all swept inducements and clean them up
+                foreach (var inducement in sweptInducements)
+                {
+                    CleanupSweptInducement(inducement);
+                }
+
+                // Mark the swing point as having swept an inducement
+                swingPoint.SweptInducement = true;
+            }
+
+            // Handle broken inducements
+            foreach (var brokenInducement in brokenInducements)
+            {
+                DrawInducementBreakLine(brokenInducement, swingPoint);
+                CleanupSweptInducement(brokenInducement);
+            }
+        }
+
+        /// <summary>
+        /// Handles bearish swing point inducement sweep or break.
+        /// Sweep: swing low < inducement price AND close > inducement price
+        /// Break: swing close < inducement price
+        /// </summary>
+        private void HandleBearishSwingPointInducementSweepOrBreak(SwingPoint swingPoint)
+        {
+            if (swingPoint == null || swingPoint.Direction != Direction.Down)
+                return;
+
+            // Get bearish inducements (swing lows inside bullish key levels)
+            var bearishInducements = _inducements
+                .Where(i => i.Direction == Direction.Down)
+                .OrderBy(i => i.Price)
+                .ToList();
+
+            if (bearishInducements.Count == 0)
+                return;
+
+            var swingLow = swingPoint.Bar.Low;
+            var swingClose = swingPoint.Bar.Close;
+
+            // Find inducements that are swept (low < inducement AND close > inducement)
+            var sweptInducements = bearishInducements
+                .Where(i => swingLow < i.Price && swingClose > i.Price)
+                .ToList();
+
+            // Find inducements that are broken (close < inducement)
+            var brokenInducements = bearishInducements
+                .Where(i => swingClose < i.Price && !sweptInducements.Contains(i))
+                .ToList();
+
+            // Handle swept inducements
+            if (sweptInducements.Count > 0)
+            {
+                // Get the lowest swept inducement to draw the line
+                var lowestSweptInducement = sweptInducements.First(); // Already sorted by price ascending
+
+                // Draw line for the lowest inducement
+                DrawInducementSweepLine(lowestSweptInducement, swingPoint);
+
+                // Mark all swept inducements and clean them up
+                foreach (var inducement in sweptInducements)
+                {
+                    CleanupSweptInducement(inducement);
+                }
+
+                // Mark the swing point as having swept an inducement
+                swingPoint.SweptInducement = true;
+            }
+
+            // Handle broken inducements
+            foreach (var brokenInducement in brokenInducements)
+            {
+                DrawInducementBreakLine(brokenInducement, swingPoint);
+                CleanupSweptInducement(brokenInducement);
+            }
+        }
+
+        /// <summary>
+        /// Draws a red dotted line from the inducement to the sweeping candle
+        /// </summary>
+        private void DrawInducementSweepLine(SwingPoint inducement, SwingPoint sweepingSwingPoint)
+        {
+            if (inducement == null || sweepingSwingPoint == null)
+                return;
+
+            // Only draw if ShowInducement is enabled
+            if (!_settings.Patterns.ShowInducement)
+                return;
+
+            string lineId = $"inducement-sweep-{inducement.Index}-{sweepingSwingPoint.Index}";
+
+            var line = _chart.DrawTrendLine(
+                lineId,
+                inducement.Time,
+                inducement.Price,
+                sweepingSwingPoint.Time,
+                inducement.Price,
+                Color.Red
+            );
+
+            line.LineStyle = LineStyle.Dots;
+            line.Thickness = 1;
+        }
+
+        /// <summary>
+        /// Draws a red dotted line from the inducement to the breaking candle
+        /// </summary>
+        private void DrawInducementBreakLine(SwingPoint inducement, SwingPoint breakingSwingPoint)
+        {
+            if (inducement == null || breakingSwingPoint == null)
+                return;
+
+            // Only draw if ShowInducement is enabled
+            if (!_settings.Patterns.ShowInducement)
+                return;
+
+            string lineId = $"inducement-break-{inducement.Index}-{breakingSwingPoint.Index}";
+
+            var line = _chart.DrawTrendLine(
+                lineId,
+                inducement.Time,
+                inducement.Price,
+                breakingSwingPoint.Time,
+                inducement.Price,
+                Color.Red
+            );
+
+            line.LineStyle = LineStyle.Dots;
+            line.Thickness = 1;
+        }
+
+        /// <summary>
+        /// Cleans up a swept/broken inducement - removes icon, removes from collection, clears key level reference
+        /// </summary>
+        private void CleanupSweptInducement(SwingPoint inducement)
+        {
+            if (inducement == null)
+                return;
+
+            // Remove the diamond icon
+            RemoveInducementIcon(inducement);
+
+            // Remove from inducements collection
+            _inducements.Remove(inducement);
+
+            // Clear the inducement reference from any key levels that reference this swing point
+            var keyLevelsWithInducement = _levelRepository
+                .Find(level =>
+                    (level.LevelType == LevelType.OrderBlock || level.LevelType == LevelType.CISD) &&
+                    level.Inducement != null &&
+                    level.Inducement.Index == inducement.Index)
+                .ToList();
+
+            foreach (var keyLevel in keyLevelsWithInducement)
+            {
+                keyLevel.Inducement = null;
             }
         }
 
