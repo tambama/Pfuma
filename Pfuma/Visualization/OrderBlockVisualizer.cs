@@ -201,7 +201,7 @@ namespace Pfuma.Visualization
             try
             {
                 var labelId = $"{patternId}-label";
-                var labelText = $"OB {orderBlock.Direction}";
+                var labelText = $"OB";
                 var labelPrice = orderBlock.Direction == Direction.Up ? orderBlock.High : orderBlock.Low;
                 var labelTime = orderBlock.LowTime;
                 

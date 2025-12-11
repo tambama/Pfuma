@@ -835,7 +835,7 @@ namespace Pfuma
 
         private void OnOrderBlockDetected(OrderBlockDetectedEvent evt)
         {
-            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 5)
+            if (evt.OrderBlock != null && evt.OrderBlock.Score >= 10)
             {
                 var orderBlock = evt.OrderBlock;
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
@@ -849,7 +849,7 @@ namespace Pfuma
         private void OnCISDDetected(CisdConfirmedEvent evt)
         {
             var cisds = _levelRepository.Find(l => l.LevelType == LevelType.CISD);
-            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 5)
+            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 10)
             {
                 var orderBlock = evt.CisdLevel;
                 var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;

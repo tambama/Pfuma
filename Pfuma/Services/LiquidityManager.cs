@@ -1382,7 +1382,8 @@ namespace Pfuma.Services
                     }
                     else if (bullishSwingPoint.Price > mostRecentOrderBlock.Inducement.Price)
                     {
-                        // This swing point is higher - replace the inducement
+                        // This swing point is higher - mark old inducement as swept and replace
+                        MarkInducementAsSwept(mostRecentOrderBlock.Inducement, bullishSwingPoint);
                         SetInducement(mostRecentOrderBlock, bullishSwingPoint);
                     }
                 }
@@ -1445,7 +1446,8 @@ namespace Pfuma.Services
                     }
                     else if (bearishSwingPoint.Price < mostRecentOrderBlock.Inducement.Price)
                     {
-                        // This swing point is lower - replace the inducement
+                        // This swing point is lower - mark old inducement as swept and replace
+                        MarkInducementAsSwept(mostRecentOrderBlock.Inducement, bearishSwingPoint);
                         SetInducement(mostRecentOrderBlock, bearishSwingPoint);
                     }
                 }
@@ -1509,7 +1511,8 @@ namespace Pfuma.Services
                     }
                     else if (bullishSwingPoint.Price > mostRecentCisd.Inducement.Price)
                     {
-                        // This swing point is higher - replace the inducement
+                        // This swing point is higher - mark old inducement as swept and replace
+                        MarkInducementAsSwept(mostRecentCisd.Inducement, bullishSwingPoint);
                         SetInducement(mostRecentCisd, bullishSwingPoint);
                     }
                 }
@@ -1573,7 +1576,8 @@ namespace Pfuma.Services
                     }
                     else if (bearishSwingPoint.Price < mostRecentCisd.Inducement.Price)
                     {
-                        // This swing point is lower - replace the inducement
+                        // This swing point is lower - mark old inducement as swept and replace
+                        MarkInducementAsSwept(mostRecentCisd.Inducement, bearishSwingPoint);
                         SetInducement(mostRecentCisd, bearishSwingPoint);
                     }
                 }
@@ -2764,6 +2768,22 @@ namespace Pfuma.Services
 
             line.LineStyle = LineStyle.Dots;
             line.Thickness = 1;
+        }
+
+        /// <summary>
+        /// Marks an inducement as swept when it's being replaced by a new inducement.
+        /// Draws the sweep line and cleans up the old inducement.
+        /// </summary>
+        private void MarkInducementAsSwept(SwingPoint oldInducement, SwingPoint newSwingPoint)
+        {
+            if (oldInducement == null || newSwingPoint == null)
+                return;
+
+            // Draw the sweep line from the old inducement to the new swing point
+            DrawInducementSweepLine(oldInducement, newSwingPoint);
+
+            // Clean up the old inducement (remove icon, remove from collection)
+            CleanupSweptInducement(oldInducement);
         }
 
         /// <summary>
