@@ -6,153 +6,128 @@ using Pfuma.Core.Configuration;
 using Pfuma.Extensions;
 using Pfuma.Models;
 using Pfuma.Visualization.Base;
-using static Pfuma.Core.Configuration.Constants;
 
 namespace Pfuma.Visualization
 {
     /// <summary>
-    /// Visualizes Higher Timeframe Fair Value Gaps with distinct styling
+    /// Visualizes Higher Timeframe Fair Value Gaps with distinct styling.
+    /// Uses bar indices for drawing (same approach as regular FvgVisualizer).
     /// </summary>
     public class HtfFvgVisualizer : BaseVisualizer<Level>
     {
         private readonly IndicatorSettings _indicatorSettings;
-        
-        public HtfFvgVisualizer(Chart chart, IndicatorSettings settings) 
+
+        public HtfFvgVisualizer(Chart chart, IndicatorSettings settings)
             : base(chart, settings.Visualization, null)
         {
             _indicatorSettings = settings;
         }
-        
+
         protected override string GetPatternId(Level htfFvg)
         {
             var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
-            return $"HTF_FVG_{tfLabel}_{htfFvg.Direction}_{htfFvg.Index}_{htfFvg.LowTime:yyyyMMddHHmmss}";
+            // Use unique ID with HTF prefix to avoid conflicts with regular FVGs
+            return $"htf_fvg_{tfLabel}_{htfFvg.Direction}_{htfFvg.IndexLow}_{htfFvg.IndexHigh}_{htfFvg.Index}";
         }
-        
+
         protected override void PerformDraw(Level htfFvg, string patternId, List<string> objectIds)
         {
             if (htfFvg == null || htfFvg.LevelType != LevelType.FairValueGap)
                 return;
-            
+
             // Only draw if ShowHtfFvg is enabled
             if (!_indicatorSettings.Patterns.ShowHtfFvg)
                 return;
-            
+
             var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
-            
-            // Get directional color - green for bullish, red for bearish
-            Color baseColor = GetDirectionalColor(htfFvg.Direction);
-            
-            // Draw main rectangle using same approach as regular FVGs
-            DrawHtfFvgRectangle(htfFvg, patternId, objectIds, baseColor);
-            
-            // Draw label with timeframe identifier
-            var labelName = $"{patternId}_Label";
-            objectIds.Add(labelName);
-            
-            var labelText = $"{tfLabel} FVG";
-            var midPoint = (htfFvg.High + htfFvg.Low) / 2;
-            
-            Chart.DrawText(
-                labelName,
-                labelText,
-                htfFvg.MidTime,
-                midPoint,
-                baseColor
+
+            // Determine color based on direction
+            Color rectangleColor = htfFvg.Direction == Direction.Up ? Color.Green : Color.Red;
+
+            // Get start and end indices for the rectangle
+            // IndexLow is the LTF index where the FVG boundary started (candle1's high for bullish, candle1's low for bearish)
+            // IndexHigh is the LTF index where the FVG boundary ended (candle3's low for bullish, candle3's high for bearish)
+            int startIndex = Math.Min(htfFvg.IndexLow, htfFvg.IndexHigh);
+            int endIndex = Math.Max(htfFvg.IndexLow, htfFvg.IndexHigh);
+
+            // Draw the main rectangle using bar indices
+            string rectId = $"{patternId}_rect";
+            var rect = Chart.DrawRectangle(
+                rectId,
+                startIndex,
+                htfFvg.High,
+                endIndex,
+                htfFvg.Low,
+                Color.FromArgb(50, rectangleColor),
+                2
             );
-            
+            rect.IsFilled = true;
+            objectIds.Add(rectId);
+
+            // Draw the midline
+            double midPrice = (htfFvg.High + htfFvg.Low) / 2.0;
+            string midlineId = $"{patternId}_mid";
+            Chart.DrawTrendLine(
+                midlineId,
+                startIndex,
+                midPrice,
+                endIndex,
+                midPrice,
+                Color.FromArgb(100, rectangleColor),
+                1,
+                LineStyle.Solid
+            );
+            objectIds.Add(midlineId);
+
+            // Draw FVG label at the middle of the gap
+            string labelId = $"{patternId}_label";
+            int labelIndex = (startIndex + endIndex) / 2;
+            var label = Chart.DrawText(labelId, $"{tfLabel} FVG", labelIndex, midPrice, Color.White);
+            label.HorizontalAlignment = HorizontalAlignment.Center;
+            label.VerticalAlignment = VerticalAlignment.Center;
+            label.FontSize = 9;
+            objectIds.Add(labelId);
+
             // Draw quadrants if enabled
             if (_indicatorSettings.Patterns.ShowQuadrants && htfFvg.Quadrants != null && htfFvg.Quadrants.Count > 0)
             {
-                // Use the same end time as the rectangle (HighTime)
-                DrawQuadrants(htfFvg, patternId, objectIds, htfFvg.HighTime);
+                DrawQuadrants(htfFvg, patternId, objectIds, startIndex, endIndex, rectangleColor);
             }
         }
-        
-        private void DrawHtfFvgRectangle(Level htfFvg, string patternId, List<string> objectIds, Color baseColor)
+
+        private void DrawQuadrants(Level htfFvg, string patternId, List<string> objectIds, int startIndex, int endIndex, Color baseColor)
         {
-            string rectangleId = patternId;
-            
-            // For bullish HTF FVGs: draw from index low (candle 1) to index high (candle 3)
-            // For bearish HTF FVGs: draw from index low (candle 3) to index high (candle 1)  
-            DateTime startTime = htfFvg.LowTime;   // Time of the start candle
-            DateTime endTime = htfFvg.HighTime;    // Time of the end candle
-            
-            var rectangle = Chart.DrawRectangle(
-                rectangleId,
-                startTime,
-                htfFvg.Low,
-                endTime,
-                htfFvg.High,
-                baseColor);
-            
-            rectangle.IsFilled = false;
-            rectangle.Color = ApplyOpacity(baseColor, Settings.Opacity.FVG);
-            
-            objectIds.Add(rectangleId);
-        }
-        
-        private void DrawQuadrants(Level htfFvg, string baseObjectName, List<string> objectIds, DateTime extendedEndTime)
-        {
-            var tfLabel = htfFvg.TimeFrame?.GetShortName() ?? "HTF";
-            
-            // Use subtle colors for quadrant lines
-            var quadrantColor = htfFvg.Direction == Direction.Up
-                ? Color.FromArgb(50, 0, 255, 0)
-                : Color.FromArgb(50, 255, 0, 0);
-            
-            // Draw 25% line
-            var q25 = htfFvg.Quadrants.FirstOrDefault(q => q.Percent == 25);
-            if (q25 != null)
+            // Use subtle color for quadrant lines
+            var quadrantColor = Color.FromArgb(60, baseColor);
+
+            // Line styles for each quadrant
+            LineStyle[] styles = new LineStyle[]
             {
-                var lineName = $"{baseObjectName}_Q25";
-                objectIds.Add(lineName);
+                LineStyle.Solid,  // 0%
+                LineStyle.Dots,   // 25%
+                LineStyle.Solid,  // 50% (mid)
+                LineStyle.Dots,   // 75%
+                LineStyle.Solid   // 100%
+            };
+
+            // Draw each quadrant line
+            for (int i = 0; i < htfFvg.Quadrants.Count && i < styles.Length; i++)
+            {
+                var quadrant = htfFvg.Quadrants[i];
+                string quadId = $"{patternId}_quad_{quadrant.Percent}";
+
                 Chart.DrawTrendLine(
-                    lineName,
-                    htfFvg.LowTime,
-                    q25.Price,
-                    extendedEndTime,
-                    q25.Price,
-                    quadrantColor,
+                    quadId,
+                    startIndex,
+                    quadrant.Price,
+                    endIndex,
+                    quadrant.Price,
+                    quadrant.IsSwept ? Color.Gray : quadrantColor,
                     1,
-                    LineStyle.DotsRare
+                    styles[i]
                 );
-            }
-            
-            // Draw 50% line (CE - Consequent Encroachment)
-            var q50 = htfFvg.Quadrants.FirstOrDefault(q => q.Percent == 50);
-            if (q50 != null)
-            {
-                var lineName = $"{baseObjectName}_Q50";
-                objectIds.Add(lineName);
-                Chart.DrawTrendLine(
-                    lineName,
-                    htfFvg.LowTime,
-                    q50.Price,
-                    extendedEndTime,
-                    q50.Price,
-                    quadrantColor,
-                    2, // Thicker for 50% line
-                    LineStyle.Dots
-                );
-            }
-            
-            // Draw 75% line
-            var q75 = htfFvg.Quadrants.FirstOrDefault(q => q.Percent == 75);
-            if (q75 != null)
-            {
-                var lineName = $"{baseObjectName}_Q75";
-                objectIds.Add(lineName);
-                Chart.DrawTrendLine(
-                    lineName,
-                    htfFvg.LowTime,
-                    q75.Price,
-                    extendedEndTime,
-                    q75.Price,
-                    quadrantColor,
-                    1,
-                    LineStyle.DotsRare
-                );
+
+                objectIds.Add(quadId);
             }
         }
     }

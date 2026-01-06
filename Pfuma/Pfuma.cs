@@ -173,10 +173,13 @@ namespace Pfuma
         
         [Parameter("HTF Order Flow", DefaultValue = false, Group = "Multi-Timeframe")]
         public bool ShowHtfOrderFlow { get; set; }
-        
-        
-        
-        
+
+        [Parameter("HTF CISD", DefaultValue = false, Group = "Multi-Timeframe")]
+        public bool ShowHtfCisd { get; set; }
+
+        [Parameter("HTF Order Block", DefaultValue = false, Group = "Multi-Timeframe")]
+        public bool ShowHtfOrderBlock { get; set; }
+
         #endregion
         
         #region Output Series
@@ -240,17 +243,22 @@ namespace Pfuma
         private OrderBlockDetector _orderBlockDetector;
         private BreakerBlockDetector _breakerBlockDetector;
         private CisdDetector _cisdDetector;
+        private HtfCisdDetector _htfCisdDetector;
+        private HtfOrderBlockDetector _htfOrderBlockDetector;
         private UnicornDetector _unicornDetector;
         private PropulsionBlockDetector _propulsionBlockDetector;
         
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
         private IVisualization<Level> _htfFvgVisualizer;
+        private HtfCandleVisualizer _htfCandleVisualizer;
         private IVisualization<Level> _orderFlowVisualizer;
         private IVisualization<Level> _rejectionBlockVisualizer;
         private IVisualization<Level> _orderBlockVisualizer;
         private IVisualization<Level> _breakerBlockVisualizer;
         private IVisualization<Level> _cisdVisualizer;
+        private IVisualization<Level> _htfCisdVisualizer;
+        private IVisualization<Level> _htfOrderBlockVisualizer;
         private IVisualization<Level> _unicornVisualizer;
         private IVisualization<Level> _propulsionBlockVisualizer;
         private StatsVisualizer _statsVisualizer;
@@ -312,14 +320,17 @@ namespace Pfuma
                 {
                     ShowFVG = ShowFVG,  // Only for LTF FVG visualization
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
+                    ShowHighTimeframeCandle = ShowHighTimeframeCandle,  // For HTF candle high/low dots
                     ShowIFvg = ShowIFvg,  // Only for iFVG visualization
                     ShowOrderFlow = ShowOrderFlow,  // Only for regular orderflow
                     ShowHtfOrderFlow = ShowHtfOrderFlow,  // Only for HTF orderflow
                     ShowLiquiditySweep = ShowLiquiditySweep,
                     ShowRejectionBlock = ShowRejectionBlock,
                     ShowOrderBlock = ShowOrderBlock,
+                    ShowHtfOrderBlock = ShowHtfOrderBlock,
                     ShowBreakerBlock = ShowBreakerBlock,
                     ShowCISD = ShowCISD,
+                    ShowHtfCisd = ShowHtfCisd,
                     MaxCisdsPerDirection = MaxCisdsPerDirection,
                     ShowOTE = ShowOTE,
                     ShowPropulsionBlock = ShowPropulsionBlock,
@@ -407,11 +418,14 @@ namespace Pfuma
         {
             _fvgVisualizer = new FvgVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _htfFvgVisualizer = new HtfFvgVisualizer(Chart, _settings);
+            _htfCandleVisualizer = new HtfCandleVisualizer(Chart, _eventAggregator, _settings);
             _orderFlowVisualizer = new OrderFlowVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _rejectionBlockVisualizer = new RejectionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _orderBlockVisualizer = new OrderBlockVisualizer(Chart, _settings.Visualization, _eventAggregator, EnableLog ? Print : null);
             _breakerBlockVisualizer = new BreakerBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _cisdVisualizer = new CisdVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
+            _htfCisdVisualizer = new HtfCisdVisualizer(Chart, _settings);
+            _htfOrderBlockVisualizer = new HtfOrderBlockVisualizer(Chart, _settings);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             // Only initialize 369 visualizer if Show369 is enabled
@@ -491,7 +505,13 @@ namespace Pfuma
             
             _cisdDetector = new CisdDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _cisdVisualizer, _fibonacciService, _fibonacciVisualizer, _swingPointRepository, _timeManager, _settings, EnableLog ? Print : null);
-            
+
+            _htfCisdDetector = new HtfCisdDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _htfCisdVisualizer, _settings, EnableLog ? Print : null);
+
+            _htfOrderBlockDetector = new HtfOrderBlockDetector(
+                Chart, _candleManager, _eventAggregator, _levelRepository, _htfOrderBlockVisualizer, _settings, EnableLog ? Print : null);
+
             _unicornDetector = new UnicornDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _levelRepository, _unicornVisualizer, _settings, EnableLog ? Print : null);
             
@@ -511,12 +531,15 @@ namespace Pfuma
             _orderBlockDetector.Initialize();
             _breakerBlockDetector.Initialize();
             _cisdDetector.Initialize();
+            _htfCisdDetector.Initialize();
+            _htfOrderBlockDetector.Initialize();
             _unicornDetector.Initialize();
             _propulsionBlockDetector.Initialize();
 
             // Initialize liquidity manager and visualizers
             _liquidityManager.Initialize();
             (_orderBlockVisualizer as OrderBlockVisualizer)?.Initialize();
+            _htfCandleVisualizer?.Initialize();
         }
         
         private void SubscribeToEvents()
@@ -1011,6 +1034,8 @@ namespace Pfuma
                 _orderBlockDetector?.Dispose();
                 _breakerBlockDetector?.Dispose();
                 _cisdDetector?.Dispose();
+                _htfCisdDetector?.Dispose();
+                _htfOrderBlockDetector?.Dispose();
                 _unicornDetector?.Dispose();
                 
                 // Dispose services
@@ -1023,6 +1048,8 @@ namespace Pfuma
                 _orderBlockVisualizer?.Clear();
                 _breakerBlockVisualizer?.Clear();
                 _cisdVisualizer?.Clear();
+                _htfCisdVisualizer?.Clear();
+                _htfOrderBlockVisualizer?.Clear();
                 _unicornVisualizer?.Clear();
                 _fibonacciVisualizer?.Dispose();
                 

@@ -232,43 +232,28 @@ namespace Pfuma.Services
         }
         
         /// <summary>
-        /// Process HTF candle for a specific timeframe using gap-aware logic
+        /// Process HTF candle for a specific timeframe.
+        /// HTF candle is only finalized when we detect the START of a new HTF period.
         /// </summary>
         private void ProcessHtfCandleForTimeframe(int currentIndex, Candle currentCandle, TimeFrame htf)
         {
             var currentTime = currentCandle.Time;
-            var currentHtfPeriodStart = GetHtfPeriodStart(currentTime, htf);
-            
-            // Check if we've moved to a new HTF period
-            if (_currentHtfPeriodStart[htf] != DateTime.MinValue && 
-                currentHtfPeriodStart != _currentHtfPeriodStart[htf])
+
+            // Check if current LTF candle is the START of a new HTF candle
+            bool isStartOfNewHtfCandle = currentTime.IsStartOfHigherTimeframeBar(htf);
+
+            if (isStartOfNewHtfCandle)
             {
-                // We've moved to a new HTF period - finalize the previous one
-                FinalizePendingHtfCandle(htf);
+                // Finalize the previous HTF candle (if we have pending candles)
+                // FinalizePendingHtfCandle will also clear the pending candles
+                if (_pendingHtfCandles[htf].Count > 0)
+                {
+                    FinalizePendingHtfCandle(htf);
+                }
             }
-            
-            // Start new HTF period if needed
-            if (_currentHtfPeriodStart[htf] != currentHtfPeriodStart)
-            {
-                _currentHtfPeriodStart[htf] = currentHtfPeriodStart;
-                _pendingHtfCandles[htf].Clear();
-                
-                // New HTF period started
-            }
-            
+
             // Add current LTF candle to pending HTF candles
             _pendingHtfCandles[htf].Add(currentCandle);
-            
-            // Check if we should finalize the current HTF candle
-            // This happens when we detect the next period starting
-            var nextLtfTime = GetNextLtfTime(currentTime);
-            var nextHtfPeriodStart = GetHtfPeriodStart(nextLtfTime, htf);
-            
-            if (nextHtfPeriodStart != currentHtfPeriodStart)
-            {
-                // Current LTF candle is the last one in this HTF period
-                FinalizePendingHtfCandle(htf);
-            }
         }
         
         /// <summary>
@@ -277,29 +262,24 @@ namespace Pfuma.Services
         private void FinalizePendingHtfCandle(TimeFrame htf)
         {
             var pendingCandles = _pendingHtfCandles[htf];
-            
+
             if (pendingCandles.Count == 0)
                 return;
-                
+
             var htfCandle = CreateHtfCandleFromLtfCandles(pendingCandles, htf, pendingCandles.First().Index ?? 0);
-            
+
             if (htfCandle != null)
             {
                 _htfCandles[htf].Add(htfCandle);
-                _lastProcessedHtfTime[htf] = _currentHtfPeriodStart[htf];
-                
+                _lastProcessedHtfTime[htf] = htfCandle.Time;
+
                 // Process swing point detection for HTF candle
                 ProcessHtfSwingPointDetection(htf, htfCandle);
-                
-                // Draw visualization if enabled
-                if (_showHighTimeframeCandle && _chart != null)
-                {
-                    DrawHighTimeframeCandlePoints(htfCandle, pendingCandles);
-                }
-                
-                // HTF candle finalized
+
+                // Publish HTF candle created event (visualization is handled by HtfCandleVisualizer)
+                _eventAggregator?.Publish(new HtfCandleCreatedEvent(htfCandle, htf));
             }
-            
+
             // Clear pending candles
             _pendingHtfCandles[htf].Clear();
         }
@@ -377,17 +357,11 @@ namespace Pfuma.Services
             if (htfCandle != null)
             {
                 _htfCandles[htf].Add(htfCandle);
-                
+
                 // Process swing point detection for HTF candle
                 ProcessHtfSwingPointDetection(htf, htfCandle);
-                
-                // Draw visualization if enabled
-                if (_showHighTimeframeCandle && _chart != null)
-                {
-                    DrawHighTimeframeCandlePoints(htfCandle, ltfCandles);
-                }
-                
-                // HTF candle created
+
+                // HTF candle created (visualization is handled by HtfCandleVisualizer via event)
             }
         }
         
@@ -411,6 +385,7 @@ namespace Pfuma.Services
             var htfCandle = new Candle
             {
                 Index = startIndex,
+                IndexEnd = lastCandle.Index,
                 Time = firstCandle.Time,
                 Open = firstCandle.Open,
                 High = maxCandle.High,
@@ -420,34 +395,8 @@ namespace Pfuma.Services
                 IndexOfLow = minCandle.Index,
                 TimeFrame = htf
             };
-            
+
             return htfCandle;
-        }
-        
-        /// <summary>
-        /// Draw visualization for HTF candle high and low points
-        /// </summary>
-        private void DrawHighTimeframeCandlePoints(Candle htfCandle, List<Candle> ltfCandles)
-        {
-            if (_chart == null || htfCandle == null || ltfCandles == null)
-                return;
-                
-            // Find the LTF candles that made the high and low
-            var (minCandle, minIndex, minTime, maxCandle, maxIndex, maxTime) = ltfCandles.GetMinMax();
-            
-            if (minCandle != null && minCandle.Index.HasValue)
-            {
-                // Draw red dot for low
-                var lowIconName = $"htf_low_{htfCandle.TimeFrame.GetShortName()}_{minCandle.Index}_{htfCandle.Time:yyyyMMddHHmm}";
-                _chart.DrawIcon(lowIconName, ChartIconType.Circle, minTime, minCandle.Low, Color.Red);
-            }
-            
-            if (maxCandle != null && maxCandle.Index.HasValue)
-            {
-                // Draw green dot for high  
-                var highIconName = $"htf_high_{htfCandle.TimeFrame.GetShortName()}_{maxCandle.Index}_{htfCandle.Time:yyyyMMddHHmm}";
-                _chart.DrawIcon(highIconName, ChartIconType.Circle, maxTime, maxCandle.High, Color.Green);
-            }
         }
         
         /// <summary>

@@ -22,12 +22,13 @@ public class Candle
     }
 
     public int? Index { get; set; }
+    public int? IndexEnd { get; set; }  // End index for HTF candles (last LTF candle index)
     public DateTime Time { get; set; }
     public double Open { get; set; }
     public double High { get; set; }
     public double Low { get; set; }
     public double Close { get; set; }
-    
+
     // Indices for tracking exact high/low positions in HTF candles
     public int? IndexOfHigh { get; set; }
     public int? IndexOfLow { get; set; }

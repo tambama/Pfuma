@@ -13,15 +13,18 @@ using Pfuma.Services;
 namespace Pfuma.Detectors
 {
     /// <summary>
-    /// Detects Fair Value Gaps (FVGs) in Higher Timeframe (HTF) candles using simple gap detection
-    /// without volume imbalance analysis for boundary refinement
+    /// Detects Fair Value Gaps (FVGs) in Higher Timeframe (HTF) candles using simple gap detection.
+    /// Uses event-driven approach - subscribes to HtfCandleCreatedEvent and detects FVGs when new HTF candles are created.
+    /// Maintains its own candle history per timeframe for accurate FVG detection.
     /// </summary>
     public class HtfFvgDetector : BasePatternDetector<Level>
     {
         private readonly IVisualization<Level> _visualizer;
         private readonly Dictionary<TimeFrame, List<Level>> _htfFvgs;
-        private readonly Dictionary<TimeFrame, int> _lastProcessedHtfIndex;
-        
+        private readonly Dictionary<string, List<Candle>> _htfCandleHistory;
+        private readonly Dictionary<string, int> _htfCandleCount;
+        private int _currentLtfIndex;
+
         public HtfFvgDetector(
             Chart chart,
             CandleManager candleManager,
@@ -34,105 +37,144 @@ namespace Pfuma.Detectors
         {
             _visualizer = visualizer;
             _htfFvgs = new Dictionary<TimeFrame, List<Level>>();
-            _lastProcessedHtfIndex = new Dictionary<TimeFrame, int>();
-            
+            _htfCandleHistory = new Dictionary<string, List<Candle>>();
+            _htfCandleCount = new Dictionary<string, int>();
+
             // Initialize dictionaries for each higher timeframe
             foreach (var htf in candleManager.GetHigherTimeframes())
             {
                 _htfFvgs[htf] = new List<Level>();
-                _lastProcessedHtfIndex[htf] = -1;
+                var tfKey = htf.GetShortName();
+                _htfCandleHistory[tfKey] = new List<Candle>();
+                _htfCandleCount[tfKey] = 0;
             }
         }
-        
+
         protected override int GetMinimumBarsRequired()
         {
             return Constants.Patterns.FvgRequiredBars;
         }
-        
+
         protected override List<Level> PerformDetection(int currentIndex)
         {
-            var detectedFvgs = new List<Level>();
-            
-            // Check for HTF FVG sweeps by price action
+            // Store current LTF index for use in event handler
+            _currentLtfIndex = currentIndex;
+
+            // Check for HTF FVG sweeps by price action on each bar
             CheckHtfFvgSweepsByPriceAction(currentIndex);
-            
-            // Process each higher timeframe
-            foreach (var htf in CandleManager.GetHigherTimeframes())
+
+            // Detection is handled via HtfCandleCreatedEvent subscription
+            return new List<Level>();
+        }
+
+        /// <summary>
+        /// Event handler for when a new HTF candle is created
+        /// </summary>
+        private void OnHtfCandleCreated(HtfCandleCreatedEvent evt)
+        {
+            // Only process if HTF FVG detection is enabled
+            if (!Settings.Patterns.ShowHtfFvg)
+                return;
+
+            var htfCandle = evt.HtfCandle;
+            var htf = evt.TimeFrame;
+            var tfKey = htf.GetShortName();
+
+            // Initialize history if needed
+            if (!_htfCandleHistory.ContainsKey(tfKey))
+                _htfCandleHistory[tfKey] = new List<Candle>();
+            if (!_htfCandleCount.ContainsKey(tfKey))
+                _htfCandleCount[tfKey] = 0;
+
+            // Increment count and add to history
+            _htfCandleCount[tfKey]++;
+            _htfCandleHistory[tfKey].Add(htfCandle);
+
+            int candleNumber = _htfCandleCount[tfKey];
+
+            // Need at least 3 candles to detect an FVG
+            if (_htfCandleHistory[tfKey].Count < 3)
+                return;
+
+            // Get the 3 candles for FVG detection
+            var history = _htfCandleHistory[tfKey];
+            int currentIndex = history.Count - 1;
+
+            var candle1 = history[currentIndex - 2]; // First candle (2 back)
+            var candle2 = history[currentIndex - 1]; // Middle candle (1 back)
+            var candle3 = history[currentIndex];     // Current candle
+
+            int candle1Number = candleNumber - 2;
+            int candle3Number = candleNumber;
+
+            // Use the first LTF candle index of candle3 as the detection index
+            var detectionIndex = candle3.Index ?? _currentLtfIndex;
+
+            // Detect FVGs using the candle history
+            var detectedFvgs = DetectHtfFvgsFromCandles(candle1, candle2, candle3, htf, detectionIndex, candle1Number, candle3Number);
+
+            foreach (var fvg in detectedFvgs)
             {
-                var htfCandles = CandleManager.GetHigherTimeframeCandles(htf);
-                
-                // Need at least 3 HTF candles to detect a FVG
-                if (htfCandles.Count < 3)
-                    continue;
-                
-                // Check if we have new HTF candles to process
-                var currentHtfCount = htfCandles.Count;
-                var lastProcessed = _lastProcessedHtfIndex.ContainsKey(htf) ? _lastProcessedHtfIndex[htf] : -1;
-                
-                // Process only if we have new HTF candles
-                if (currentHtfCount > lastProcessed)
+                // Check for duplicates before adding
+                if (!IsDuplicateHtfFvg(fvg, htf))
                 {
-                    // Get the three most recent HTF candles
-                    var htfIndex = currentHtfCount - 1;
-                    var candle1 = htfCandles[htfIndex - 2]; // First candle
-                    var candle2 = htfCandles[htfIndex - 1]; // Middle candle
-                    var candle3 = htfCandles[htfIndex];     // Last candle
-                    
-                    // Detect FVGs in HTF candles
-                    var htfFvgs = DetectHtfFvgs(candle1, candle2, candle3, htf, currentIndex);
-                    
-                    foreach (var fvg in htfFvgs)
-                    {
-                        // Check for duplicates before adding
-                        if (!IsDuplicateHtfFvg(fvg, htf))
-                        {
-                            detectedFvgs.Add(fvg);
-                            _htfFvgs[htf].Add(fvg);
-                        }
-                    }
-                    
-                    // Update last processed index
-                    _lastProcessedHtfIndex[htf] = currentHtfCount;
+                    _htfFvgs[htf].Add(fvg);
+                    Repository.Add(fvg);
+
+                    // Publish and visualize
+                    PublishDetectionEvent(fvg, detectionIndex);
+                    LogDetection(fvg, detectionIndex);
                 }
             }
-            
-            return detectedFvgs;
         }
-        
-        private List<Level> DetectHtfFvgs(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
+
+        /// <summary>
+        /// Detect FVGs from the given candles with candle numbers for logging
+        /// </summary>
+        private List<Level> DetectHtfFvgsFromCandles(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int detectionIndex, int candle1Number, int candle3Number)
         {
             var detectedFvgs = new List<Level>();
-            
-            // Check for bullish FVG
-            var bullishFvg = DetectBullishHtfFvg(candle1, candle2, candle3, htf, ltfIndex);
-            if (bullishFvg != null)
+
+            // Check for bullish FVG: candle1.High < candle3.Low (gap up)
+            if (candle1.High < candle3.Low)
             {
-                detectedFvgs.Add(bullishFvg);
+                var bullishFvg = CreateBullishHtfFvg(candle1, candle2, candle3, htf, detectionIndex);
+                if (bullishFvg != null)
+                {
+                    detectedFvgs.Add(bullishFvg);
+                    Logger?.Invoke($"HTF Bullish FVG: Candle {candle3Number} Low ({candle3.Low:F2}) > Candle {candle1Number} High ({candle1.High:F2})");
+                }
             }
-            
-            // Check for bearish FVG
-            var bearishFvg = DetectBearishHtfFvg(candle1, candle2, candle3, htf, ltfIndex);
-            if (bearishFvg != null)
+
+            // Check for bearish FVG: candle1.Low > candle3.High (gap down)
+            if (candle1.Low > candle3.High)
             {
-                detectedFvgs.Add(bearishFvg);
+                var bearishFvg = CreateBearishHtfFvg(candle1, candle2, candle3, htf, detectionIndex);
+                if (bearishFvg != null)
+                {
+                    detectedFvgs.Add(bearishFvg);
+                    Logger?.Invoke($"HTF Bearish FVG: Candle {candle3Number} High ({candle3.High:F2}) < Candle {candle1Number} Low ({candle1.Low:F2})");
+                }
             }
-            
+
             return detectedFvgs;
         }
-        
-        private Level DetectBullishHtfFvg(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
+
+        private Level CreateBullishHtfFvg(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
         {
             // Bullish FVG: candle1's high must be lower than candle3's low (gap condition)
             if (candle1.High >= candle3.Low)
                 return null;
-            
+
             // Simple boundary calculation without volume imbalance analysis
             double low = candle1.High;   // Top of first candle
             double high = candle3.Low;   // Bottom of third candle
-            
+
             // Validate boundaries
             if (low >= high)
                 return null;
+
+            Logger?.Invoke($"Creating Bullish HTF FVG: low={low:F5}, high={high:F5}, gap={(high-low):F5}");
             
             // For bullish HTF FVG:
             // - The FVG starts at the LTF index where candle1 made its HIGH
@@ -165,14 +207,16 @@ namespace Pfuma.Detectors
             
             // Set HTF TimeFrame
             bullishFvg.TimeFrame = htf;
-            
+            bullishFvg.IndexHighPrice = candle3.High;
+            bullishFvg.IndexLowPrice = candle1.Low;
+
             // Initialize quadrants
             bullishFvg.InitializeQuadrants();
-            
+
             return bullishFvg;
         }
-        
-        private Level DetectBearishHtfFvg(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
+
+        private Level CreateBearishHtfFvg(Candle candle1, Candle candle2, Candle candle3, TimeFrame htf, int ltfIndex)
         {
             // Bearish FVG: candle1's low must be higher than candle3's high (gap condition)
             if (candle1.Low <= candle3.High)
@@ -217,13 +261,15 @@ namespace Pfuma.Detectors
             
             // Set HTF TimeFrame
             bearishFvg.TimeFrame = htf;
-            
+            bearishFvg.IndexHighPrice = candle1.High;
+            bearishFvg.IndexLowPrice = candle3.Low;
+
             // Initialize quadrants
             bearishFvg.InitializeQuadrants();
-            
+
             return bearishFvg;
         }
-        
+
         /// <summary>
         /// Finds the current timeframe index that corresponds to a specific time
         /// </summary>
@@ -326,12 +372,14 @@ namespace Pfuma.Detectors
         
         protected override void SubscribeToEvents()
         {
-            // HTF FVG detector doesn't need to subscribe to other events
+            // Subscribe to HTF candle created events for FVG detection
+            EventAggregator.Subscribe<HtfCandleCreatedEvent>(OnHtfCandleCreated);
         }
-        
+
         protected override void UnsubscribeFromEvents()
         {
-            // No events to unsubscribe from
+            // Unsubscribe from HTF candle created events
+            EventAggregator.Unsubscribe<HtfCandleCreatedEvent>(OnHtfCandleCreated);
         }
         
         /// <summary>

@@ -111,13 +111,16 @@ namespace Pfuma.Detectors
                 Direction.Up,
                 timeFrame
             );
-            
+
+            // Check for swept swing highs (bullish orderflow sweeps bullish swing points)
+            CheckForSweptSwingHighs(bullishOrderFlow, timeFrame, swingPoints);
+
             // Validate and store
             if (PostDetectionValidation(bullishOrderFlow, newSwingLow.Index))
             {
                 Repository.Add(bullishOrderFlow);
                 PublishDetectionEvent(bullishOrderFlow, newSwingLow.Index);
-                
+
                 // HTF bullish order flow detected
             }
         }
@@ -156,17 +159,108 @@ namespace Pfuma.Detectors
                 Direction.Down,
                 timeFrame
             );
-            
+
+            // Check for swept swing lows (bearish orderflow sweeps bearish swing points)
+            CheckForSweptSwingLows(bearishOrderFlow, timeFrame, swingPoints);
+
             // Validate and store
             if (PostDetectionValidation(bearishOrderFlow, newSwingHigh.Index))
             {
                 Repository.Add(bearishOrderFlow);
                 PublishDetectionEvent(bearishOrderFlow, newSwingHigh.Index);
-                
+
                 // HTF bearish order flow detected
             }
         }
         
+        /// <summary>
+        /// Check for swept swing lows within the bearish orderflow range
+        /// For bearish orderflow: check if any previous swing lows (bearish swing points) were swept (price went below them)
+        /// Only sweeps unswept swing points
+        /// </summary>
+        private void CheckForSweptSwingLows(Level orderflow, TimeFrame _, List<SwingPoint> swingPoints)
+        {
+            // For bearish orderflow, check if any swing lows were swept
+            // A swing low is swept if the orderflow's low went below it
+            // Only consider unswept swing points
+            int startIndex = Math.Min(orderflow.IndexLow, orderflow.IndexHigh);
+            int endIndex = Math.Max(orderflow.IndexLow, orderflow.IndexHigh);
+
+            var sweptLows = swingPoints
+                .Where(p => p.Direction == Direction.Down &&
+                           !p.Swept &&
+                           p.Index >= startIndex &&
+                           p.Index <= endIndex &&
+                           orderflow.Low < p.Price)
+                .ToList();
+
+            if (sweptLows.Count > 0)
+            {
+                orderflow.SweptSwingPoints = new List<SwingPoint>();
+
+                // Get the lowest swept point (most significant liquidity)
+                var lowestSweptPoint = sweptLows.OrderBy(l => l.Price).First();
+
+                // Mark ALL swept swing points as swept
+                foreach (var sweptPoint in sweptLows)
+                {
+                    sweptPoint.Swept = true;
+                    sweptPoint.SweptLiquidity = true;
+                    sweptPoint.SweptLiquidityPrice = sweptPoint.Price;
+                    orderflow.SweptSwingPoints.Add(sweptPoint);
+                }
+
+                // Set the most significant swept point as the main one
+                orderflow.SweptSwingPoint = lowestSweptPoint;
+
+                Logger?.Invoke($"HTF Bearish OrderFlow swept {sweptLows.Count} swing low(s), lowest at {lowestSweptPoint.Price:F5}");
+            }
+        }
+
+        /// <summary>
+        /// Check for swept swing highs within the bullish orderflow range
+        /// For bullish orderflow: check if any previous swing highs (bullish swing points) were swept (price went above them)
+        /// Only sweeps unswept swing points
+        /// </summary>
+        private void CheckForSweptSwingHighs(Level orderflow, TimeFrame _, List<SwingPoint> swingPoints)
+        {
+            // For bullish orderflow, check if any swing highs were swept
+            // A swing high is swept if the orderflow's high went above it
+            // Only consider unswept swing points
+            int startIndex = Math.Min(orderflow.IndexLow, orderflow.IndexHigh);
+            int endIndex = Math.Max(orderflow.IndexLow, orderflow.IndexHigh);
+
+            var sweptHighs = swingPoints
+                .Where(p => p.Direction == Direction.Up &&
+                           !p.Swept &&
+                           p.Index >= startIndex &&
+                           p.Index <= endIndex &&
+                           orderflow.High > p.Price)
+                .ToList();
+
+            if (sweptHighs.Count > 0)
+            {
+                orderflow.SweptSwingPoints = new List<SwingPoint>();
+
+                // Get the highest swept point (most significant liquidity)
+                var highestSweptPoint = sweptHighs.OrderByDescending(h => h.Price).First();
+
+                // Mark ALL swept swing points as swept
+                foreach (var sweptPoint in sweptHighs)
+                {
+                    sweptPoint.Swept = true;
+                    sweptPoint.SweptLiquidity = true;
+                    sweptPoint.SweptLiquidityPrice = sweptPoint.Price;
+                    orderflow.SweptSwingPoints.Add(sweptPoint);
+                }
+
+                // Set the most significant swept point as the main one
+                orderflow.SweptSwingPoint = highestSweptPoint;
+
+                Logger?.Invoke($"HTF Bullish OrderFlow swept {sweptHighs.Count} swing high(s), highest at {highestSweptPoint.Price:F5}");
+            }
+        }
+
         /// <summary>
         /// Create an order flow Level object
         /// </summary>

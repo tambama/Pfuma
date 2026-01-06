@@ -10,10 +10,12 @@ public class PatternDetectionSettings
     // FVG
     public bool ShowFVG { get; set; } = false;
     public bool ShowHtfFvg { get; set; } = false;
+    public bool ShowHighTimeframeCandle { get; set; } = false;
     public bool ShowIFvg { get; set; } = false;
         
     // CISD
     public bool ShowCISD { get; set; } = false;
+    public bool ShowHtfCisd { get; set; } = false;
     public int MaxCisdsPerDirection { get; set; } = 2;
     public bool ShowOTE { get; set; } = false;
     public bool ShowPropulsionBlock { get; set; } = false;
@@ -24,6 +26,7 @@ public class PatternDetectionSettings
     public bool ShowBreakerBlock { get; set; } = false;
     public bool ShowRejectionBlock { get; set; } = false;
     public bool ShowOrderBlock { get; set; } = false;
+    public bool ShowHtfOrderBlock { get; set; } = false;
         
     // Quadrants
     public bool ShowQuadrants { get; set; } = false;
