@@ -25,8 +25,14 @@ namespace Pfuma.Visualization
         {
             // Only check base conditions and level type
             // The detectors will control when to call Draw based on their respective settings
-            return base.ShouldDraw(orderFlow) && 
-                   orderFlow.LevelType == LevelType.Orderflow;
+            if (!base.ShouldDraw(orderFlow) || orderFlow.LevelType != LevelType.Orderflow)
+                return false;
+
+            // When RemoveSweptOrderflow is true, only draw orderflows that are confirmed
+            if (Settings.Patterns.RemoveSweptOrderflow && !orderFlow.IsConfirmed)
+                return false;
+
+            return true;
         }
         
         protected override string GetPatternId(Level orderFlow)

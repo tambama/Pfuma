@@ -201,10 +201,13 @@ namespace Pfuma.Services
             }
 
             _lastProcessedIndex = Math.Max(_lastProcessedIndex, index);
-            
+
+            // Publish candle created event for regular timeframe candles
+            _eventAggregator?.Publish(new CandleCreatedEvent(candle, _timeFrame));
+
             // Process higher timeframe candles
             ProcessHigherTimeframeCandles(index, candle);
-            
+
             return candle;
         }
         

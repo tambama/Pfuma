@@ -63,6 +63,9 @@ public class SwingPoint
     // Inducement sweep tracking
     public bool SweptInducement { get; set; }
 
+    // Orderflow sweep tracking
+    public bool SweptOrderflow { get; set; }
+
     // SMT Divergence properties
     public bool HasSMT { get; set; }
     public SwingPoint SweptCyclePoint { get; set; }

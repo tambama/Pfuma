@@ -59,11 +59,11 @@ namespace Pfuma.Detectors
         {
             if (swingPoint == null)
                 return;
-            
+
             // Add to history
             _swingPointHistory.Add(swingPoint);
             _swingPointHistory.Sort((a, b) => a.Index.CompareTo(b.Index));
-            
+
             // Detect order flow based on swing point direction
             if (swingPoint.Direction == Direction.Down)
             {
@@ -73,6 +73,10 @@ namespace Pfuma.Detectors
             {
                 ProcessNewSwingHigh(swingPoint);
             }
+
+            // Publish event after orderflow detection is complete
+            // This allows OrderFlowManager to process confirmations/deactivations
+            EventAggregator.Publish(new OrderFlowProcessingCompleteEvent(swingPoint));
         }
         
         private void ProcessNewSwingLow(SwingPoint newSwingLow)
@@ -113,7 +117,10 @@ namespace Pfuma.Detectors
                 
                 // Set TimeFrame from swing point
                 bullishOrderFlow.TimeFrame = previousSwingLow.TimeFrame;
-                
+
+                // Set Activated to true for regular timeframe orderflow
+                bullishOrderFlow.Activated = true;
+
                 // Initialize quadrants
                 bullishOrderFlow.InitializeQuadrants();
                 
@@ -168,10 +175,13 @@ namespace Pfuma.Detectors
                 
                 // Set TimeFrame from swing point
                 bearishOrderFlow.TimeFrame = previousSwingHigh.TimeFrame;
-                
+
+                // Set Activated to true for regular timeframe orderflow
+                bearishOrderFlow.Activated = true;
+
                 // Initialize quadrants
                 bearishOrderFlow.InitializeQuadrants();
-                
+
                 // Check for swept swing lows
                 CheckForSweptSwingLows(bearishOrderFlow);
                 
@@ -179,6 +189,19 @@ namespace Pfuma.Detectors
                 if (PostDetectionValidation(bearishOrderFlow, newSwingHigh.Index))
                 {
                     Repository.Add(bearishOrderFlow);
+
+                    // Check for immediate confirmation using the most recent swing high's candle
+                    // The newSwingHigh that triggered this bearish orderflow creation is the most recent
+                    if (newSwingHigh.Bar != null)
+                    {
+                        var candle = newSwingHigh.Bar;
+                        if (candle.Low < bearishOrderFlow.High && candle.Close >= bearishOrderFlow.High)
+                        {
+                            bearishOrderFlow.IsConfirmed = true;
+                            Logger?.Invoke($"Bearish orderflow confirmed immediately at index {bearishOrderFlow.Index}");
+                        }
+                    }
+
                     PublishDetectionEvent(bearishOrderFlow, newSwingHigh.Index);
                 }
             }

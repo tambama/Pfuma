@@ -102,6 +102,7 @@ namespace Pfuma.Models
         // Properties inherited from boundary swing point
         public bool SweptLiquidity { get; set; } = false;
         public bool SweptFib { get; set; } = false;
+        public bool Swept { get; set; } = false;
         public bool InsidePda { get; set; } = false;
         public bool InsideMacro { get; set; } = false;
         

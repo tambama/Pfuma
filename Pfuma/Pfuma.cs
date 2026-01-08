@@ -34,7 +34,13 @@ namespace Pfuma
 
         [Parameter("Order Flow", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderFlow { get; set; }
-        
+
+        [Parameter("Remove Swept Orderflow", DefaultValue = false, Group = "Patterns")]
+        public bool RemoveSweptOrderflow { get; set; }
+
+        [Parameter("Show Swept Orderflow", DefaultValue = false, Group = "Patterns")]
+        public bool ShowSweptOrderflow { get; set; }
+
         [Parameter("Liquidity Sweep", DefaultValue = false, Group = "Patterns")]
         public bool ShowLiquiditySweep { get; set; }
         
@@ -239,6 +245,7 @@ namespace Pfuma
         private HtfFvgDetector _htfFvgDetector;
         private OrderFlowDetector _orderFlowDetector;
         private HtfOrderFlowDetector _htfOrderFlowDetector;
+        private OrderFlowManager _orderFlowManager;
         private RejectionBlockDetector _rejectionBlockDetector;
         private OrderBlockDetector _orderBlockDetector;
         private BreakerBlockDetector _breakerBlockDetector;
@@ -323,6 +330,8 @@ namespace Pfuma
                     ShowHighTimeframeCandle = ShowHighTimeframeCandle,  // For HTF candle high/low dots
                     ShowIFvg = ShowIFvg,  // Only for iFVG visualization
                     ShowOrderFlow = ShowOrderFlow,  // Only for regular orderflow
+                    RemoveSweptOrderflow = RemoveSweptOrderflow,
+                    ShowSweptOrderflow = ShowSweptOrderflow,
                     ShowHtfOrderFlow = ShowHtfOrderFlow,  // Only for HTF orderflow
                     ShowLiquiditySweep = ShowLiquiditySweep,
                     ShowRejectionBlock = ShowRejectionBlock,
@@ -492,7 +501,10 @@ namespace Pfuma
             
             _htfOrderFlowDetector = new HtfOrderFlowDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _orderFlowVisualizer, _settings, EnableLog ? Print : null);
-            
+
+            _orderFlowManager = new OrderFlowManager(
+                _eventAggregator, _levelRepository, _orderFlowVisualizer, Chart, _settings, EnableLog ? Print : null);
+
             _rejectionBlockDetector = new RejectionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
@@ -1030,6 +1042,7 @@ namespace Pfuma
                 _fvgDetector?.Dispose();
                 _htfFvgDetector?.Dispose();
                 _orderFlowDetector?.Dispose();
+                _orderFlowManager?.Dispose();
                 _rejectionBlockDetector?.Dispose();
                 _orderBlockDetector?.Dispose();
                 _breakerBlockDetector?.Dispose();
