@@ -131,6 +131,19 @@ namespace Pfuma.Detectors
                 if (PostDetectionValidation(bullishOrderFlow, newSwingLow.Index))
                 {
                     Repository.Add(bullishOrderFlow);
+
+                    // Check for immediate confirmation using the most recent swing low's candle
+                    // The newSwingLow that triggered this bullish orderflow creation is the most recent
+                    if (newSwingLow.Bar != null)
+                    {
+                        var candle = newSwingLow.Bar;
+                        if (candle.High >= bullishOrderFlow.Low && candle.Close <= bullishOrderFlow.Low)
+                        {
+                            bullishOrderFlow.IsConfirmed = true;
+                            Logger?.Invoke($"Bullish orderflow confirmed immediately at index {bullishOrderFlow.Index}");
+                        }
+                    }
+
                     PublishDetectionEvent(bullishOrderFlow, newSwingLow.Index);
                 }
             }

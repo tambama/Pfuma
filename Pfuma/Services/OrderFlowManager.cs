@@ -78,10 +78,15 @@ namespace Pfuma.Services
                 ProcessBearishCandle(candle, timeFrame);
             }
 
-            // When a bearish swing point is detected, check for middle line break/sweep
+            // When a bearish swing point is detected, check for middle line break/sweep on bearish orderflows
             if (swingPoint.Direction == Direction.Down)
             {
                 ProcessBearishSwingPoint(swingPoint, candle, timeFrame);
+            }
+            // When a bullish swing point is detected, check for middle line break/sweep on bullish orderflows
+            else if (swingPoint.Direction == Direction.Up)
+            {
+                ProcessBullishSwingPoint(swingPoint, candle, timeFrame);
             }
         }
 
@@ -143,14 +148,95 @@ namespace Pfuma.Services
                     _visualizer.Remove(orderflow);
                 }
             }
+
+            // Bullish orderflow deactivation
+            // Get all bullish regular orderflows matching the candle's timeframe
+            // where IsBrokenThrough is false, Activated is true, and IsConfirmed is false
+            var bullishOrderflowsToDeactivate = _orderFlowRepository.Find(of =>
+                of.LevelType == LevelType.Orderflow &&
+                of.Direction == Direction.Up &&
+                of.TimeFrame != null &&
+                of.TimeFrame.Equals(timeFrame) &&
+                !of.IsBrokenThrough &&
+                of.Activated &&
+                !of.IsConfirmed &&
+                candle.Low < of.High &&
+                candle.High > of.High);
+
+            foreach (var orderflow in bullishOrderflowsToDeactivate)
+            {
+                orderflow.Activated = false;
+                _logger($"Bullish orderflow deactivated at index {orderflow.Index}");
+
+                // Remove visualization for deactivated orderflow if RemoveSweptOrderflow is enabled
+                if (_settings.Patterns.RemoveSweptOrderflow && _visualizer != null)
+                {
+                    _visualizer.Remove(orderflow);
+                }
+            }
         }
 
         /// <summary>
         /// Process bearish candle:
+        /// - Confirm bullish orderflows (candle opens above and closes below the Low)
+        /// - Deactivate bullish orderflows (candle low below High and candle high above High)
         /// - Deactivate bearish orderflows (candle high above Low and candle low below Low)
         /// </summary>
         private void ProcessBearishCandle(Candle candle, TimeFrame timeFrame)
         {
+            // Bullish orderflow confirmation
+            // Get all bullish regular orderflows matching the candle's timeframe
+            // where IsBrokenThrough is false, Activated is true, and IsConfirmed is false
+            var bullishOrderflowsToConfirm = _orderFlowRepository.Find(of =>
+                of.LevelType == LevelType.Orderflow &&
+                of.Direction == Direction.Up &&
+                of.TimeFrame != null &&
+                of.TimeFrame.Equals(timeFrame) &&
+                !of.IsBrokenThrough &&
+                of.Activated &&
+                !of.IsConfirmed &&
+                candle.High >= of.Low &&
+                candle.Close <= of.Low);
+
+            foreach (var orderflow in bullishOrderflowsToConfirm)
+            {
+                orderflow.IsConfirmed = true;
+                _logger($"Bullish orderflow confirmed at index {orderflow.Index}");
+
+                // Draw the confirmed orderflow if visualization is enabled
+                if (_settings.Patterns.ShowOrderFlow && _visualizer != null)
+                {
+                    _visualizer.Draw(orderflow);
+                }
+            }
+
+            // Bullish orderflow deactivation
+            // Get all bullish regular orderflows matching the candle's timeframe
+            // where IsBrokenThrough is false, Activated is true, and IsConfirmed is false
+            var bullishOrderflowsToDeactivate = _orderFlowRepository.Find(of =>
+                of.LevelType == LevelType.Orderflow &&
+                of.Direction == Direction.Up &&
+                of.TimeFrame != null &&
+                of.TimeFrame.Equals(timeFrame) &&
+                !of.IsBrokenThrough &&
+                of.Activated &&
+                !of.IsConfirmed &&
+                candle.Low < of.High &&
+                candle.High > of.High);
+
+            foreach (var orderflow in bullishOrderflowsToDeactivate)
+            {
+                orderflow.Activated = false;
+                _logger($"Bullish orderflow deactivated at index {orderflow.Index}");
+
+                // Remove visualization for deactivated orderflow if RemoveSweptOrderflow is enabled
+                if (_settings.Patterns.RemoveSweptOrderflow && _visualizer != null)
+                {
+                    _visualizer.Remove(orderflow);
+                }
+            }
+
+            // Bearish orderflow deactivation
             // Get all bearish regular orderflows matching the candle's timeframe
             // where IsBrokenThrough is false, Activated is true, and IsConfirmed is false
             var bearishOrderflowsToDeactivate = _orderFlowRepository.Find(of =>
@@ -214,6 +300,59 @@ namespace Pfuma.Services
                     orderflow.Swept = true;
                     swingPoint.SweptOrderflow = true;
                     _logger($"Bearish orderflow middle line swept at index {orderflow.Index}");
+
+                    // If ShowSweptOrderflow is true, extend the midline to the sweeping candle
+                    // When ShowMacros is true, only show swept orderflow when swing point is inside Macro time
+                    bool shouldShowSwept = _settings.Patterns.ShowSweptOrderflow && _chart != null && candle.Index.HasValue;
+                    if (shouldShowSwept)
+                    {
+                        bool macroConditionMet = !_settings.Time.ShowMacros || swingPoint.InsideMacro;
+                        if (macroConditionMet)
+                        {
+                            ExtendOrderflowMidline(orderflow, candle.Index.Value);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Process bullish swing point:
+        /// - Check for BreakOrderflowMiddleLine: candle low below Mid and close above Mid
+        /// - Check for SweepOrderflowMiddleLine: candle close below Mid and high above Mid
+        /// </summary>
+        private void ProcessBullishSwingPoint(SwingPoint swingPoint, Candle candle, TimeFrame timeFrame)
+        {
+            // Get all bullish orderflows where IsBrokenThrough=false, Activated=true, IsConfirmed=true
+            var confirmedBullishOrderflows = _orderFlowRepository.Find(of =>
+                of.LevelType == LevelType.Orderflow &&
+                of.Direction == Direction.Up &&
+                of.TimeFrame != null &&
+                of.TimeFrame.Equals(timeFrame) &&
+                !of.IsBrokenThrough &&
+                of.Activated &&
+                of.IsConfirmed);
+
+            foreach (var orderflow in confirmedBullishOrderflows)
+            {
+                double mid = orderflow.Mid;
+
+                // i. BreakOrderflowMiddleLine
+                // If candle's low is below Mid and candle's close is above Mid, mark IsBrokenThrough as true
+                if (candle.Low < mid && candle.Close > mid)
+                {
+                    orderflow.IsBrokenThrough = true;
+                    _logger($"Bullish orderflow middle line broken at index {orderflow.Index}");
+                    continue; // Skip sweep check if already broken through
+                }
+
+                // ii. SweepOrderflowMiddleLine
+                // If candle's close is below Mid and candle's high is above Mid, set Swept=true and swingPoint.SweptOrderflow=true
+                if (!orderflow.Swept && candle.Close < mid && candle.High > mid)
+                {
+                    orderflow.Swept = true;
+                    swingPoint.SweptOrderflow = true;
+                    _logger($"Bullish orderflow middle line swept at index {orderflow.Index}");
 
                     // If ShowSweptOrderflow is true, extend the midline to the sweeping candle
                     // When ShowMacros is true, only show swept orderflow when swing point is inside Macro time
