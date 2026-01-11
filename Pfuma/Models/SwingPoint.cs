@@ -52,29 +52,15 @@ public class SwingPoint
     public double? SweptLiquidityPrice { get; set; }
     public double? SweptFibPrice { get; set; }
 
-    // 369 time pattern properties
-    public bool Has369 { get; set; }
-    public int? Number369 { get; set; }
-    public bool Drawn369 { get; set; }
-
-    // 30-minute cycle properties
-    public bool SweptCycle { get; set; }
-
     // Inducement sweep tracking
     public bool SweptInducement { get; set; }
 
     // Orderflow sweep tracking
     public bool SweptOrderflow { get; set; }
 
-    // SMT Divergence properties
-    public bool HasSMT { get; set; }
-    public SwingPoint SweptCyclePoint { get; set; }
-    public Dictionary<string, double> SMTSymbolPrices { get; set; }
-
-    // Daily liquidity lifespan tracking (for PDH/PDL multi-sweep support)
-    public DateTime? FirstSweptDate { get; set; }  // Date when first swept
-    public int DaysRemaining { get; set; }          // Days remaining before removal
-    public int SweptCount { get; set; }             // Number of times this level has been swept
+    // Daily liquidity sweep tracking (once per day, max 3 days)
+    public DateTime? LastSweptDate { get; set; }   // Date of most recent sweep (prevents same-day sweeps)
+    public int SweptCount { get; set; }             // Number of different days this level has been swept (max 3)
 
     // Score
     public int Score
@@ -118,6 +104,5 @@ public class SwingPoint
         LiquidityType = liquidityType;
         LiquidityName = liquidityName;
         TimeFrame = bar?.TimeFrame; // Get TimeFrame from the Candle
-        SMTSymbolPrices = new Dictionary<string, double>();
     }
 }

@@ -190,38 +190,14 @@ public class OpeningTimeManager : IOpeningTimeManager
             if (!level.IsActive)
                 continue;
 
-            // Check if level has been swept
-            if (level.SwingPoint != null && level.SwingPoint.Swept)
+            // Check if level has been swept on 3 different days (max sweeps reached)
+            if (level.SwingPoint != null && level.SwingPoint.SweptCount >= 3)
             {
-                // Mark first swept date if not already set
-                if (!level.FirstSweptDate.HasValue)
-                {
-                    level.FirstSweptDate = currentTime.Date;
-                    level.DaysRemaining = 3;
-                }
-                else
-                {
-                    // Calculate days elapsed since first sweep
-                    int daysElapsed = (currentTime.Date - level.FirstSweptDate.Value).Days;
-                    level.DaysRemaining = Math.Max(0, 3 - daysElapsed);
+                level.IsActive = false;
+                levelsToRemove.Add(kvp.Key);
 
-                    // If lifespan expired, remove the level
-                    if (level.DaysRemaining == 0)
-                    {
-                        level.IsActive = false;
-                        levelsToRemove.Add(kvp.Key);
-
-                        // Remove from chart
-                        RemoveOpeningLevel(level);
-
-                        // Mark swing point as not swept so it won't be processed anymore
-                        if (level.SwingPoint != null)
-                        {
-                            level.SwingPoint.Swept = false;
-                            level.SwingPoint.FirstSweptDate = null;
-                        }
-                    }
-                }
+                // Remove from chart
+                RemoveOpeningLevel(level);
             }
         }
 
@@ -248,7 +224,5 @@ public class OpeningTimeManager : IOpeningTimeManager
         public string Label { get; set; }
         public SwingPoint SwingPoint { get; set; }
         public bool IsActive { get; set; }
-        public DateTime? FirstSweptDate { get; set; }
-        public int DaysRemaining { get; set; }
     }
 }

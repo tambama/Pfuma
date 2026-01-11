@@ -280,6 +280,9 @@ namespace Pfuma.Services
                 of.Activated &&
                 of.IsConfirmed);
 
+            // Track swept orderflows to find extreme one for visualization
+            var sweptOrderflows = new List<Level>();
+
             foreach (var orderflow in confirmedBearishOrderflows)
             {
                 double mid = orderflow.Mid;
@@ -299,18 +302,22 @@ namespace Pfuma.Services
                 {
                     orderflow.Swept = true;
                     swingPoint.SweptOrderflow = true;
+                    sweptOrderflows.Add(orderflow);
                     _logger($"Bearish orderflow middle line swept at index {orderflow.Index}");
+                }
+            }
 
-                    // If ShowSweptOrderflow is true, extend the midline to the sweeping candle
-                    // When ShowMacros is true, only show swept orderflow when swing point is inside Macro time
-                    bool shouldShowSwept = _settings.Patterns.ShowSweptOrderflow && _chart != null && candle.Index.HasValue;
-                    if (shouldShowSwept)
+            // Only extend the extreme midpoint (lowest Mid for bearish orderflows)
+            if (sweptOrderflows.Count > 0)
+            {
+                bool shouldShowSwept = _settings.Patterns.ShowSweptOrderflow && _chart != null && candle.Index.HasValue;
+                if (shouldShowSwept)
+                {
+                    bool macroConditionMet = !_settings.Time.ShowMacros || swingPoint.InsideMacro;
+                    if (macroConditionMet)
                     {
-                        bool macroConditionMet = !_settings.Time.ShowMacros || swingPoint.InsideMacro;
-                        if (macroConditionMet)
-                        {
-                            ExtendOrderflowMidline(orderflow, candle.Index.Value);
-                        }
+                        var extremeOrderflow = sweptOrderflows.OrderBy(of => of.Mid).First();
+                        ExtendOrderflowMidline(extremeOrderflow, candle.Index.Value);
                     }
                 }
             }
@@ -333,6 +340,9 @@ namespace Pfuma.Services
                 of.Activated &&
                 of.IsConfirmed);
 
+            // Track swept orderflows to find extreme one for visualization
+            var sweptOrderflows = new List<Level>();
+
             foreach (var orderflow in confirmedBullishOrderflows)
             {
                 double mid = orderflow.Mid;
@@ -352,18 +362,22 @@ namespace Pfuma.Services
                 {
                     orderflow.Swept = true;
                     swingPoint.SweptOrderflow = true;
+                    sweptOrderflows.Add(orderflow);
                     _logger($"Bullish orderflow middle line swept at index {orderflow.Index}");
+                }
+            }
 
-                    // If ShowSweptOrderflow is true, extend the midline to the sweeping candle
-                    // When ShowMacros is true, only show swept orderflow when swing point is inside Macro time
-                    bool shouldShowSwept = _settings.Patterns.ShowSweptOrderflow && _chart != null && candle.Index.HasValue;
-                    if (shouldShowSwept)
+            // Only extend the extreme midpoint (highest Mid for bullish orderflows)
+            if (sweptOrderflows.Count > 0)
+            {
+                bool shouldShowSwept = _settings.Patterns.ShowSweptOrderflow && _chart != null && candle.Index.HasValue;
+                if (shouldShowSwept)
+                {
+                    bool macroConditionMet = !_settings.Time.ShowMacros || swingPoint.InsideMacro;
+                    if (macroConditionMet)
                     {
-                        bool macroConditionMet = !_settings.Time.ShowMacros || swingPoint.InsideMacro;
-                        if (macroConditionMet)
-                        {
-                            ExtendOrderflowMidline(orderflow, candle.Index.Value);
-                        }
+                        var extremeOrderflow = sweptOrderflows.OrderByDescending(of => of.Mid).First();
+                        ExtendOrderflowMidline(extremeOrderflow, candle.Index.Value);
                     }
                 }
             }

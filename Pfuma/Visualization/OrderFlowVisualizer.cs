@@ -47,13 +47,7 @@ namespace Pfuma.Visualization
             
             // Draw main rectangle
             DrawOrderFlowRectangle(orderFlow, patternId, objectIds, baseColor);
-            
-            // Draw liquidity sweep line if applicable
-            if (orderFlow.SweptSwingPoint != null && Settings.Patterns.ShowLiquiditySweep)
-            {
-                DrawSweptLiquidityLine(orderFlow, patternId, objectIds);
-            }
-            
+
             // Draw quadrants if enabled
             if (Settings.Patterns.ShowQuadrants && orderFlow.Quadrants != null && orderFlow.Quadrants.Count > 0)
             {
@@ -129,40 +123,7 @@ namespace Pfuma.Visualization
                 
             objectIds.Add(midLineId);
         }
-        
-        private void DrawSweptLiquidityLine(Level orderFlow, string patternId, List<string> objectIds)
-        {
-            var sweptPoint = orderFlow.SweptSwingPoint;
-            string id = $"swept-{orderFlow.Direction}-{orderFlow.Index}-{sweptPoint.Index}";
-            
-            DateTime startTime = sweptPoint.Time;
-            double price = sweptPoint.Price;
-            
-            // Get the time of the actual sweeping candle
-            DateTime endTime;
-            if (orderFlow.IndexOfSweepingCandle >= 0 && 
-                orderFlow.IndexOfSweepingCandle < Chart.BarsTotal)
-            {
-                endTime = Chart.Bars[orderFlow.IndexOfSweepingCandle].OpenTime;
-            }
-            else
-            {
-                endTime = orderFlow.Direction == Direction.Up ? orderFlow.HighTime : orderFlow.LowTime;
-            }
-            
-            Chart.DrawTrendLine(
-                id,
-                startTime,
-                price,
-                endTime,
-                price,
-                GetColorFromString(Settings.Colors.WarningColor),
-                Constants.Drawing.DefaultLineThickness,
-                LineStyle.Dots);
-                
-            objectIds.Add(id);
-        }
-        
+
         private void DrawQuadrantLevels(Level orderFlow, string patternId, List<string> objectIds)
         {
             DateTime startTime, endTime;

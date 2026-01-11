@@ -68,9 +68,6 @@ namespace Pfuma
         [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
 
-        [Parameter("369 Pattern", DefaultValue = false, Group = "Patterns")]
-        public bool Show369 { get; set; }
-
         [Parameter("Clear Swept", DefaultValue = true, Group = "Patterns")]
         public bool ClearSwept { get; set; }
 
@@ -80,13 +77,6 @@ namespace Pfuma
 
         [Parameter("Risk Reward", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0, Group = "Signals")]
         public double RiskReward { get; set; }
-
-        // SMT Divergence
-        [Parameter("Show SMT", DefaultValue = false, Group = "SMT")]
-        public bool ShowSMT { get; set; }
-
-        [Parameter("SMT Symbols", DefaultValue = "EURUSD,GBPUSD", Group = "SMT")]
-        public string SMTSymbols { get; set; }
 
         // Visualization
         [Parameter("Quadrants", DefaultValue = false, Group = "Visualization")]
@@ -123,9 +113,6 @@ namespace Pfuma
         [Parameter("OTE Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowOTEFibLevels { get; set; }
 
-        [Parameter("30 Minute Cycles", DefaultValue = false, Group = "Time")]
-        public bool ShowCycles30 { get; set; }
-        
         [Parameter("Extended Fib", DefaultValue = true, Group = "Fibonacci")]
         public bool ShowExtendedFib { get; set; }
         
@@ -142,12 +129,6 @@ namespace Pfuma
         // Telegram
         [Parameter("Send Liquidity", DefaultValue = false, Group = "Telegram")]
         public bool SendLiquidity { get; set; }
-
-        [Parameter("Send Cycles", DefaultValue = false, Group = "Telegram")]
-        public bool SendCycles { get; set; }
-
-        [Parameter("Send SMT", DefaultValue = false, Group = "Telegram")]
-        public bool SendSMT { get; set; }
 
         [Parameter("Send CISD", DefaultValue = false, Group = "Telegram")]
         public bool SendCISD { get; set; }
@@ -203,12 +184,6 @@ namespace Pfuma
         [Output("Stops", LineColor = "Red", PlotType = PlotType.Points)]
         public IndicatorDataSeries Stops { get; set; }
 
-        [Output("369 Bullish", LineColor = "Green", PlotType = PlotType.Points)]
-        public IndicatorDataSeries Pattern369Bullish { get; set; }
-
-        [Output("369 Bearish", LineColor = "Red", PlotType = PlotType.Points)]
-        public IndicatorDataSeries Pattern369Bearish { get; set; }
-
         #endregion
         
         #region Private Fields
@@ -230,12 +205,6 @@ namespace Pfuma
         private FibonacciVisualizer _fibonacciVisualizer;
         private IFibonacciSweepDetector _fibonacciSweepDetector;
         private SignalManager _signalManager;
-        private Pattern369Service _pattern369Service;
-        private Cycle30Manager _cycle30Manager;
-        private Cycle30Visualizer _cycle30Visualizer;
-        private ISMTDetector _smtDetector;
-        private SMTVisualizer _smtVisualizer;
-
         // Repositories
         private IRepository<SwingPoint> _swingPointRepository;
         private IRepository<Level> _levelRepository;
@@ -269,7 +238,6 @@ namespace Pfuma
         private IVisualization<Level> _unicornVisualizer;
         private IVisualization<Level> _propulsionBlockVisualizer;
         private StatsVisualizer _statsVisualizer;
-        private Pattern369Visualizer _pattern369Visualizer;
 
         // Bar tracking
         private Bar _previousBar;
@@ -344,7 +312,6 @@ namespace Pfuma
                     ShowOTE = ShowOTE,
                     ShowPropulsionBlock = ShowPropulsionBlock,
                     ShowUnicorn = ShowUnicorn,
-                    Show369 = Show369,
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
                     ShowInducement = ShowInducement,
@@ -356,15 +323,12 @@ namespace Pfuma
                     MacroFilter = MacroFilter,
                     ShowDailyLevels = ShowDailyLevels,
                     ShowSessionLevels = ShowSessionLevels,
-                    ShowCycles30 = ShowCycles30,
                     UtcOffset = UtcOffset
                 },
                 Notifications = new NotificationSettings
                 {
                     EnableLog = EnableLog,
                     SendLiquidity = SendLiquidity,
-                    SendCycles = SendCycles,
-                    SendSMT = SendSMT,
                     SendCISD = SendCISD,
                     SendOrderBlock = SendOrderBlock,
                     SendInsideKeyLevel = SendInsideKeyLevel
@@ -389,7 +353,7 @@ namespace Pfuma
             _eventAggregator = new EventAggregator();
 
             // Enable Telegram if any of the send flags are enabled
-            bool enableTelegram = SendLiquidity || SendCycles || SendSMT || SendCISD || SendOrderBlock || SendInsideKeyLevel;
+            bool enableTelegram = SendLiquidity || SendCISD || SendOrderBlock || SendInsideKeyLevel;
 
             _notificationService = new NotificationService(
                 EnableLog,
@@ -402,19 +366,6 @@ namespace Pfuma
 
             _signalManager = new SignalManager(Chart, _notificationService);
             _statsVisualizer = new StatsVisualizer(Chart, _signalManager);
-
-            // Only initialize 369 service if Show369 is enabled
-            if (Show369)
-            {
-                _pattern369Service = new Pattern369Service(UtcOffset);
-            }
-
-            // Initialize SMT components if ShowSMT is enabled
-            if (ShowSMT)
-            {
-                _smtDetector = new SMTDetector(_eventAggregator, this, _candleManager, EnableLog ? Print : null);
-                _smtDetector.Initialize(SMTSymbols);
-            }
         }
         
         private void InitializeRepositories()
@@ -437,27 +388,12 @@ namespace Pfuma
             _htfOrderBlockVisualizer = new HtfOrderBlockVisualizer(Chart, _settings);
             _unicornVisualizer = new UnicornVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
             _propulsionBlockVisualizer = new PropulsionBlockVisualizer(Chart, _settings.Visualization, EnableLog ? Print : null);
-            // Only initialize 369 visualizer if Show369 is enabled
-            if (Show369)
-            {
-                _pattern369Visualizer = new Pattern369Visualizer(Chart, _settings.Visualization, Pattern369Bullish, Pattern369Bearish, UtcOffset, EnableLog ? Print : null);
-            }
-
-            // Only initialize SMT visualizer if ShowSMT is enabled
-            if (ShowSMT)
-            {
-                _smtVisualizer = new SMTVisualizer(Chart, _eventAggregator, ShowSMT, EnableLog ? Print : null);
-            }
         }
         
         private void InitializeServicesAndAnalyzers()
         {
             // Initialize candle manager
             _candleManager = new CandleManager(Bars, TimeFrame, Chart, UtcOffset, EnableLog ? Print : null, Timeframes, ShowHighTimeframeCandle, ShowHtfSwingPoints, _eventAggregator);
-
-            // Initialize cycle manager and visualizer
-            _cycle30Manager = new Cycle30Manager(_candleManager, Chart, UtcOffset, EnableLog ? Print : null);
-            _cycle30Visualizer = new Cycle30Visualizer(Chart, _settings.Time, _cycle30Manager, _candleManager, EnableLog ? Print : null);
 
             // Initialize swing point manager
             _swingPointManager = new SwingPointManager(SwingHighs, SwingLows);
@@ -470,14 +406,11 @@ namespace Pfuma
                 Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, ShowOpeningTimes, UtcOffset);
             
-            // Now pass TimeManager and SMT re-evaluation handler to SwingPointDetector
-            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager, HandleSMTReEvaluation);
+            // Now pass TimeManager to SwingPointDetector
+            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager);
             
             // Initialize liquidity manager
             _liquidityManager = new LiquidityManager(Chart, _candleManager, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
-
-            // Set cycle components in liquidity manager for sweep detection
-            _liquidityManager.SetCycleComponents(_cycle30Manager, _cycle30Visualizer);
 
             // Set opening time manager for open level sweep visualization
             _liquidityManager.SetOpeningTimeManager(_timeManager.OpeningTimeManager);
@@ -601,9 +534,6 @@ namespace Pfuma
                 if (index < Bars.Count && Bars[index] != null)
                 {
                     _timeManager?.ProcessBar(index, Bars[index].OpenTime);
-
-                    // Process 30-minute cycles
-                    _cycle30Manager?.ProcessBar(index, Bars[index].OpenTime);
                 }
                 
                 // Update Fibonacci visualizer settings
@@ -619,12 +549,6 @@ namespace Pfuma
                     _fibonacciVisualizer.UpdateSettingsVisibility();
                 }
 
-                // Draw 30-minute cycle rectangles if enabled
-                if (ShowCycles30 && _cycle30Visualizer != null)
-                {
-                    _cycle30Visualizer.DrawCurrentCycle(index);
-                }
-                
                 // 2. Check CISD activation on previous bar
                 if (ShowCISD && _cisdDetector != null && index > 1)
                 {
@@ -800,12 +724,6 @@ namespace Pfuma
         
         private void OnSwingPointRemoved(SwingPoint removedPoint)
         {
-            // Remove 369 pattern drawing if this swing point has one
-            if (removedPoint?.Has369 == true && _pattern369Visualizer != null)
-            {
-                _pattern369Visualizer.RemovePattern369(removedPoint);
-            }
-
             _eventAggregator.Publish(new SwingPointRemovedEvent(removedPoint));
         }
         
@@ -825,46 +743,6 @@ namespace Pfuma
                 {
                     //DrawInsideMacroIcon(evt.SwingPoint);
                 }
-
-                // 369 Pattern Detection and Visualization - only if Show369 is enabled
-                if (Show369 && _pattern369Service != null && _pattern369Visualizer != null)
-                {
-                    var (has369, number369) = _pattern369Service.DetectPattern(evt.SwingPoint);
-                    if (has369)
-                    {
-                        // Update swing point properties
-                        evt.SwingPoint.Has369 = true;
-                        evt.SwingPoint.Number369 = number369;
-
-                        // Visualize 369 pattern
-                        _pattern369Visualizer.DrawPattern369(evt.SwingPoint);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handle SMT re-evaluation when swing points are replaced
-        /// </summary>
-        public void HandleSMTReEvaluation(SwingPoint oldSwingPoint, SwingPoint newSwingPoint)
-        {
-            if (!ShowSMT || _smtDetector == null || _smtVisualizer == null)
-                return;
-
-            try
-            {
-                // Re-evaluate SMT using the detector
-                if (_smtDetector is SMTDetector detector)
-                {
-                    detector.ReEvaluateSMT(newSwingPoint, oldSwingPoint);
-                }
-
-                // Handle visualization update
-                _smtVisualizer.HandleSwingPointUpdate(oldSwingPoint, newSwingPoint);
-            }
-            catch (Exception ex)
-            {
-                Print($"Error handling SMT re-evaluation: {ex.Message}");
             }
         }
 

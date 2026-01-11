@@ -41,8 +41,6 @@ public class Candle
     public int SweptFibonacci { get; set; }
     public bool SweptOteFib { get; set; }
     public bool InsidePda { get; set; }
-    public bool SweptCycle { get; set; }
-    public bool HasSMT { get; set; }
 
     // FVG tracking
     public bool IsInFvg { get; set; }
