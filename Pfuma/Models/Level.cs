@@ -9,6 +9,7 @@ namespace Pfuma.Models
     {
         public Level(LevelType levelType, double low, double high, DateTime lowTime, DateTime highTime, DateTime? midTime = null, Direction direction = Direction.Up, int index = 0, int indexHigh = 0, int indexLow = 0, int indexMid = 0, Zone zone = Zone.Equilibrium, DateTime? stretchTo = null, bool isConfirmed = false, double? entry = 0)
         {
+            Time = highTime.Date;
             Id = Guid.NewGuid().ToString();
             LevelType = levelType;
             Low = low;
@@ -28,6 +29,7 @@ namespace Pfuma.Models
             SweptSwingPoints = new List<SwingPoint>();
         }
 
+        public DateTime Time { get; set; }
         public string Id { get; private set; }
         public Zone Zone { get; set; }
         public LevelType LevelType { get; set; }
@@ -134,7 +136,7 @@ namespace Pfuma.Models
         }
 
         // Whether this level is active (not liquidity swept and, if has quadrants, at least one quadrant is not swept)
-        public bool IsActive => !IsLiquiditySwept && (Quadrants.Count == 0 || Quadrants.Any(q => !q.IsSwept));
+        public bool IsActive => !IsLiquiditySwept; //&& (Quadrants.Count == 0 || Quadrants.Any(q => !q.IsSwept));
 
         // Initialize quadrants
         public void InitializeQuadrants()

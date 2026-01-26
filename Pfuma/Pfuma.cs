@@ -46,6 +46,9 @@ namespace Pfuma
         
         [Parameter("Rejection Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowRejectionBlock { get; set; }
+
+        [Parameter("Next Array", DefaultValue = false, Group = "Patterns")]
+        public bool ShowNextArray { get; set; }
         
         [Parameter("Order Blocks", DefaultValue = false, Group = "Patterns")]
         public bool ShowOrderBlock { get; set; }
@@ -242,6 +245,9 @@ namespace Pfuma
         // Bar tracking
         private Bar _previousBar;
         private int _previousBarIndex;
+
+        // Managers
+        private NextArrayManager _nextArrayManager;
         
         #endregion
         
@@ -438,6 +444,13 @@ namespace Pfuma
             _orderFlowManager = new OrderFlowManager(
                 _eventAggregator, _levelRepository, _orderFlowVisualizer, Chart, _settings, EnableLog ? Print : null);
 
+            // Initialize NextArrayManager if enabled
+            if (ShowNextArray)
+            {
+                _nextArrayManager = new NextArrayManager(
+                    _eventAggregator, _levelRepository, Chart, _settings, ExtensionOpacity, EnableLog ? Print : null);
+            }
+
             _rejectionBlockDetector = new RejectionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _rejectionBlockVisualizer, _swingPointDetector, _settings, EnableLog ? Print : null);
             
@@ -582,6 +595,12 @@ namespace Pfuma
                 if (ShowRejectionBlock)
                 {
                     _rejectionBlockDetector?.Detect(_previousBarIndex);
+                }
+
+                // Check if next arrays are broken
+                if (ShowNextArray && _nextArrayManager != null)
+                {
+                    _nextArrayManager.CheckNextArraysBroken(candle);
                 }
                 
                 if (ShowOrderBlock)
@@ -743,6 +762,7 @@ namespace Pfuma
                 {
                     //DrawInsideMacroIcon(evt.SwingPoint);
                 }
+
             }
         }
 
@@ -947,7 +967,10 @@ namespace Pfuma
                 // Clear repositories
                 _swingPointRepository?.Clear();
                 _levelRepository?.Clear();
-                
+
+                // Dispose managers
+                _nextArrayManager?.Dispose();
+
                 // Clear event aggregator
                 _eventAggregator?.Clear();
                 
