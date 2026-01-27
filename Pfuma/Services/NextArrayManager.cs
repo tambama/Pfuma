@@ -78,13 +78,13 @@ namespace Pfuma.Services
 
             // Find nearest bullish rejection block (below current price)
             var nearestBullish = rejectionBlocks
-                .Where(rb => rb.Direction == Direction.Up && rb.High <= currentPrice)
+                .Where(rb => rb.Direction == Direction.Up)
                 .OrderByDescending(rb => rb.High)
                 .FirstOrDefault();
 
             // Find nearest bearish rejection block (above current price)
             var nearestBearish = rejectionBlocks
-                .Where(rb => rb.Direction == Direction.Down && rb.Low >= currentPrice)
+                .Where(rb => rb.Direction == Direction.Down)
                 .OrderBy(rb => rb.Low)
                 .FirstOrDefault();
 
