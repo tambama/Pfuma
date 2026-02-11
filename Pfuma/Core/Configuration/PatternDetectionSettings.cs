@@ -34,6 +34,9 @@ public class PatternDetectionSettings
     public bool ShowInsideKeyLevel { get; set; } = false;
     public bool ShowInducement { get; set; } = false;
 
+    // 3 Drives Pattern
+    public bool Show3DrivesPattern { get; set; } = false;
+
     // Swept Level Management
     public bool ClearSwept { get; set; } = true;
 }

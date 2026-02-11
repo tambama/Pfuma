@@ -34,7 +34,7 @@ public class FibonacciLevel
         }
         else if (fibType == FibType.CISD)
         {
-            TrackedRatios = new double[] { -2.0, -3.75, -4.0 };
+            TrackedRatios = new double[] { -2.0, -2.25, -3.75, -4.0 };
         }
         else if (fibType == FibType.Ote)
         {

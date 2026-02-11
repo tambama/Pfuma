@@ -71,6 +71,9 @@ namespace Pfuma
         [Parameter("Unicorn", DefaultValue = false, Group = "Patterns")]
         public bool ShowUnicorn { get; set; }
 
+        [Parameter("3 Drives Pattern", DefaultValue = false, Group = "Patterns")]
+        public bool Show3DrivesPattern { get; set; }
+
         [Parameter("Clear Swept", DefaultValue = true, Group = "Patterns")]
         public bool ClearSwept { get; set; }
 
@@ -187,6 +190,12 @@ namespace Pfuma
         [Output("Stops", LineColor = "Red", PlotType = PlotType.Points)]
         public IndicatorDataSeries Stops { get; set; }
 
+        [Output("3 Drives Buy", LineColor = "Green", PlotType = PlotType.Points, Thickness = 4)]
+        public IndicatorDataSeries ThreeDrivesBuy { get; set; }
+
+        [Output("3 Drives Sell", LineColor = "Pink", PlotType = PlotType.Points, Thickness = 4)]
+        public IndicatorDataSeries ThreeDrivesSell { get; set; }
+
         #endregion
         
         #region Private Fields
@@ -226,7 +235,8 @@ namespace Pfuma
         private HtfOrderBlockDetector _htfOrderBlockDetector;
         private UnicornDetector _unicornDetector;
         private PropulsionBlockDetector _propulsionBlockDetector;
-        
+        private ThreeDrivesPatternDetector _threeDrivesPatternDetector;
+
         // Visualizers
         private IVisualization<Level> _fvgVisualizer;
         private IVisualization<Level> _htfFvgVisualizer;
@@ -321,6 +331,7 @@ namespace Pfuma
                     ShowQuadrants = ShowQuadrants,
                     ShowInsideKeyLevel = ShowInsideKeyLevel,
                     ShowInducement = ShowInducement,
+                    Show3DrivesPattern = Show3DrivesPattern,
                     ClearSwept = ClearSwept,
                 },
                 Time = new TimeSettings
@@ -476,6 +487,8 @@ namespace Pfuma
             _propulsionBlockDetector = new PropulsionBlockDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _propulsionBlockVisualizer, _swingPointRepository, _settings, EnableLog ? Print : null);
 
+            _threeDrivesPatternDetector = new ThreeDrivesPatternDetector(_eventAggregator, _nextArrayManager, _settings, ThreeDrivesBuy, ThreeDrivesSell);
+
             // HTF FVG detector (uses specialized HTF FVG visualizer)
             _htfFvgDetector = new HtfFvgDetector(
                 Chart, _candleManager, _eventAggregator, _levelRepository, _htfFvgVisualizer, _settings, EnableLog ? Print : null);
@@ -597,12 +610,13 @@ namespace Pfuma
                     _rejectionBlockDetector?.Detect(_previousBarIndex);
                 }
 
+
                 // Check if next arrays are broken
                 if (ShowNextArray && _nextArrayManager != null)
                 {
                     _nextArrayManager.CheckNextArraysBroken(candle);
                 }
-                
+
                 if (ShowOrderBlock)
                 {
                     _orderBlockDetector?.Detect(_previousBarIndex);
@@ -970,6 +984,7 @@ namespace Pfuma
 
                 // Dispose managers
                 _nextArrayManager?.Dispose();
+                _threeDrivesPatternDetector?.Dispose();
 
                 // Clear event aggregator
                 _eventAggregator?.Clear();

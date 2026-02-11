@@ -26,6 +26,9 @@ namespace Pfuma.Services
         private Level _nextBullishArray;
         private Level _nextBearishArray;
 
+        public Level NextBullishArray => _nextBullishArray;
+        public Level NextBearishArray => _nextBearishArray;
+
         // Object IDs for chart elements
         private const string NextBullishArrayId = "next-array-bullish";
         private const string NextBearishArrayId = "next-array-bearish";
