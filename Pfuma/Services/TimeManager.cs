@@ -16,10 +16,14 @@ namespace Pfuma.Services
         private readonly ISessionLevelManager _sessionLevelManager;
         private readonly ITimeCycleManager _timeCycleManager;
         private readonly IOpeningTimeManager _openingTimeManager;
+        private readonly RTOGManager _rtogManager;
+        private readonly FpfvgManager _fpfvgManager;
         private readonly int _utcOffset;
         private readonly bool _showDailyLevels;
         private readonly bool _showSessionLevels;
         private readonly bool _showOpeningTimes;
+        private readonly bool _showRTOG;
+        private readonly bool _showFPFVG;
         private DateTime _lastProcessedDay = DateTime.MinValue;
 
         public IOpeningTimeManager OpeningTimeManager => _openingTimeManager;
@@ -34,12 +38,16 @@ namespace Pfuma.Services
             bool showDailyLevels = true,
             bool showSessionLevels = true,
             bool showOpeningTimes = false,
+            bool showRTOG = false,
+            bool showFPFVG = false,
             int utcOffset = -4)
         {
             _utcOffset = utcOffset;
             _showDailyLevels = showDailyLevels;
             _showSessionLevels = showSessionLevels;
             _showOpeningTimes = showOpeningTimes;
+            _showRTOG = showRTOG;
+            _showFPFVG = showFPFVG;
 
             _macroTimeManager = new MacroTimeManager(
                 chart,
@@ -68,6 +76,19 @@ namespace Pfuma.Services
             _timeCycleManager = new TimeCycleManager(
                 candleManager,
                 eventAggregator);
+
+            _rtogManager = new RTOGManager(
+                candleManager,
+                chart,
+                showRTOG,
+                utcOffset);
+
+            _fpfvgManager = new FpfvgManager(
+                candleManager,
+                chart,
+                eventAggregator,
+                showFPFVG,
+                utcOffset);
         }
 
         /// <summary>
@@ -147,6 +168,18 @@ namespace Pfuma.Services
 
                 // Process time cycles
                 _timeCycleManager?.ProcessBar(index, marketTime);
+
+                // Process RTOG
+                if (_showRTOG)
+                {
+                    _rtogManager?.ProcessBar(index, marketTime);
+                }
+
+                // Process FPFVG
+                if (_showFPFVG)
+                {
+                    _fpfvgManager?.ProcessBar(index, marketTime);
+                }
             }
             catch (Exception)
             {

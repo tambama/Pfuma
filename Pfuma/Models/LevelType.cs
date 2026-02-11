@@ -28,4 +28,8 @@ public enum LevelType
     OrderBlock,
     [Description("Propulsion Block")]
     PropulsionBlock,
+    [Description("RTOG")]
+    RTOG,
+    [Description("FPFVG")]
+    FPFVG,
 }

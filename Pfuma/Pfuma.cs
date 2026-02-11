@@ -110,6 +110,12 @@ namespace Pfuma
         [Parameter("Opening Times", DefaultValue = false, Group = "Time")]
         public bool ShowOpeningTimes { get; set; }
 
+        [Parameter("RTOG", DefaultValue = false, Group = "Time")]
+        public bool ShowRTOG { get; set; }
+
+        [Parameter("FPFVG", DefaultValue = false, Group = "Time")]
+        public bool ShowFPFVG { get; set; }
+
         [Parameter("Cycle Fib Levels", DefaultValue = false, Group = "Fibonacci")]
         public bool ShowCycleFibLevels { get; set; }
 
@@ -340,6 +346,8 @@ namespace Pfuma
                     MacroFilter = MacroFilter,
                     ShowDailyLevels = ShowDailyLevels,
                     ShowSessionLevels = ShowSessionLevels,
+                    ShowRTOG = ShowRTOG,
+                    ShowFPFVG = ShowFPFVG,
                     UtcOffset = UtcOffset
                 },
                 Notifications = new NotificationSettings
@@ -421,7 +429,7 @@ namespace Pfuma
             // Initialize time manager
             _timeManager = new TimeManager(
                 Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
-                ShowMacros, ShowDailyLevels, ShowSessionLevels, ShowOpeningTimes, UtcOffset);
+                ShowMacros, ShowDailyLevels, ShowSessionLevels, ShowOpeningTimes, ShowRTOG, ShowFPFVG, UtcOffset);
             
             // Now pass TimeManager to SwingPointDetector
             _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager);
