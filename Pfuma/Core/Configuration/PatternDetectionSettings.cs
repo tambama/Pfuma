@@ -11,6 +11,7 @@ public class PatternDetectionSettings
         
     // FVG
     public bool ShowFVG { get; set; } = false;
+    public bool IncludeGaps { get; set; } = false;
     public bool ShowHtfFvg { get; set; } = false;
     public bool ShowHighTimeframeCandle { get; set; } = false;
     public bool ShowIFvg { get; set; } = false;

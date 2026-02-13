@@ -29,6 +29,9 @@ namespace Pfuma
         [Parameter("FVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowFVG { get; set; }
 
+        [Parameter("Include Gaps", DefaultValue = false, Group = "Patterns")]
+        public bool IncludeGaps { get; set; }
+
         [Parameter("iFVG", DefaultValue = false, Group = "Patterns")]
         public bool ShowIFvg { get; set; }
 
@@ -315,7 +318,8 @@ namespace Pfuma
             {
                 Patterns = new PatternDetectionSettings
                 {
-                    ShowFVG = ShowFVG,  // Only for LTF FVG visualization
+                    ShowFVG = ShowFVG,
+                    IncludeGaps = IncludeGaps,
                     ShowHtfFvg = ShowHtfFvg,  // Only for HTF FVG visualization
                     ShowHighTimeframeCandle = ShowHighTimeframeCandle,  // For HTF candle high/low dots
                     ShowIFvg = ShowIFvg,  // Only for iFVG visualization

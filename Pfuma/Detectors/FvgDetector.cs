@@ -80,16 +80,28 @@ namespace Pfuma.Detectors
             // Simple boundary calculation without volume imbalance analysis
             double low = candle1.High;   // Top of first candle
             double high = candle3.Low;   // Bottom of third candle
-            
-            // Validate boundaries to ensure valid FVG  
+
+            // Include gaps between candle bodies when enabled
+            if (Settings.Patterns.IncludeGaps)
+            {
+                // If candle1 is bullish and its close is below candle2's open, extend low to candle1's close
+                if (candle1.Direction == Direction.Up && candle1.Close < candle2.Open)
+                    low = candle1.Close;
+
+                // If candle2's close is below candle3's open, extend high to candle3's open
+                if (candle2.Direction == Direction.Up && candle3.Direction == Direction.Up && candle2.Close < candle3.Open)
+                    high = candle3.Open;
+            }
+
+            // Validate boundaries to ensure valid FVG
             if (low >= high)
                 return null; // Invalid gap - boundaries are inverted or equal
-            
+
             // Create a bullish FVG level with proper index assignments
             var bullishFvg = new Level(
                 LevelType.FairValueGap,
-                low,                    // Low boundary (top of first candle)
-                high,                   // High boundary (bottom of third candle)
+                low,                    // Low boundary
+                high,                   // High boundary
                 candle1.Time,           // Start time reference
                 candle3.Time,           // End time reference
                 candle2.Time,           // Middle candle time
@@ -133,16 +145,28 @@ namespace Pfuma.Detectors
             // Simple boundary calculation without volume imbalance analysis
             double high = candle1.Low;   // Bottom of first candle
             double low = candle3.High;   // Top of third candle
-            
-            // Validate boundaries to ensure valid FVG  
+
+            // Include gaps between candle bodies when enabled
+            if (Settings.Patterns.IncludeGaps)
+            {
+                // If candle1 is bearish and its close is above candle2's open, extend high to candle1's close
+                if (candle1.Direction == Direction.Down && candle1.Close > candle2.Open)
+                    high = candle1.Close;
+
+                // If candle2's close is above candle3's open, extend low to candle3's open
+                if (candle2.Direction == Direction.Down && candle3.Direction == Direction.Down && candle2.Close > candle3.Open)
+                    low = candle3.Open;
+            }
+
+            // Validate boundaries to ensure valid FVG
             if (low >= high)
                 return null; // Invalid gap - boundaries are inverted or equal
-            
+
             // Create a bearish FVG level with proper index assignments
             var bearishFvg = new Level(
                 LevelType.FairValueGap,
-                low,                    // Low boundary (top of third candle)
-                high,                   // High boundary (bottom of first candle)
+                low,                    // Low boundary
+                high,                   // High boundary
                 candle3.Time,           // Start time reference (reversed for bearish)
                 candle1.Time,           // End time reference (reversed for bearish)
                 candle2.Time,           // Middle candle time

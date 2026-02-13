@@ -175,7 +175,7 @@ public class RTOGManager
             level.Mid,
             rectEndTime,
             level.Mid,
-            Color.FromArgb(60, color),
+            Color.FromArgb(100, color),
             1,
             LineStyle.Dots
         );
@@ -220,7 +220,7 @@ public class RTOGManager
                 quadrant.Price,
                 endTime,
                 quadrant.Price,
-                Color.FromArgb(60, color),
+                Color.FromArgb(90, color),
                 1,
                 LineStyle.DotsRare
             );
