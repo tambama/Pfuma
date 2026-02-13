@@ -13,7 +13,7 @@ namespace Pfuma.Services.Time;
 /// </summary>
 public interface IOpeningTimeManager
 {
-    void ProcessBar(int currentIndex, DateTime marketTime);
+    void ProcessBar(int currentIndex, DateTime marketTime, bool isNewDay);
     void UpdateSweptLevel(SwingPoint openLevel, SwingPoint sweepingPoint);
 }
 
@@ -30,7 +30,6 @@ public class OpeningTimeManager : IOpeningTimeManager
     private bool _set18 = false;
     private bool _set00 = false;
     private bool _set930 = false;
-    private DateTime _lastProcessedDate = DateTime.MinValue;
 
     public OpeningTimeManager(
         CandleManager candleManager,
@@ -47,22 +46,20 @@ public class OpeningTimeManager : IOpeningTimeManager
         _openingLevels = new Dictionary<string, OpeningLevel>();
     }
 
-    public void ProcessBar(int currentIndex, DateTime marketTime)
+    public void ProcessBar(int currentIndex, DateTime marketTime, bool isNewDay)
     {
         if (!_showOpeningTimes || currentIndex >= _candleManager.Count) return;
 
         var currentCandle = _candleManager.GetCandle(currentIndex);
         if (currentCandle == null) return;
 
-        // Reset trackers when we cross into a new day (at 18:00 market time, which marks the new trading day)
-        DateTime currentDay = marketTime.Hour >= 18 ? marketTime.Date : marketTime.Date.AddDays(-1);
-        if (_lastProcessedDate != DateTime.MinValue && currentDay > _lastProcessedDate)
+        // Reset trackers when we cross into a new trading day
+        if (isNewDay)
         {
             _set18 = false;
             _set00 = false;
             _set930 = false;
         }
-        _lastProcessedDate = currentDay;
 
         // Check if current candle's hour is 18 and 18:00 line hasn't been set yet for this day
         if (marketTime.Hour == 18 && !_set18)

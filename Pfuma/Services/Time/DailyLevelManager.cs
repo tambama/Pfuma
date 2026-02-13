@@ -70,8 +70,13 @@ public class DailyLevelManager : IDailyLevelManager
         var candlesInRange = _candleManager.GetCandlesBetween(dayStart, dayEnd);
         if (candlesInRange.Count == 0) return;
 
-        var highCandle = candlesInRange.OrderByDescending(c => c.High).First();
-        var lowCandle = candlesInRange.OrderBy(c => c.Low).First();
+        Candle highCandle = candlesInRange[0], lowCandle = candlesInRange[0];
+        for (int i = 1; i < candlesInRange.Count; i++)
+        {
+            var c = candlesInRange[i];
+            if (c.High > highCandle.High) highCandle = c;
+            if (c.Low < lowCandle.Low) lowCandle = c;
+        }
 
         // Check if high and low occur at the same index
         if (highCandle.Index == lowCandle.Index)

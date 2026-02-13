@@ -15,9 +15,8 @@ public class FpfvgManager
     private readonly IEventAggregator _eventAggregator;
     private readonly bool _showFpfvg;
     private readonly int _utcOffset;
-    private readonly List<FpfvgLevel> _fpfvgs = new();
+    private readonly List<TimeGapLevel> _fpfvgs = new();
 
-    private DateTime _lastProcessedDate = DateTime.MinValue;
     private bool _past930;
     private bool _capturedToday;
     private double _currentPrice;
@@ -46,7 +45,7 @@ public class FpfvgManager
         }
     }
 
-    public void ProcessBar(int currentIndex, DateTime marketTime)
+    public void ProcessBar(int currentIndex, DateTime marketTime, bool isNewDay)
     {
         if (!_showFpfvg || currentIndex >= _candleManager.Count) return;
 
@@ -55,15 +54,11 @@ public class FpfvgManager
 
         _currentPrice = currentCandle.Close;
 
-        // Reset trackers at 9:30 each day
-        DateTime currentDay = marketTime.Hour >= 18 ? marketTime.Date : marketTime.Date.AddDays(-1);
-        if (_lastProcessedDate != DateTime.MinValue && currentDay > _lastProcessedDate)
+        if (isNewDay)
         {
-            // New trading day started at 18:00 — clear the 9:30 gate so we wait for the next 9:30
             _past930 = false;
             _index930 = -1;
         }
-        _lastProcessedDate = currentDay;
 
         // At 9:30, reset capturedToday and start accepting FVGs (only between 9:30 and 18:00)
         if (!_past930 && marketTime.Hour < 18 &&
@@ -74,10 +69,7 @@ public class FpfvgManager
             _index930 = currentIndex;
         }
 
-        // Process lifespan - remove expired FPFVGs
         ProcessLifespan(marketTime);
-
-        // Redraw to keep the closest 3 to current price
         UpdateDrawnFpfvgs();
     }
 
@@ -88,13 +80,9 @@ public class FpfvgManager
 
         var fvg = evt.FvgLevel;
 
-        // The FVG's first candle must be at or after the 9:30 bar
-        // fvg.Index is candle1 (the first candle of the 3-candle FVG pattern)
-        // This ensures the FVG formed after 9:30, not before
         if (_index930 >= 0 && fvg.Index < _index930)
             return;
 
-        // Clone the FVG data into an FPFVG level
         var fpfvgLevel = new Level(
             LevelType.FPFVG,
             fvg.Low,
@@ -111,7 +99,7 @@ public class FpfvgManager
 
         fpfvgLevel.InitializeQuadrants();
 
-        var fpfvg = new FpfvgLevel
+        var fpfvg = new TimeGapLevel
         {
             Level = fpfvgLevel,
             CreatedDate = fvg.MidTime,
@@ -125,7 +113,7 @@ public class FpfvgManager
         while (_fpfvgs.Count > MaxCollection)
         {
             var oldest = _fpfvgs[0];
-            RemoveFpfvg(oldest);
+            TimeGapDrawingHelper.RemoveTimeGap(_chart, oldest);
             _fpfvgs.RemoveAt(0);
         }
 
@@ -143,90 +131,17 @@ public class FpfvgManager
         }
     }
 
-    private void DrawFpfvg(FpfvgLevel fpfvg)
+    private void DrawFpfvg(TimeGapLevel fpfvg)
     {
         if (_chart == null || fpfvg?.Level == null) return;
 
         var level = fpfvg.Level;
-        string id = $"fpfvg-{level.Index}-{level.Direction}";
-        fpfvg.ChartId = id;
+        fpfvg.ChartId = $"fpfvg-{level.Index}-{level.Direction}";
 
         Color color = Color.Pink;
-        Color fillColor = Color.FromArgb(10, color);
-
         DateTime startTime = level.MidTime;
-        DateTime endTime = fpfvg.CreatedDate.AddDays(LifespanDays);
 
-        // Draw extended rectangle
-        string rectId = $"{id}-rect";
-        var rect = _chart.DrawRectangle(
-            rectId,
-            startTime,
-            level.High,
-            endTime,
-            level.Low,
-            fillColor,
-            1
-        );
-        rect.IsFilled = true;
-
-        // Draw dotted midline
-        string midId = $"{id}-mid";
-        _chart.DrawTrendLine(
-            midId,
-            startTime,
-            level.Mid,
-            endTime,
-            level.Mid,
-            Color.FromArgb(60, color),
-            1,
-            LineStyle.Dots
-        );
-
-        // Draw quadrant lines
-        if (level.Quadrants != null && level.Quadrants.Count > 0)
-        {
-            DrawQuadrants(fpfvg, color);
-        }
-
-        // Draw label
-        string labelId = $"{id}-label";
-        var text = _chart.DrawText(
-            labelId,
-            "FPFVG",
-            startTime,
-            level.High,
-            color
-        );
-        text.VerticalAlignment = VerticalAlignment.Top;
-        text.HorizontalAlignment = HorizontalAlignment.Left;
-        text.FontSize = 8;
-    }
-
-    private void DrawQuadrants(FpfvgLevel fpfvg, Color color)
-    {
-        var level = fpfvg.Level;
-        string id = fpfvg.ChartId;
-        DateTime startTime = level.MidTime;
-        DateTime endTime = fpfvg.CreatedDate.AddDays(LifespanDays);
-
-        foreach (var quadrant in level.Quadrants)
-        {
-            if (quadrant.Percent == 0 || quadrant.Percent == 100 || quadrant.Percent == 50)
-                continue;
-
-            string quadId = $"{id}-quad-{quadrant.Percent}";
-            _chart.DrawTrendLine(
-                quadId,
-                startTime,
-                quadrant.Price,
-                endTime,
-                quadrant.Price,
-                Color.FromArgb(40, color),
-                1,
-                LineStyle.DotsRare
-            );
-        }
+        TimeGapDrawingHelper.DrawTimeGap(_chart, fpfvg, "FPFVG", color, startTime, LifespanDays);
     }
 
     private void ProcessLifespan(DateTime currentTime)
@@ -236,39 +151,9 @@ public class FpfvgManager
         foreach (var fpfvg in expired)
         {
             fpfvg.IsActive = false;
-            RemoveFpfvg(fpfvg);
+            TimeGapDrawingHelper.RemoveTimeGap(_chart, fpfvg);
         }
 
         _fpfvgs.RemoveAll(f => !f.IsActive);
-    }
-
-    private void RemoveFpfvg(FpfvgLevel fpfvg)
-    {
-        if (_chart == null || fpfvg?.ChartId == null) return;
-
-        string id = fpfvg.ChartId;
-
-        _chart.RemoveObject($"{id}-rect");
-        _chart.RemoveObject($"{id}-mid");
-        _chart.RemoveObject($"{id}-label");
-
-        if (fpfvg.Level?.Quadrants != null)
-        {
-            foreach (var quadrant in fpfvg.Level.Quadrants)
-            {
-                if (quadrant.Percent == 0 || quadrant.Percent == 100 || quadrant.Percent == 50)
-                    continue;
-                _chart.RemoveObject($"{id}-quad-{quadrant.Percent}");
-            }
-        }
-    }
-
-    private class FpfvgLevel
-    {
-        public Level Level { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public bool IsActive { get; set; }
-        public bool IsDrawn { get; set; }
-        public string ChartId { get; set; }
     }
 }

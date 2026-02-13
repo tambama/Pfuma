@@ -133,25 +133,22 @@ namespace Pfuma.Services
             {
                 DateTime marketTime = time.AddHours(_utcOffset);
 
+                // Compute day boundary once for all sub-managers
+                DateTime currentDay = marketTime.Hour >= 18 ? marketTime.Date : marketTime.Date.AddDays(-1);
+                bool isNewDay = _lastProcessedDay != DateTime.MinValue && currentDay > _lastProcessedDay;
+
+                if (isNewDay || _lastProcessedDay == DateTime.MinValue)
+                {
+                    _lastProcessedDay = currentDay;
+                }
+
                 // Process macro times
                 _macroTimeManager?.ProcessMacroTimes(marketTime, time);
 
-                // Handle daily boundaries - detect day change at 18:00 (daily boundary)
-                // Check if we've crossed into a new day at or after 18:00
-                if (_showDailyLevels)
+                // Handle daily boundaries
+                if (_showDailyLevels && isNewDay)
                 {
-                    DateTime currentDay = marketTime.Hour >= 18 ? marketTime.Date : marketTime.Date.AddDays(-1);
-
-                    if (_lastProcessedDay != DateTime.MinValue && currentDay > _lastProcessedDay)
-                    {
-                        _dailyLevelManager?.ProcessDailyBoundary(index);
-                        _lastProcessedDay = currentDay;
-                    }
-                    else if (_lastProcessedDay == DateTime.MinValue)
-                    {
-                        // Initialize on first bar
-                        _lastProcessedDay = currentDay;
-                    }
+                    _dailyLevelManager?.ProcessDailyBoundary(index);
                 }
 
                 // Process session levels
@@ -163,7 +160,7 @@ namespace Pfuma.Services
                 // Process opening time levels
                 if (_showOpeningTimes)
                 {
-                    _openingTimeManager?.ProcessBar(index, marketTime);
+                    _openingTimeManager?.ProcessBar(index, marketTime, isNewDay);
                 }
 
                 // Process time cycles
@@ -172,19 +169,18 @@ namespace Pfuma.Services
                 // Process RTOG
                 if (_showRTOG)
                 {
-                    _rtogManager?.ProcessBar(index, marketTime);
+                    _rtogManager?.ProcessBar(index, marketTime, isNewDay);
                 }
 
                 // Process FPFVG
                 if (_showFPFVG)
                 {
-                    _fpfvgManager?.ProcessBar(index, marketTime);
+                    _fpfvgManager?.ProcessBar(index, marketTime, isNewDay);
                 }
             }
             catch (Exception)
             {
                 // Silently handle errors to prevent indicator crash
-                // In production, you might want to log this
             }
         }
 

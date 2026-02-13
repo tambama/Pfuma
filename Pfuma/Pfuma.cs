@@ -265,6 +265,9 @@ namespace Pfuma
         private Bar _previousBar;
         private int _previousBarIndex;
 
+        // Cached CISD levels awaiting activation (avoids full repository scan every bar)
+        private readonly List<Level> _pendingActivationCisds = new List<Level>();
+
         // Managers
         private NextArrayManager _nextArrayManager;
         
@@ -645,11 +648,7 @@ namespace Pfuma
                     
                 }
                 
-                // 9. Check for inside key levels on swing points
-                if (ShowInsideKeyLevel && ShowQuadrants)
-                {
-                    CheckInsideKeyLevels();
-                }
+                // 9. Inside key level checks are now event-driven via OnSwingPointDetected
 
                 // 10. Process signals if enabled
                 if (ShowSignals && _signalManager != null && index < Bars.Count)
@@ -675,34 +674,26 @@ namespace Pfuma
         /// </summary>
         private void CheckCisdActivation(Bar previousBar, int previousBarIndex)
         {
-            var activeCisdLevels = _levelRepository.Find(l => 
-                l.LevelType == LevelType.CISD && 
-                l.IsConfirmed && 
-                !l.Activated);
-            
-            foreach (var cisd in activeCisdLevels)
+            for (int i = _pendingActivationCisds.Count - 1; i >= 0; i--)
             {
+                var cisd = _pendingActivationCisds[i];
                 bool activated = false;
-                
+
                 if (cisd.Direction == Direction.Up)
                 {
-                    // Bullish CISD activates when price closes below the low
                     activated = previousBar.Close < cisd.Low;
                 }
                 else
                 {
-                    // Bearish CISD activates when price closes above the high
                     activated = previousBar.Close > cisd.High;
                 }
-                
+
                 if (activated)
                 {
                     cisd.Activated = true;
                     cisd.ActivationIndex = previousBarIndex;
-                    
-                    // Publish activation event
                     _eventAggregator.Publish(new CisdActivatedEvent(cisd, previousBarIndex));
-                    
+                    _pendingActivationCisds.RemoveAt(i);
                 }
             }
         }
@@ -723,27 +714,27 @@ namespace Pfuma
         }
         
         /// <summary>
-        /// Check if swing points are inside key levels (quadrants)
+        /// Check if a single swing point is inside key levels (quadrants).
+        /// Called event-driven when a new swing point is detected.
         /// </summary>
-        private void CheckInsideKeyLevels()
+        private void CheckInsideKeyLevelsForSwingPoint(SwingPoint swingPoint)
         {
-            var swingPoints = _swingPointRepository.GetAll();
-            var pdArrays = _levelRepository.Find(l => 
-                l.LevelType == LevelType.RejectionBlock && 
+            if (swingPoint == null || swingPoint.InsidePda)
+                return;
+
+            var pdArrays = _levelRepository.Find(l =>
+                l.LevelType == LevelType.RejectionBlock &&
                 l.IsActive);
-            
-            foreach (var swingPoint in swingPoints)
+
+            foreach (var pdArray in pdArrays)
             {
-                foreach (var pdArray in pdArrays)
+                var sweptQuadrants = pdArray.CheckForSweptQuadrants(swingPoint);
+
+                if (sweptQuadrants.Count > 0)
                 {
-                    // Check if swing point sweeps any quadrants
-                    var sweptQuadrants = pdArray.CheckForSweptQuadrants(swingPoint);
-                    
-                    if (sweptQuadrants.Count > 0 && !swingPoint.InsidePda)
-                    {
-                        swingPoint.InsidePda = true;
-                        swingPoint.Pda = pdArray;
-                    }
+                    swingPoint.InsidePda = true;
+                    swingPoint.Pda = pdArray;
+                    return;
                 }
             }
         }
@@ -789,6 +780,11 @@ namespace Pfuma
                     //DrawInsideMacroIcon(evt.SwingPoint);
                 }
 
+                // Check inside key levels only for the new swing point (event-driven instead of every bar)
+                if (ShowInsideKeyLevel && ShowQuadrants)
+                {
+                    CheckInsideKeyLevelsForSwingPoint(evt.SwingPoint);
+                }
             }
         }
 
@@ -807,15 +803,23 @@ namespace Pfuma
 
         private void OnCISDDetected(CisdConfirmedEvent evt)
         {
-            var cisds = _levelRepository.Find(l => l.LevelType == LevelType.CISD);
-            if (evt.CisdLevel != null && evt.CisdLevel.Score >= 10)
+            if (evt.CisdLevel != null)
             {
-                var orderBlock = evt.CisdLevel;
-                var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
-                var price = orderBlock.Direction == Direction.Up ? orderBlock.Low : orderBlock.High;
-                var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
-                Chart.DrawIcon($"macro-{time}", ChartIconType.Square,
-                    time, price, color);
+                // Add to pending activation cache so CheckCisdActivation doesn't need Find() every bar
+                if (!evt.CisdLevel.Activated)
+                {
+                    _pendingActivationCisds.Add(evt.CisdLevel);
+                }
+
+                if (evt.CisdLevel.Score >= 10)
+                {
+                    var orderBlock = evt.CisdLevel;
+                    var color = orderBlock.Direction == Direction.Up ? Color.Green : Color.Red;
+                    var price = orderBlock.Direction == Direction.Up ? orderBlock.Low : orderBlock.High;
+                    var time = orderBlock.Direction == Direction.Up ? orderBlock.LowTime : orderBlock.HighTime;
+                    Chart.DrawIcon($"macro-{time}", ChartIconType.Square,
+                        time, price, color);
+                }
             }
         }
 
