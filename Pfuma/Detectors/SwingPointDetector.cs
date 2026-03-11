@@ -44,13 +44,20 @@ namespace Pfuma.Detectors
 
         public event LiquiditySweptEventHandler LiquiditySwept;
 
+        // Define delegate for SMT re-evaluation
+        public delegate void SMTReEvaluationHandler(SwingPoint oldSwingPoint, SwingPoint newSwingPoint);
+
+        private readonly SMTReEvaluationHandler _smtReEvaluationHandler;
+
         public SwingPointDetector(SwingPointManager swingPointManager,
-            CandleManager candleManager, IEventAggregator eventAggregator = null, TimeManager timeManager = null)
+            CandleManager candleManager, IEventAggregator eventAggregator = null, TimeManager timeManager = null,
+            SMTReEvaluationHandler smtReEvaluationHandler = null)
         {
             _swingPointManager = swingPointManager;
             _candleManager = candleManager;
             _eventAggregator = eventAggregator;
             _timeManager = timeManager;
+            _smtReEvaluationHandler = smtReEvaluationHandler;
         }
         
         /// <summary>
@@ -219,6 +226,9 @@ namespace Pfuma.Detectors
                                 // Copy SweptLiquidity and SweptFib properties from the removed swing point
                                 lowSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
                                 lowSwingPoint.SweptFib = removedPoint.SweptFib;
+
+                                // Handle SMT re-evaluation for replaced swing point
+                                _smtReEvaluationHandler?.Invoke(removedPoint, lowSwingPoint);
                             }
                         }
                         
@@ -337,8 +347,11 @@ namespace Pfuma.Detectors
                             // Copy SweptLiquidity and SweptFib properties from the removed swing point
                             highSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
                             highSwingPoint.SweptFib = removedPoint.SweptFib;
+
+                            // Handle SMT re-evaluation for replaced swing point
+                            _smtReEvaluationHandler?.Invoke(removedPoint, highSwingPoint);
                         }
-                        
+
                         highSwingPoint.Number = ++_currentSwingPointNumber;
                         AddSwingPointAndPublish(highSwingPoint);
                         _lastHighSwingPoint = highSwingPoint;
@@ -433,8 +446,11 @@ namespace Pfuma.Detectors
                         // Copy SweptLiquidity and SweptFib properties from the removed swing point
                         highSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
                         highSwingPoint.SweptFib = removedPoint.SweptFib;
+
+                        // Handle SMT re-evaluation for replaced swing point
+                        _smtReEvaluationHandler?.Invoke(removedPoint, highSwingPoint);
                     }
-                    
+
                     highSwingPoint.Number = ++_currentSwingPointNumber;
                     AddSwingPointAndPublish(highSwingPoint);
                     _lastHighSwingPoint = highSwingPoint;
@@ -552,6 +568,9 @@ namespace Pfuma.Detectors
                             // Copy SweptLiquidity and SweptFib properties from the removed swing point
                             lowSwingPoint.SweptLiquidity = removedPoint.SweptLiquidity;
                             lowSwingPoint.SweptFib = removedPoint.SweptFib;
+
+                            // Handle SMT re-evaluation for replaced swing point
+                            _smtReEvaluationHandler?.Invoke(removedPoint, lowSwingPoint);
                         }
                     }
                     

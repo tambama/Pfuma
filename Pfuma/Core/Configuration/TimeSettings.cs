@@ -8,5 +8,6 @@ public class TimeSettings
     public bool ShowSessionLevels { get; set; } = true;
     public bool ShowRTOG { get; set; } = false;
     public bool ShowFPFVG { get; set; } = false;
+    public bool ShowCycles30 { get; set; } = false;
     public int UtcOffset { get; set; } = -4;
 }

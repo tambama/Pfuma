@@ -227,7 +227,8 @@ namespace Pfuma.Visualization
                     LineStyle.Dots,
                     color,  // Change color to indicate swept level
                     true,
-                    true,  // removeExisting = true to force cleanup,
+                    true,  // removeExisting = true to force cleanup
+                    editable: true,
                     labelOnRight:false
                 );
                 

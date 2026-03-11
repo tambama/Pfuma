@@ -170,6 +170,19 @@ namespace Pfuma.Services
         }
 
         /// <summary>
+        /// Send a notification when Cycle30 liquidity is swept
+        /// </summary>
+        public void SendCycle30LiquiditySweepNotification(string cycleType, double cyclePrice, double sweepPrice, Direction direction)
+        {
+            string directionIcon = direction == Direction.Up ? "📈" : "📉";
+            string sweepAction = direction == Direction.Up ? "ABOVE" : "BELOW";
+
+            string message = $"{directionIcon} CYCLE30 LIQUIDITY SWEEP! {cycleType} at {cyclePrice:F5} swept {sweepAction} by price {sweepPrice:F5} - {_symbol} - Time: {DateTime.UtcNow.AddHours(_utcOffset):HH:mm:ss}";
+
+            SendNotification(message);
+        }
+
+        /// <summary>
         /// Get a friendly description of a key level type
         /// </summary>
         private string GetKeyLevelTypeDescription(Level keyLevel)

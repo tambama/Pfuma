@@ -34,6 +34,10 @@ namespace Pfuma.Services
         // Optional opening time manager for open level sweep visualization
         private IOpeningTimeManager _openingTimeManager;
 
+        // Optional cycle manager and visualizer for cycle liquidity sweeps
+        private Cycle30Manager _cycle30Manager;
+        private Cycle30Visualizer _cycle30Visualizer;
+
         // Inducements collection - swing points inside key levels (Order Blocks, CISDs)
         private readonly List<SwingPoint> _inducements = new List<SwingPoint>();
 
@@ -75,6 +79,15 @@ namespace Pfuma.Services
         public void SetOpeningTimeManager(IOpeningTimeManager openingTimeManager)
         {
             _openingTimeManager = openingTimeManager;
+        }
+
+        /// <summary>
+        /// Set cycle manager and visualizer for cycle liquidity sweep detection
+        /// </summary>
+        public void SetCycleComponents(Cycle30Manager cycle30Manager, Cycle30Visualizer cycle30Visualizer)
+        {
+            _cycle30Manager = cycle30Manager;
+            _cycle30Visualizer = cycle30Visualizer;
         }
 
         /// <summary>
@@ -121,6 +134,9 @@ namespace Pfuma.Services
 
                 // Check for bullish inducement sweeps and breaks
                 HandleBullishSwingPointInducementSweepOrBreak(swingPoint);
+
+                // Check for cycle high liquidity sweeps by bullish swing point
+                HandleBullishSwingPointCycleLiquiditySweep(swingPoint);
             }
             else if (swingPoint.Direction == Direction.Down)
             {
@@ -156,6 +172,9 @@ namespace Pfuma.Services
 
                 // Check for bearish inducement sweeps and breaks
                 HandleBearishSwingPointInducementSweepOrBreak(swingPoint);
+
+                // Check for cycle low liquidity sweeps by bearish swing point
+                HandleBearishSwingPointCycleLiquiditySweep(swingPoint);
             }
         }
 
@@ -2751,6 +2770,102 @@ namespace Pfuma.Services
                 {
                     keyLevel.Inducement = null;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Handle bullish swing point creation - check if it sweeps any cycle highs
+        /// </summary>
+        private void HandleBullishSwingPointCycleLiquiditySweep(SwingPoint bullishSwingPoint)
+        {
+            if (_cycle30Manager == null)
+                return;
+
+            try
+            {
+                var cycleHighs = _cycle30Manager.GetCycleHighs().ToList();
+
+                foreach (var cycleHigh in cycleHighs)
+                {
+                    if (bullishSwingPoint.Price > cycleHigh.Price &&
+                        bullishSwingPoint.Bar?.Low <= cycleHigh.Price)
+                    {
+                        bullishSwingPoint.SweptCycle = true;
+
+                        var candle = _candleManager.GetCandle(bullishSwingPoint.Index);
+                        if (candle != null)
+                            candle.SweptCycle = true;
+
+                        _cycle30Manager.RemoveSweptCyclePoint(cycleHigh);
+
+                        _eventAggregator.Publish(new CycleSweptEvent(cycleHigh, bullishSwingPoint));
+
+                        _logger?.Invoke($"Cycle30 high swept at {cycleHigh.Price:F5} by bullish swing point at {bullishSwingPoint.Price:F5}");
+
+                        if (_notificationService != null)
+                        {
+                            _notificationService.SendCycle30LiquiditySweepNotification(
+                                "Cycle30 High",
+                                cycleHigh.Price,
+                                bullishSwingPoint.Price,
+                                Direction.Up);
+                        }
+
+                        _cycle30Visualizer?.DrawLiquiditySweepLine(cycleHigh, bullishSwingPoint.Index, _settings.Patterns.ShowLiquiditySweep);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error in bullish cycle liquidity sweep: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handle bearish swing point creation - check if it sweeps any cycle lows
+        /// </summary>
+        private void HandleBearishSwingPointCycleLiquiditySweep(SwingPoint bearishSwingPoint)
+        {
+            if (_cycle30Manager == null)
+                return;
+
+            try
+            {
+                var cycleLows = _cycle30Manager.GetCycleLows().ToList();
+
+                foreach (var cycleLow in cycleLows)
+                {
+                    if (bearishSwingPoint.Price < cycleLow.Price &&
+                        bearishSwingPoint.Bar?.High >= cycleLow.Price)
+                    {
+                        bearishSwingPoint.SweptCycle = true;
+
+                        var candle = _candleManager.GetCandle(bearishSwingPoint.Index);
+                        if (candle != null)
+                            candle.SweptCycle = true;
+
+                        _cycle30Manager.RemoveSweptCyclePoint(cycleLow);
+
+                        _eventAggregator.Publish(new CycleSweptEvent(cycleLow, bearishSwingPoint));
+
+                        _logger?.Invoke($"Cycle30 low swept at {cycleLow.Price:F5} by bearish swing point at {bearishSwingPoint.Price:F5}");
+
+                        if (_notificationService != null)
+                        {
+                            _notificationService.SendCycle30LiquiditySweepNotification(
+                                "Cycle30 Low",
+                                cycleLow.Price,
+                                bearishSwingPoint.Price,
+                                Direction.Down);
+                        }
+
+                        _cycle30Visualizer?.DrawLiquiditySweepLine(cycleLow, bearishSwingPoint.Index, _settings.Patterns.ShowLiquiditySweep);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Invoke($"Error in bearish cycle liquidity sweep: {ex.Message}");
             }
         }
 

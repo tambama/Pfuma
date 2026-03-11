@@ -16,7 +16,7 @@ using Pfuma.Visualization;
 
 namespace Pfuma
 {
-    [Indicator(IsOverlay = true, TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
+    [Indicator(IsOverlay = true, TimeZone = TimeZones.UTC, AccessRights = AccessRights.FullAccess)]
     public class Pfuma : Indicator
     {
         #region Parameters
@@ -86,6 +86,17 @@ namespace Pfuma
 
         [Parameter("Risk Reward", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0, Group = "Signals")]
         public double RiskReward { get; set; }
+
+        // 30-Minute Cycles
+        [Parameter("30min Cycles", DefaultValue = false, Group = "Time")]
+        public bool ShowCycles30 { get; set; }
+
+        // SMT Divergence
+        [Parameter("Show SMT", DefaultValue = false, Group = "SMT")]
+        public bool ShowSMT { get; set; }
+
+        [Parameter("SMT Symbols", DefaultValue = "US SP 500", Group = "SMT")]
+        public string SMTSymbols { get; set; }
 
         // Visualization
         [Parameter("Quadrants", DefaultValue = false, Group = "Visualization")]
@@ -268,6 +279,12 @@ namespace Pfuma
         // Cached CISD levels awaiting activation (avoids full repository scan every bar)
         private readonly List<Level> _pendingActivationCisds = new List<Level>();
 
+        // Cycle and SMT
+        private Cycle30Manager _cycle30Manager;
+        private Cycle30Visualizer _cycle30Visualizer;
+        private ISMTDetector _smtDetector;
+        private SMTVisualizer _smtVisualizer;
+
         // Managers
         private NextArrayManager _nextArrayManager;
         
@@ -355,6 +372,7 @@ namespace Pfuma
                     ShowSessionLevels = ShowSessionLevels,
                     ShowRTOG = ShowRTOG,
                     ShowFPFVG = ShowFPFVG,
+                    ShowCycles30 = ShowCycles30,
                     UtcOffset = UtcOffset
                 },
                 Notifications = new NotificationSettings
@@ -438,14 +456,30 @@ namespace Pfuma
                 Chart, _candleManager, _swingPointDetector, _notificationService, _eventAggregator,
                 ShowMacros, ShowDailyLevels, ShowSessionLevels, ShowOpeningTimes, ShowRTOG, ShowFPFVG, UtcOffset);
             
-            // Now pass TimeManager to SwingPointDetector
-            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager);
-            
+            // Now pass TimeManager and SMT re-evaluation handler to SwingPointDetector
+            _swingPointDetector = new SwingPointDetector(_swingPointManager, _candleManager, _eventAggregator, _timeManager, HandleSMTReEvaluation);
+
             // Initialize liquidity manager
             _liquidityManager = new LiquidityManager(Chart, _candleManager, _eventAggregator, _levelRepository, _swingPointRepository, _settings, _notificationService, EnableLog ? Print : null);
 
             // Set opening time manager for open level sweep visualization
             _liquidityManager.SetOpeningTimeManager(_timeManager.OpeningTimeManager);
+
+            // Initialize Cycle30 components
+            if (ShowCycles30)
+            {
+                _cycle30Manager = new Cycle30Manager(_candleManager, Chart, UtcOffset, EnableLog ? Print : null);
+                _cycle30Visualizer = new Cycle30Visualizer(Chart, _settings.Time, _cycle30Manager, _candleManager, EnableLog ? Print : null);
+                _liquidityManager.SetCycleComponents(_cycle30Manager, _cycle30Visualizer);
+            }
+
+            // Initialize SMT components if ShowSMT is enabled
+            if (ShowSMT)
+            {
+                _smtDetector = new SMTDetector(_eventAggregator, this, _candleManager, EnableLog ? Print : null);
+                _smtDetector.Initialize(SMTSymbols);
+                _smtVisualizer = new SMTVisualizer(Chart, _eventAggregator, ShowSMT, EnableLog ? Print : null);
+            }
 
             // Initialize Fibonacci service and visualizer
             _fibonacciService = new FibonacciService(_eventAggregator);
@@ -575,8 +609,12 @@ namespace Pfuma
                 if (index < Bars.Count && Bars[index] != null)
                 {
                     _timeManager?.ProcessBar(index, Bars[index].OpenTime);
+
+                    // Process 30-minute cycles
+                    _cycle30Manager?.ProcessBar(index, Bars[index].OpenTime);
+                    _cycle30Visualizer?.DrawCurrentCycle(index);
                 }
-                
+
                 // Update Fibonacci visualizer settings
                 // Note: Drawing is now handled automatically via FibonacciLevelCreatedEvent
                 if (_fibonacciVisualizer != null)
@@ -785,6 +823,29 @@ namespace Pfuma
                 {
                     CheckInsideKeyLevelsForSwingPoint(evt.SwingPoint);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Handle SMT re-evaluation when swing points are replaced
+        /// </summary>
+        public void HandleSMTReEvaluation(SwingPoint oldSwingPoint, SwingPoint newSwingPoint)
+        {
+            if (!ShowSMT || _smtDetector == null || _smtVisualizer == null)
+                return;
+
+            try
+            {
+                if (_smtDetector is SMTDetector detector)
+                {
+                    detector.ReEvaluateSMT(newSwingPoint, oldSwingPoint);
+                }
+
+                _smtVisualizer.HandleSwingPointUpdate(oldSwingPoint, newSwingPoint);
+            }
+            catch (Exception ex)
+            {
+                Print($"Error handling SMT re-evaluation: {ex.Message}");
             }
         }
 

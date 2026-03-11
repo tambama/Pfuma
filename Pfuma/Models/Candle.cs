@@ -45,6 +45,10 @@ public class Candle
     public bool InsideBullishPda { get; set; }
     public bool Is3Drives { get; set; }
 
+    // Cycle tracking
+    public bool SweptCycle { get; set; }
+    public bool HasSMT { get; set; }
+
     // FVG tracking
     public bool IsInFvg { get; set; }
     public Direction? FvgDirection { get; set; }

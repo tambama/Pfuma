@@ -58,6 +58,14 @@ public class SwingPoint
     // Orderflow sweep tracking
     public bool SweptOrderflow { get; set; }
 
+    // 30-minute cycle properties
+    public bool SweptCycle { get; set; }
+
+    // SMT Divergence properties
+    public bool HasSMT { get; set; }
+    public SwingPoint SweptCyclePoint { get; set; }
+    public Dictionary<string, double> SMTSymbolPrices { get; set; }
+
     // Daily liquidity sweep tracking (once per day, max 3 days)
     public DateTime? LastSweptDate { get; set; }   // Date of most recent sweep (prevents same-day sweeps)
     public int SweptCount { get; set; }             // Number of different days this level has been swept (max 3)
@@ -104,5 +112,6 @@ public class SwingPoint
         LiquidityType = liquidityType;
         LiquidityName = liquidityName;
         TimeFrame = bar?.TimeFrame; // Get TimeFrame from the Candle
+        SMTSymbolPrices = new Dictionary<string, double>();
     }
 }
